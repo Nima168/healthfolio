@@ -4,6 +4,7 @@ Written as plain ASGI middleware (not BaseHTTPMiddleware) so the request-ID
 context variable stays visible to exception handlers that run after an error.
 """
 
+import json
 import logging
 import re
 import time
@@ -57,3 +58,78 @@ class RequestContextMiddleware:
                     "duration_ms": round((time.perf_counter() - started) * 1000, 1),
                 },
             )
+
+
+class UploadSizeLimitMiddleware:
+    """Reject request bodies above a limit before they are read (api_contract_spec.md Section 6.1.2).
+
+    FastAPI parses multipart uploads before any route code runs, so the size check has to
+    happen here: first on Content-Length, then by counting bytes for bodies without it.
+    """
+
+    def __init__(self, app: ASGIApp, max_body_bytes: int, paths: tuple[str, ...]) -> None:
+        self.app = app
+        self.max_body_bytes = max_body_bytes
+        self.paths = paths
+
+    def _too_large_messages(self) -> tuple[Message, Message]:
+        request_id = request_id_var.get()
+        body = json.dumps(
+            {
+                "error": {
+                    "code": "CONTENT_TOO_LARGE",
+                    "message": "The uploaded content exceeds the allowed size.",
+                    "details": [],
+                    "request_id": request_id,
+                }
+            }
+        ).encode()
+        start: Message = {
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+                (REQUEST_ID_HEADER.lower().encode(), request_id.encode()),
+            ],
+        }
+        return start, {"type": "http.response.body", "body": body}
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] not in self.paths:
+            await self.app(scope, receive, send)
+            return
+
+        declared = dict(scope["headers"]).get(b"content-length")
+        if declared is not None and declared.isdigit() and int(declared) > self.max_body_bytes:
+            for message in self._too_large_messages():
+                await send(message)
+            return
+
+        received = 0
+        too_large = False
+
+        async def counting_receive() -> Message:
+            nonlocal received, too_large
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_body_bytes:
+                    too_large = True
+                    # End the body early; whatever the app answers is replaced below.
+                    return {"type": "http.request", "body": b"", "more_body": False}
+            return message
+
+        replaced = False
+
+        async def guarded_send(message: Message) -> None:
+            nonlocal replaced
+            if too_large:
+                if not replaced:
+                    replaced = True
+                    for own in self._too_large_messages():
+                        await send(own)
+                return
+            await send(message)
+
+        await self.app(scope, counting_receive, guarded_send)

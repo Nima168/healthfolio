@@ -208,7 +208,7 @@ Evaluation covers, where relevant:
 
 - Extraction precision, recall, and field-level accuracy.
 - OCR accuracy on representative document types.
-- Correctness of summaries and answers.
+- Correctness of summaries (and of answers, once Health Q&A is introduced).
 - Source-grounding and citation accuracy.
 - Recognition of insufficient or conflicting evidence.
 - Performance across document layouts and image quality.

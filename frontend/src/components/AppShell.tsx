@@ -1,5 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
+import { useAuth } from '../auth/AuthContext'
 import { SECTIONS, STATUS_SECTION, type Section } from '../sections'
 
 function NavItem({ section }: { section: Section }) {
@@ -14,6 +16,38 @@ function NavItem({ section }: { section: Section }) {
         )}
       </NavLink>
     </li>
+  )
+}
+
+function AccountBox() {
+  const { status, user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  if (status !== 'authenticated' || !user) {
+    return status === 'anonymous' ? (
+      <div className="account-box">
+        <Link to="/login" className="button button-small">
+          Log in
+        </Link>
+      </div>
+    ) : null
+  }
+
+  async function handleLogout() {
+    setLoggingOut(true)
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
+  return (
+    <div className="account-box">
+      <p className="account-name">{user.display_name ?? 'Signed in'}</p>
+      <p className="account-email">{user.email}</p>
+      <button type="button" className="button button-small button-secondary" onClick={handleLogout} disabled={loggingOut}>
+        {loggingOut ? 'Logging out…' : 'Log out'}
+      </button>
+    </div>
   )
 }
 
@@ -37,6 +71,7 @@ export function AppShell() {
               <NavItem section={STATUS_SECTION} />
             </ul>
           </nav>
+          <AccountBox />
         </aside>
         <main id="main-content" className="content" tabIndex={-1}>
           <Outlet />

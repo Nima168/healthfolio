@@ -59,7 +59,7 @@ Only implement sections and actions supported by the current backend contract. I
 
 The frontend must support:
 
-- Email and password registration, if registration is enabled.
+- Email and password registration. Registration logs the user in immediately (no email-verification step).
 - Email and password login.
 - Logout.
 - Password recovery through email.
@@ -148,12 +148,13 @@ The initial release must support uploading PDF, JPEG, and PNG medical documents,
 
 The document interface must support:
 
-- File selection and upload.
+- File selection and upload, with a required name for each document. Pressing Upload without a file or a name shows what is missing instead of sending the request.
+- The document list appears first, with the upload panel below it and a link to jump down to it.
 - Clear upload progress and completion feedback.
 - File type and size validation (20 MB limit, `api_contract_spec.md` Section 6.1), checked before upload.
 - Duplicate or conflicting-document feedback where supported.
 - Document lists with relevant metadata.
-- Document details and authorized original-file viewing or downloading.
+- Document details and authorized original-file viewing or downloading. The preview loads the file through the authenticated API into a temporary in-browser (blob) URL; documents never have public URLs.
 - Processing status and extraction results.
 - User-initiated retry after eligible failures.
 - Document deletion when authorized.
@@ -170,6 +171,8 @@ Document-processing states match `api_contract_spec.md` Section 7:
 - `cancelled`, if supported
 
 User-facing labels may be friendlier (e.g., "Processing" for `running`), but each label maps to exactly one state.
+
+Deleting a document requires an in-page confirmation that explains the file is removed permanently and that backup copies expire within 30 days.
 
 Failed processing must not cause the original uploaded document to disappear. Error messages should explain the issue without exposing internal paths, stack traces, secrets, or sensitive implementation details.
 
@@ -411,6 +414,7 @@ This specification defines frontend responsibilities and expected behavior.
 - `goal_spec.md` defines the overall product goals and scope.
 - `backend_spec.md` defines backend architecture and business services.
 - `api_contract_spec.md` defines API resources, schemas, and interactions.
+- `data_model_spec.md` defines entities and their relationships.
 - `DL_AI_spec.md` defines AI processing and safety behavior.
 - `observability_and_reliability_spec.md` defines monitoring, recovery, reliability, and the sensitive-data logging rule.
 

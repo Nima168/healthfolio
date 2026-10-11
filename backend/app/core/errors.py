@@ -45,12 +45,14 @@ class ApiError(Exception):
         code: str | None = None,
         message: str | None = None,
         details: list[dict[str, str]] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         default_code, default_message = _STATUS_ERRORS.get(status_code, _STATUS_ERRORS[500])
         self.status_code = status_code
         self.code = code or default_code
         self.message = message or default_message
         self.details = details or []
+        self.headers = headers
         super().__init__(self.code)
 
 
@@ -75,7 +77,7 @@ def error_response(
 
 
 async def _handle_api_error(_: Request, exc: ApiError) -> JSONResponse:
-    return error_response(exc.status_code, exc.code, exc.message, exc.details)
+    return error_response(exc.status_code, exc.code, exc.message, exc.details, headers=exc.headers)
 
 
 async def _handle_http_exception(_: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -88,7 +90,8 @@ async def _handle_validation_error(_: Request, exc: RequestValidationError) -> J
     for error in exc.errors():
         # Drop the "body"/"query"/"path" prefix; never echo the submitted value.
         location = [str(part) for part in error.get("loc", ()) if part not in ("body", "query", "path", "header")]
-        details.append({"field": ".".join(location) or "request", "issue": error.get("msg", "Invalid value.")})
+        issue = str(error.get("msg", "Invalid value.")).removeprefix("Value error, ")
+        details.append({"field": ".".join(location) or "request", "issue": issue})
     code, message = _STATUS_ERRORS[422]
     return error_response(422, code, message, details)
 

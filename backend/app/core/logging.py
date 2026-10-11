@@ -18,7 +18,16 @@ request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 REDACTED = "[REDACTED]"
 
 # A field is redacted when its name contains any of these fragments.
-_SENSITIVE_KEY_FRAGMENTS = ("password", "token", "authorization", "cookie", "secret", "api_key", "database_url")
+_SENSITIVE_KEY_FRAGMENTS = (
+    "password",
+    "token",
+    "authorization",
+    "cookie",
+    "secret",
+    "api_key",
+    "database_url",
+    "email",
+)
 
 # Patterns redacted inside free-text messages and exception traces.
 _SENSITIVE_PATTERNS = [

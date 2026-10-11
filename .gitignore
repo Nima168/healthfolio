@@ -32,3 +32,6 @@ project_reports/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Development email output (may contain reset links)
+.dev_mail/

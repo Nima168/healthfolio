@@ -4,9 +4,12 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
+    "argon2-cffi>=25.1.0",
     "fastapi>=0.143.0",
     "psycopg[binary]>=3",
     "pydantic-settings>=2.15.0",
+    "pyjwt>=2.15.1",
+    "python-multipart>=0.0.32",
     "sqlalchemy>=2",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -26,8 +29,12 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "UP", "S"]
 ignore = ["S101"]  # assert is fine in tests
 
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]  # backend/alembic/ is migrations, not the package
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106"]  # fake credentials are intentional in redaction tests
+"alembic/versions/**" = ["E501"]  # generated SQL constraint strings
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

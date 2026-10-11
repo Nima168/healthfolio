@@ -2,16 +2,18 @@
 
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import create_engine, pool
 
-from alembic import context
+import app.models  # noqa: F401  (registers all models on Base.metadata)
 from app.core.config import get_settings
 from app.db.base import Base
 
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep the application's loggers working when migrations run in-process (e.g. tests).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Models register themselves on Base.metadata once they exist (data-model step).
 target_metadata = Base.metadata

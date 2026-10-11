@@ -2,7 +2,7 @@
 
 A personal health-records platform that stores medical documents, extracts and organizes their information, tracks medications and follow-ups, and provides cautious, source-backed AI summaries. It offers informational decision support only and does not replace professional medical care.
 
-> **Status:** foundation in place (backend and frontend skeleton, configuration, logging, health checks). Features are being built step by step against the specifications below.
+> **Status:** user accounts and medical document storage are in place (upload, preview, download, edit details, delete). AI extraction and the other health-record features are being built step by step against the specifications below.
 
 ## Tech Stack
 
@@ -20,13 +20,18 @@ A personal health-records platform that stores medical documents, extracts and o
 ├── backend/                 FastAPI application
 │   ├── app/
 │   │   ├── api/v1/          Versioned API routes (/api/v1)
-│   │   ├── core/            Config, logging, errors, middleware
-│   │   └── db/              Database engine, sessions, ORM base
+│   │   ├── core/            Config, logging, errors, middleware, security
+│   │   ├── db/              Database engine, sessions, ORM base
+│   │   ├── models/          SQLAlchemy models
+│   │   ├── repositories/    Database access
+│   │   ├── schemas/         Request/response models
+│   │   └── services/        Business logic (auth, email)
 │   ├── alembic/             Database migrations
 │   └── tests/               Unit and integration tests
 ├── frontend/                React + Vite single-page app
 │   └── src/
 │       ├── api/             Central API client
+│       ├── auth/            Session state, route protection
 │       ├── components/      App shell and shared components
 │       ├── pages/           Page components
 │       └── styles/          Design tokens
@@ -74,7 +79,18 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The **System Status** page shows whether the backend and database are reachable.
+Open `http://localhost:5173` and create an account. The **System Status** page shows whether the backend and database are reachable.
+
+### Database migrations
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
+### Password-reset emails in development
+
+With `EMAIL_BACKEND=file`, emails are written to `backend/.dev_mail/` (git-ignored) instead of being sent. Open the newest `.eml` file to find the reset link.
 
 ## Configuration
 
@@ -88,6 +104,14 @@ Backend settings come from environment variables (`backend/.env` in development)
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR` (DEBUG refused in production) | `INFO` |
 | `MAX_UPLOAD_MB` | Maximum document upload size | `20` |
 | `ACCESS_TOKEN_MINUTES` / `REFRESH_TOKEN_DAYS` | Token lifetimes | `15` / `7` |
+| `JWT_SECRET` | Signing key for access tokens (required, 32+ characters) | — |
+| `COOKIE_SECURE` | Refresh cookie sent over HTTPS only (must be `true` in production) | `true` |
+| `FRONTEND_BASE_URL` | Used to build password-reset links | `http://localhost:5173` |
+| `LOGIN_MAX_FAILURES` / `LOCKOUT_MINUTES` | Account lockout after repeated failed logins | `5` / `15` |
+| `PASSWORD_RESET_MINUTES` | Reset-link lifetime | `30` |
+| `EMAIL_BACKEND` / `DEV_MAIL_DIR` | `file` writes emails to a local folder in development | `file` / `.dev_mail` |
+| `DOCUMENT_STORAGE_DIR` | Where uploaded documents are stored in development (git-ignored) | `storage/documents` |
+| `UPLOAD_RATE_LIMIT_PER_HOUR` | Uploads allowed per user per hour | `30` |
 
 Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 
@@ -97,6 +121,29 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 |---|---|---|
 | GET | `/api/v1/health/live` | Liveness: the process is running |
 | GET | `/api/v1/health/ready` | Readiness: the database is reachable (`503` if not) |
+| POST | `/api/v1/auth/register` | Create an account and log in |
+| POST | `/api/v1/auth/login` | Log in (returns an access token; sets an HttpOnly refresh cookie) |
+| POST | `/api/v1/auth/refresh` | Renew the access token (rotates the refresh cookie) |
+| POST | `/api/v1/auth/logout` | End the session |
+| POST | `/api/v1/auth/password/forgot` | Email a password-reset link |
+| POST | `/api/v1/auth/password/reset` | Set a new password with a reset token |
+| GET | `/api/v1/users/me` | The logged-in user |
+| POST | `/api/v1/documents` | Upload a PDF, JPEG, or PNG (multipart; optional type, date, provider) |
+| GET | `/api/v1/documents` | List your documents (newest first, paginated, filter by type) |
+| GET | `/api/v1/documents/{id}` | Document details |
+| GET | `/api/v1/documents/{id}/file` | The original file (inline, or `?download=true`) |
+| PATCH | `/api/v1/documents/{id}` | Edit type, date, or provider |
+| DELETE | `/api/v1/documents/{id}` | Delete the document and its file |
+
+Full request/response details: `api_contract_spec.md` Sections 5.1 and 6.1.
+
+### Security highlights
+
+- Passwords hashed with Argon2id; refresh and reset tokens stored only as hashes.
+- Short-lived access token kept in browser memory; refresh token in a `Secure`, `HttpOnly`, `SameSite=Strict` cookie, rotated on every use with theft detection.
+- Generic login errors, account lockout, and per-IP rate limits.
+- Audit events for security-relevant actions, without passwords, tokens, or medical content.
+- Uploaded files are identified by their content (not their name), size-limited before the upload is read, stored under opaque IDs, and only reachable through the authenticated API. Every document query is scoped to its owner.
 
 All errors use one format:
 
@@ -124,8 +171,8 @@ npm run build
 
 ## Specifications
 
-The system is defined by these specs: `goal_spec.md` (product scope), `backend_spec.md`, `api_contract_spec.md`, `DL_AI_spec.md`, `frontend_spec.md`, and `observability_and_reliability_spec.md`.
+The system is defined by these specs: `goal_spec.md` (product scope), `backend_spec.md`, `api_contract_spec.md`, `data_model_spec.md`, `DL_AI_spec.md`, `frontend_spec.md`, and `observability_and_reliability_spec.md`.
 
 ## Future Improvements
 
-Authentication, medical document upload and processing, medication and follow-up tracking, safety alerts, AI summaries, search, and export — delivered incrementally as their data model and API contracts are defined.
+AI extraction from documents, medication and follow-up tracking, safety alerts, AI summaries, search, and export — delivered incrementally as their data model and API contracts are defined.

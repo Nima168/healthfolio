@@ -10,6 +10,7 @@ It is the source of truth for API endpoint definitions, request/response schemas
 - Product goals and scope: `goal_spec.md`
 - User interface and interactions: `frontend_spec.md`
 - Backend implementation, data management, and security controls: `backend_spec.md`
+- Entities and relationships: `data_model_spec.md`
 - AI behavior and evaluation: `DL_AI_spec.md`
 - Logging, monitoring, and reliability: `observability_and_reliability_spec.md`
 
@@ -88,7 +89,45 @@ The authentication flow must define:
 - Password recovery and reset via email (email delivery is owned by `backend_spec.md`).
 - Password hashing and credential protection.
 
-Authentication endpoints and token schemas: not yet defined. They must be documented before implementation.
+#### 5.1.1 Authentication Endpoints
+
+| Method | Path | Request | Success | Errors |
+|---|---|---|---|---|
+| POST | `/auth/register` | `{email, password, display_name?}` | `201` token response + refresh cookie | `409 EMAIL_ALREADY_REGISTERED`, `422`, `429` |
+| POST | `/auth/login` | `{email, password}` | `200` token response + refresh cookie | `401 INVALID_CREDENTIALS`, `422`, `429` |
+| POST | `/auth/refresh` | refresh cookie + `X-CSRF-Protection: 1` | `200` token response + rotated cookie | `401 UNAUTHENTICATED`, `403 CSRF_CHECK_FAILED`, `429` |
+| POST | `/auth/logout` | refresh cookie + `X-CSRF-Protection: 1` | `204`, cookie cleared | `403 CSRF_CHECK_FAILED` |
+| POST | `/auth/password/forgot` | `{email}` | `202` (always) | `422`, `429` |
+| POST | `/auth/password/reset` | `{token, new_password}` | `204` | `400 INVALID_OR_EXPIRED_TOKEN`, `422`, `429` |
+| GET | `/users/me` | Bearer access token | `200` user | `401 UNAUTHENTICATED` |
+
+Registration logs the user in immediately; there is no email-verification step.
+
+**Token response:**
+
+```json
+{
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "expires_in": 900,
+  "user": { "id": "<uuid>", "email": "user@example.com", "display_name": "Asha", "created_at": "2026-10-11T08:00:00Z" }
+}
+```
+
+**Refresh cookie:** name `refresh_token`; attributes `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth; Max-Age=` refresh lifetime.
+
+#### 5.1.2 Rules
+
+- **Passwords:** 12–128 characters and not equal to the email. No character-composition rules. Hashed with Argon2id.
+- **Generic login failure:** wrong password, unknown email, and a locked account all return the same `401 INVALID_CREDENTIALS` message, so the response does not reveal whether an account exists.
+- **Lockout:** after 5 consecutive failed logins the account is locked for 15 minutes; a successful login or password reset clears the counter.
+- **Rate limits** (per client IP, `429 RATE_LIMITED`): login 10/minute, register 5/minute, forgot-password 5/hour, reset 10/hour, refresh 30/minute.
+- **Registration and enumeration:** because there is no email verification, `register` returns `409` for an existing email. This is an accepted trade-off, mitigated by rate limits; login and forgot-password reveal nothing.
+- **CSRF:** cookie-authenticated endpoints (`refresh`, `logout`) require the `X-CSRF-Protection: 1` header and, when an `Origin` header is present, an origin from the allowed CORS list.
+- **Refresh rotation:** each refresh issues a new refresh token and revokes the old one. Presenting an already-revoked token revokes every token from that login (token family) and returns `401`.
+- **Password reset:** `forgot` always returns `202` with the same body. If the account exists, an email is sent with a single-use link `{FRONTEND_BASE_URL}/reset-password#token=<token>`, valid for 30 minutes. The token is in the URL fragment so it is never sent to servers or logged. A successful reset revokes all of the user's refresh tokens.
+
+Data structures for these endpoints are defined in `data_model_spec.md` Section 4.
 
 ### 5.2 Protected Requests
 
@@ -132,16 +171,55 @@ Supported types initially: PDF, JPEG, and PNG.
 
 Maximum file size (decided): 20 MB per document, configurable per environment. Larger files return `413`.
 
-The contract must define (not yet defined):
+#### 6.1.1 Document Endpoints
 
-- Upload request format.
-- Accepted media types and validation behavior.
-- Metadata returned after upload.
-- Processing status and user-safe error details.
-- Authorized retrieval or download.
-- Deletion and its effect on associated extracted information.
-- Processing retries, if supported.
-- Pagination and filtering for document lists.
+All require a Bearer access token. Another user's document returns `404` on every endpoint.
+
+| Method | Path | Request | Success | Errors |
+|---|---|---|---|---|
+| POST | `/documents` | `multipart/form-data`: `file` and `title` (both required); optional `category`, `document_date` (`YYYY-MM-DD`), `document_date_precision`, `provider_name` | `201` document | `409 DUPLICATE_DOCUMENT`, `413`, `415`, `422`, `429` |
+| GET | `/documents` | Query: `limit` (1–50, default 20), `cursor`, optional `category` | `200` page of documents, newest first | `422` |
+| GET | `/documents/{id}` | — | `200` document | `404` |
+| GET | `/documents/{id}/file` | Query: `download=true` for a download, otherwise inline | `200` original bytes | `404` |
+| PATCH | `/documents/{id}` | JSON with any of `title`, `category`, `document_date`, `document_date_precision`, `provider_name` (`null` clears a field, except `title`) | `200` document | `404`, `422` |
+| DELETE | `/documents/{id}` | — | `204` | `404` |
+
+**Document response:**
+
+```json
+{
+  "id": "<uuid>",
+  "title": "Blood test – March 2026",
+  "original_filename": "blood-test-2026-03.pdf",
+  "media_type": "application/pdf",
+  "size_bytes": 182344,
+  "category": "lab_report",
+  "document_date": "2026-03-14",
+  "document_date_precision": "day",
+  "provider_name": "City Diagnostics",
+  "processing_status": "pending",
+  "created_at": "2026-10-11T09:00:00Z",
+  "updated_at": "2026-10-11T09:00:00Z"
+}
+```
+
+- `title`: the user's name for the document. Required, trimmed, 1–200 characters. A missing or blank title returns `422` with `{"field": "title", "issue": "Enter a name for this document."}`. It can be changed but not removed.
+- `original_filename`: the sanitised name of the uploaded file, kept for downloads.
+- `category`: `lab_report`, `prescription`, `discharge_summary`, `consultation_note`, `imaging_report`, `other`, `unknown` (default `unknown`).
+- `document_date_precision`: `day`, `month`, `year`, `unknown`. For `month`/`year`, the date is stored as the first day of the period.
+- `processing_status` uses the job lifecycle (Section 7). New uploads are `pending` until extraction is introduced.
+- The list response follows Section 9: `{ "items": [...], "pagination": { "limit": 20, "next_cursor": "<opaque>" | null } }`.
+
+#### 6.1.2 Rules
+
+- **Type check:** the file type is detected from its content (magic bytes), never from the file name or the browser's declared type. Content that is not PDF, JPEG, or PNG returns `415 UNSUPPORTED_MEDIA_TYPE`. Empty files return `422`.
+- **Size:** requests above the limit are rejected with `413` before the body is read.
+- **Duplicates:** the same file content (SHA-256) already uploaded by the same user and not deleted returns `409 DUPLICATE_DOCUMENT`. The error details include `{"field": "existing_document_id", "issue": "<uuid>"}` so the client can link to it. Other users' files are never compared.
+- **File name:** stored only as a sanitised display name (base name, no control characters, at most 255 characters).
+- **Download headers:** the original `Content-Type`, `Content-Disposition` (`inline` or `attachment` with the sanitised name), `X-Content-Type-Options: nosniff`, and `Cache-Control: private, no-store`.
+- **Deletion:** removes the stored file immediately. The record remains only as a tombstone (no title, file name, provider, date, or hash) for audit integrity and is excluded from all responses. Backup copies expire per `observability_and_reliability_spec.md` Section 8.2. Effects on extracted information are defined when extraction is introduced.
+- **Rate limit:** uploads are limited per user (`UPLOAD_RATE_LIMIT_PER_HOUR`, default 30).
+- **Processing retries:** defined with the extraction pipeline.
 
 Rules:
 

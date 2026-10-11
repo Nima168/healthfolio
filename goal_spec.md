@@ -108,7 +108,7 @@ Users can export data and request deletion, subject to retention requirements an
 - **Scalability:** Supports growth in users, documents, and AI workload without redesign.
 - **Maintainability:** Modular components, documented interfaces/API contracts, automated tests, version-controlled specs.
 - **Interoperability:** Consistent, documented data structures for future healthcare-standard integration.
-- **Configurability:** Reminder schedules, document types, and alert rules configurable without touching unrelated components.
+- **Configurability:** Follow-up schedules, document types, and alert rules configurable without touching unrelated components.
 
 ## 6. Future Expansion
 

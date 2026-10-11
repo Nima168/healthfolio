@@ -4,7 +4,7 @@
 
 ### 1.1 Purpose
 
-The backend provides the core application services for the Multimodal AI Healthcare Decision-Support System. It manages user health data, medical documents, medication records, health observations, checkup/follow-up reminders, safety alerts, and communication with AI processing components.
+The backend provides the core application services for the Multimodal AI Healthcare Decision-Support System. It manages user health data, medical documents, medication records, health observations, checkup/follow-up tracking, safety alerts, and communication with AI processing components.
 
 It must store health information securely, keep it linked to its source, restrict it to authorized users, and coordinate AI processing without letting AI output silently overwrite original records or verified user data.
 
@@ -105,6 +105,8 @@ These are logical modules, not separate deployments. The modular monolith is kep
 - Secrets (passwords, tokens, API keys, signing keys, AI-provider and email-provider keys) are never hardcoded, committed, exposed to the frontend, or printed in logs, exceptions, or diagnostics.
 - Deployed environments use secrets management where appropriate; access to secrets is restricted per component; rotation is supported without redesign.
 - Database, AI-provider, storage, and operational settings are independently configurable.
+- Authentication settings: `JWT_SECRET` (required, at least 32 characters), `JWT_ISSUER`, `COOKIE_SECURE`, `FRONTEND_BASE_URL` (for links in emails), `PASSWORD_RESET_MINUTES`, `LOGIN_MAX_FAILURES`, `LOCKOUT_MINUTES`, and `EMAIL_BACKEND` (`file` in development writes emails to a local, git-ignored folder; `ses` in deployment).
+- Document settings: `DOCUMENT_STORAGE_DIR` (local storage folder for development, git-ignored; default `storage/documents`) and `UPLOAD_RATE_LIMIT_PER_HOUR` (per user; default 30).
 - Initial development and testing use synthetic or de-identified data only. Real patient data requires authorization, privacy controls, and review first.
 
 ## 3. API Design
@@ -257,7 +259,7 @@ The data layer must:
 12. **Suggestions awaiting confirmation:** Profile values and follow-up dates proposed from documents (Section 5.3).
 13. **Search index:** User-scoped index over document metadata and extracted content (Section 7.1).
 
-These are logical domains, not necessarily separate tables. Entities and fields will be finalized during data-model design.
+These are logical domains, not necessarily separate tables. Entities, fields, relationships, and constraints are defined in `data_model_spec.md`.
 
 ### 5.3 Document Provenance and Corrections
 
@@ -833,6 +835,7 @@ This file defines backend architecture, responsibilities, and implementation con
 - `DL_AI_spec.md` — AI models, techniques, prompts, evaluation.
 - `observability_and_reliability_spec.md` — Logging, monitoring, reliability, recovery.
 - `api_contract_spec.md` — Endpoints, schemas, status codes, error contracts.
+- `data_model_spec.md` — Entities, fields, relationships, constraints.
 
 Requirement traceability and change management follow `goal_spec.md` Section 10.
 
