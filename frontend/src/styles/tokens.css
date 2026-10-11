@@ -1,0 +1,34 @@
+/* Design-system tokens: warm ivory + olive palette, DM Serif Display / Neuton / JetBrains Mono. */
+:root {
+  --color-bg: #faf7f2;
+  --color-surface: #fffdf9;
+  --color-text: #2f3128;
+  --color-text-muted: #6a675c;
+  --color-border: #e6dfd4;
+  --color-accent: #5a6848;
+
+  --color-olive: #7a8864;
+  --color-dusty-blue: #a9bdd1;
+  --color-peach: #e5bca9;
+  --color-sky: #e3eaf2;
+  --color-mint: #e9ecdf;
+  --color-lilac: #f4ebdc;
+
+  /* Status colours always appear together with a text label, never alone. */
+  --color-ok-bg: var(--color-mint);
+  --color-ok-text: #4a5a38;
+  --color-problem-bg: #f6e1d8;
+  --color-problem-text: #8a3f2b;
+  --color-pending-bg: var(--color-sky);
+  --color-pending-text: #3f5770;
+
+  --font-heading: 'DM Serif Display', Georgia, serif;
+  --font-body: 'Neuton', Georgia, serif;
+  --font-mono: 'JetBrains Mono', Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-soft: 0 1px 3px rgba(47, 49, 40, 0.06), 0 4px 16px rgba(47, 49, 40, 0.04);
+  --focus-ring: 0 0 0 3px rgba(90, 104, 72, 0.45);
+}
