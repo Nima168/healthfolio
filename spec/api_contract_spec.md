@@ -332,6 +332,21 @@ Rules:
 4. Medicines are never merged across documents. No medication-taking or renewal reminders (out of scope).
 5. Validation: name required (max 200 characters); the end date cannot be before the start date; unknown fields are rejected (422). Other users' medicines return 404.
 
+### 6.7 Health Timeline
+
+Decision 2026-10-12 (`backend/app/services/timeline_service.py`). `GET /api/v1/timeline` returns the user's records in date order, built from the existing records on each request (nothing new is stored).
+
+Query: `category` (repeatable: `lab_results`, `imaging`, `test_reports`, `consultations`, `hospital_stays`, `prescriptions`, `medications`, `follow_ups`, `documents`), `date_from`, `date_to` (undated entries are left out when either is set; `422` when `date_to` is before `date_from`), `limit` (1–100, default 50), `cursor`.
+
+Response: `{ items: [{ id, date, date_precision, category, title, lines[], trust, tag, source_document_id, source_document_title, link }], next_cursor }`. `trust` is `from_document` (read by AI, not checked by the user), `confirmed_by_you`, `edited_by_you`, or `added_by_you`.
+
+Rules:
+
+1. Newest first; entries without a date last (a missing date is never guessed).
+2. Records from different dates are never merged: lab results are one entry per report and test date, with results outside the printed range listed first. No comparison or trends across dates (deferred).
+3. Entries: lab results; imaging, test reports, consultations, and hospital stays (diagnoses as written) by their own date; prescriptions on the prescription date, listing their medicines and the user's confirmation; medicines with a start or end date, and medicines the user added; follow-ups by due date with status (Upcoming, Overdue, Done, Cancelled); documents not read (or not readable) as plain documents.
+4. Only the user's own records from documents that are not deleted. Free-text search is not built yet (`search_vector` pending).
+
 ## 7. Asynchronous Processing and AI APIs
 
 Document extraction is the first asynchronous operation: the upload responds immediately, and progress is read from `GET /documents/{id}/observations` (clients poll every few seconds while the job is `pending` or `running`).

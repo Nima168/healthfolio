@@ -96,7 +96,7 @@ class MedicationService:
             return None
         return self.session.get(Document, medication.source_document_id)
 
-    def _edited(self, user_id: uuid.UUID, medication_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    def edited_ids(self, user_id: uuid.UUID, medication_ids: list[uuid.UUID]) -> set[uuid.UUID]:
         """Medicines whose details (not only the status) the user changed."""
         if not medication_ids:
             return set()
@@ -111,7 +111,7 @@ class MedicationService:
         )
 
     def _one(self, medication: Medication) -> MedicationResponse:
-        edited = medication.id in self._edited(medication.user_id, [medication.id])
+        edited = medication.id in self.edited_ids(medication.user_id, [medication.id])
         return self._response(medication, self._document(medication), edited)
 
     def _record(self, medication: Medication, change: str, before: dict, now: datetime) -> None:
@@ -145,7 +145,7 @@ class MedicationService:
             )
         )
         rows = list(rows)
-        edited = self._edited(user_id, [m.id for m, _ in rows])
+        edited = self.edited_ids(user_id, [m.id for m, _ in rows])
         return MedicationListResponse(items=[self._response(m, d, m.id in edited) for m, d in rows])
 
     def history(self, user_id: uuid.UUID, medication_id: uuid.UUID) -> MedicationHistoryResponse:

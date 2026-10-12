@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, documents, follow_ups, health, medications, observations, users
+from app.api.v1 import auth, documents, follow_ups, health, medications, observations, timeline, users
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -10,3 +10,4 @@ api_router.include_router(documents.router)
 api_router.include_router(observations.router)
 api_router.include_router(follow_ups.router)
 api_router.include_router(medications.router)
+api_router.include_router(timeline.router)
