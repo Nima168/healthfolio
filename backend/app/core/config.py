@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     document_storage_dir: str = "storage/documents"
     upload_rate_limit_per_hour: int = Field(default=30, gt=0)
 
+    # AI extraction (DL_AI_spec.md). Off by default: documents are sent to an external provider,
+    # so it is an explicit opt-in, for synthetic data only until a privacy review.
+    extraction_enabled: bool = False
+    groq_api_key: SecretStr | None = None
+    ai_model: str = "qwen/qwen3.8-27b"
+    extraction_max_attempts: int = Field(default=3, gt=0)
+    worker_poll_seconds: float = Field(default=2.0, gt=0)
+
     # Email: "file" writes messages to dev_mail_dir (development/test only); "ses" for deployment.
     email_backend: Literal["file", "ses"] = "file"
     dev_mail_dir: str = ".dev_mail"

@@ -2,7 +2,7 @@
 
 A personal health-records platform that stores medical documents, extracts and organizes their information, tracks medications and follow-ups, and provides cautious, source-backed AI summaries. It offers informational decision support only and does not replace professional medical care.
 
-> **Status:** user accounts and medical document storage are in place (upload, preview, download, edit details, delete). AI extraction and the other health-record features are being built step by step against the specifications below.
+> **Status:** user accounts, medical document storage, and AI extraction of lab results (with a review screen) are in place. Extraction is not yet validated against an accuracy evaluation and must only be used with synthetic data. The other health-record features are being built step by step against the specifications below.
 
 ## Tech Stack
 
@@ -11,6 +11,8 @@ A personal health-records platform that stores medical documents, extracts and o
 | Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Alembic |
 | Database | PostgreSQL 16 (Docker Compose for local development) |
 | Frontend | React, Vite, TypeScript, React Router |
+| AI | Qwen3.8-27B on Groq (official Groq SDK); pypdf (typed-PDF text), pypdfium2 + Pillow (scan/photo images) |
+| Background jobs | PostgreSQL job queue + worker process |
 | Testing | pytest (backend), Vitest + Testing Library (frontend) |
 | Tooling | uv (Python), npm, ruff, oxlint |
 
@@ -37,7 +39,7 @@ A personal health-records platform that stores medical documents, extracts and o
 │       └── styles/          Design tokens
 ├── docker/                  Database init scripts
 ├── docker-compose.yml       Local PostgreSQL
-└── *_spec.md                Product, backend, API, AI, frontend, and observability specifications
+└── spec/                    Product, data model, backend, API, AI, frontend, and observability specifications
 ```
 
 ## Prerequisites
@@ -81,6 +83,27 @@ npm run dev
 
 Open `http://localhost:5173` and create an account. The **System Status** page shows whether the backend and database are reachable.
 
+### 4. AI extraction worker (optional)
+
+Extraction is **off by default**, because documents are sent to an external AI provider. Use only synthetic test documents.
+
+1. Add your own Groq key to `backend/.env` (never commit it): `GROQ_API_KEY=...`
+2. Set `EXTRACTION_ENABLED=true` in `backend/.env` and restart the backend.
+3. In a separate terminal:
+
+```bash
+cd backend
+uv run python -m app.worker          # keeps running; add --once to process the queue and exit
+```
+
+Every upload queues a job. The worker reads typed PDFs from their text layer and turns scans/photos into page images for the model's vision (3 per request), then saves the results. The document page shows a plain-text summary: values above and below the reference range printed in the report, normal values, and invalid records (no range, not a single number, or unclear; shown as written, not judged). Range checks are done by fixed rules in code, never by the AI.
+
+Consultation notes (symptoms, observations, assessment, plan, follow-ups), written imaging reports (findings, impression, and the report's own uncertainty statements; scan images are not read yet), and other test reports such as ECGs (measurements against their printed ranges, machine and physician interpretations kept apart) get their own summaries too, all copied exactly as written.
+
+Discharge summaries show the hospital, the stay (with the number of days), diagnoses exactly as written, key results (last value outside the printed range, with first → last, or text results), discharge medicines, follow-ups, and when to return to the emergency department. If a summary looks incomplete, **Read again** replaces it with a new reading.
+
+Prescriptions get their own summary: the date and doctor, each medicine with its instructions and duration, upcoming follow-ups grouped by date (dates written as "after 4 weeks" are calculated by code from the prescription date), with anything unclear marked "(unclear – check original)". "Add to Checkups and Follow-ups" saves the follow-ups to the Checkups and Follow-ups page, where each can be marked done or cancelled. If no document type was chosen at upload, the AI first decides whether it is a lab report or a prescription.
+
 ### Database migrations
 
 ```bash
@@ -112,6 +135,10 @@ Backend settings come from environment variables (`backend/.env` in development)
 | `EMAIL_BACKEND` / `DEV_MAIL_DIR` | `file` writes emails to a local folder in development | `file` / `.dev_mail` |
 | `DOCUMENT_STORAGE_DIR` | Where uploaded documents are stored in development (git-ignored) | `storage/documents` |
 | `UPLOAD_RATE_LIMIT_PER_HOUR` | Uploads allowed per user per hour | `30` |
+| `EXTRACTION_ENABLED` | Turn on AI extraction (external provider; synthetic data only) | `false` |
+| `GROQ_API_KEY` | Your Groq API key (secret; never committed) | — |
+| `AI_MODEL` | Model used for extraction | `qwen/qwen3.8-27b` |
+| `EXTRACTION_MAX_ATTEMPTS` | Retries for temporary AI failures | `3` |
 
 Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 
@@ -133,9 +160,14 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 | GET | `/api/v1/documents/{id}` | Document details |
 | GET | `/api/v1/documents/{id}/file` | The original file (inline, or `?download=true`) |
 | PATCH | `/api/v1/documents/{id}` | Edit type, date, or provider |
-| DELETE | `/api/v1/documents/{id}` | Delete the document and its file |
+| DELETE | `/api/v1/documents/{id}` | Delete the document, its file, and its extracted results |
+| GET | `/api/v1/documents/{id}/observations` | Extraction status and extracted lab results |
+| POST | `/api/v1/documents/{id}/extract` | Queue extraction (first time, or retry after a failure) |
+| POST | `/api/v1/documents/{id}/follow-ups` | Add a prescription's follow-ups to Checkups and Follow-ups |
+| GET | `/api/v1/follow-ups` | List follow-ups (overdue computed) |
+| PATCH | `/api/v1/follow-ups/{id}` | Mark a follow-up done, cancelled, or scheduled again |
 
-Full request/response details: `api_contract_spec.md` Sections 5.1 and 6.1.
+Full request/response details: `spec/api_contract_spec.md` Sections 5.1, 6.1, and 6.2.
 
 ### Security highlights
 
@@ -143,6 +175,7 @@ Full request/response details: `api_contract_spec.md` Sections 5.1 and 6.1.
 - Short-lived access token kept in browser memory; refresh token in a `Secure`, `HttpOnly`, `SameSite=Strict` cookie, rotated on every use with theft detection.
 - Generic login errors, account lockout, and per-IP rate limits.
 - Audit events for security-relevant actions, without passwords, tokens, or medical content.
+- AI extraction: the document is passed as data, never as instructions; output must match a strict schema and is re-validated by deterministic checks; uncertain values are flagged for review; logs record IDs, timings, and token counts only.
 - Uploaded files are identified by their content (not their name), size-limited before the upload is read, stored under opaque IDs, and only reachable through the authenticated API. Every document query is scoped to its owner.
 
 All errors use one format:
@@ -161,6 +194,7 @@ cd backend
 uv run ruff check .
 uv run pytest                    # all tests
 uv run pytest -m "not integration"   # without the database
+RUN_LIVE_AI=1 uv run pytest -m live # one real AI call on a synthetic report (costs a little)
 
 # Frontend
 cd frontend
@@ -175,4 +209,4 @@ The system is defined by these specs: `goal_spec.md` (product scope), `backend_s
 
 ## Future Improvements
 
-AI extraction from documents, medication and follow-up tracking, safety alerts, AI summaries, search, and export — delivered incrementally as their data model and API contracts are defined.
+An accuracy evaluation set for AI extraction, reminder delivery, editing medications, safety alerts, AI summaries, search, and export — delivered incrementally as their data model and API contracts are defined.

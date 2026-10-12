@@ -6,9 +6,13 @@ dependencies = [
     "alembic>=1.20.0",
     "argon2-cffi>=25.1.0",
     "fastapi>=0.143.0",
+    "groq>=1.7.0",
+    "pillow>=12.3.0",
     "psycopg[binary]>=3",
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.15.1",
+    "pypdf>=6.20.0",
+    "pypdfium2>=5.14.0",
     "python-multipart>=0.0.32",
     "sqlalchemy>=2",
     "uvicorn[standard]>=0.54.0",
@@ -38,4 +42,7 @@ known-third-party = ["alembic"]  # backend/alembic/ is migrations, not the packa
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: needs the real PostgreSQL test database (docker compose up)"]
+markers = [
+    "integration: needs the real PostgreSQL test database (docker compose up)",
+    "live: calls the real Groq API (opt-in with RUN_LIVE_AI=1; uses your quota)",
+]

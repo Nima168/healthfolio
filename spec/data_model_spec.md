@@ -21,7 +21,7 @@ This specification defines the logical data model for the initial release: entit
 | Timestamps | `created_at`, `updated_at` as `timestamptz` in UTC. Clinical dates keep their own precision (Section 2.1). |
 | Enumerations | Stored as text with a CHECK constraint listing allowed values. |
 | Provenance | Clinical records carry `origin` (`user_entered`, `document_extracted`, `suggestion_accepted`), `source_document_id`, and `source_location` where applicable. |
-| Review state | Extracted items carry `review_status`: `unconfirmed`, `confirmed`, `corrected`, `rejected`. |
+| Review state | Extracted items that need user acceptance (conditions, suggestions) carry `review_status`: `unconfirmed`, `confirmed`, `corrected`, `rejected`. Lab-result observations do not (Section 5.3). |
 | History | Clinical records are never overwritten in place: material changes create a history row (Sections 5.2, 5.4). |
 | Deletion | `deleted_at` (soft delete) where retention or audit rules apply; hard delete after the retention period. |
 | Sensitive data | Secrets (password hashes, token hashes) only in auth tables. Audit rows never hold medical content, passwords, or tokens. |
@@ -41,7 +41,7 @@ users ─┬─< refresh_tokens
        ├─< profile_values ─< profile_value_history
        ├─< conditions
        ├─< documents ─┬─< processing_jobs
-       │              ├─< observations ─< observation_corrections
+       │              ├─< observations
        │              └─< suggestions
        ├─< medications ─< medication_history
        ├─< follow_ups
@@ -149,8 +149,16 @@ Email bodies are not stored.
 | attempts | |
 | error_category | Nullable |
 | model_version, prompt_version | `DL_AI_spec.md` Section 15 |
-| idempotency_key | Unique; prevents duplicate jobs |
+| report_date_text | The report or prescription date exactly as printed |
+| document_kind | `lab_report`, `prescription`, `other`: what the document was read as |
+| document_date, prescriber_name | From a prescription, for its summary |
+| idempotency_key | Unique; prevents duplicate jobs (`extraction:{document_id}`, plus a suffix for user-requested retries) |
+| run_after | Earliest time the job may run (retry backoff) |
+| heartbeat_at | Updated at each stage; a running job without a heartbeat for 10 minutes is returned to the queue |
+| input_tokens, output_tokens | AI usage for cost tracking |
 | started_at, completed_at, created_at | |
+
+Partial unique index: at most one `pending`/`running` job per (`document_id`, `kind`).
 
 ### 5.3 observations
 | Field | Notes |
@@ -158,6 +166,7 @@ Email bodies are not stored.
 | id, user_id | |
 | source_document_id, source_location, processing_job_id | Nullable for user-entered values |
 | kind | `lab_result`, `vital_sign`, `other` |
+| position | Order within the source document |
 | name | As written in the document |
 | value_text | Original value as written |
 | value_numeric | Nullable parsed value |
@@ -165,13 +174,15 @@ Email bodies are not stored.
 | normalized_value, normalized_unit | Nullable |
 | reference_range_text, reference_low, reference_high | From the report, when present |
 | observed_at, observed_at_precision | |
-| origin, review_status | Section 2 |
+| origin | Section 2 |
 | confidence | Nullable; not proof of correctness |
-| validation_findings | JSON list |
+| validation_findings | JSON list of finding codes (e.g. `numeric_value_mismatch`, `missing_unit`, `date_in_future`) |
+| needs_review | True when confidence is not `high` or a review-level finding exists; shown as a warning |
+| source_location | JSON `{page, snippet}`: where in the original the value was read |
 | search_vector | |
 | created_at, updated_at, deleted_at | |
 
-**observation_corrections:** `id`, `observation_id`, `user_id`, `field`, `previous_value`, `new_value`, `corrected_at`.
+Extracted lab results are shown as read, with no confirm/correct/reject step (decision 2026-10-11); uncertain values are still flagged. The earlier `review_status`, `reviewed_at` and `observation_corrections` were removed in migration 0005.
 
 ### 5.4 profile_values and conditions
 **profile_values:** `id`, `user_id`, `field` (`date_of_birth`, `sex`, `blood_group`, `allergy`, `height`, `weight`, …), `value`, `unit`, `origin`, `suggestion_id` (nullable), `created_at`, `updated_at`, `deleted_at`. Multi-valued fields (allergies) use one row per value.
@@ -228,4 +239,8 @@ Schema changes are made through Alembic migrations (`backend_spec.md` Section 11
 |---|---|
 | users, refresh_tokens, password_reset_tokens, audit_events, email_deliveries | Built (step 2: authentication) |
 | documents | Built (step 3: document upload; `search_vector` pending) |
+| processing_jobs, observations | Built (step 4: lab-result extraction; `search_vector` and normalised values pending) |
+| conditions | Built (discharge summaries, 2026-10-12): diagnoses as written, `status = unknown`, no `review_status`, `onset_date`, or `search_vector` yet |
+| processing_jobs.details | JSON, kept as written: discharge (facility, dates, warning signs), consultation (sections), imaging (report fields and sections), other test reports (measurements, interpretations, visual content) |
+| medications, suggestions, follow_ups | Built (prescriptions, 2026-10-11): extracted medicines (no `medication_history` or user editing yet), follow-up suggestions, and follow-ups added from them. `follow_ups.due_date` is a date (no time, time zone, or recurrence yet); medications and suggestions carry `review_reason` instead of `review_status` |
 | All others | Specified, not yet built |

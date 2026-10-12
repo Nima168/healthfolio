@@ -1,0 +1,171 @@
+"""Pipeline stages 6–7: normalise and validate extracted results (DL_AI_spec.md Section 4.5).
+
+Deterministic checks only. Structural validity is not medical correctness, so anything
+uncertain is flagged for the user to review rather than corrected silently.
+"""
+
+import re
+from dataclasses import dataclass, field
+from datetime import date
+from decimal import Decimal, InvalidOperation
+
+from app.ai.schema import ExtractedResult, ExtractionPayload
+
+_NUMBER = re.compile(r"[-+]?\d+(?:,\d{3})*(?:[.,]\d+)?")
+_THOUSANDS = re.compile(r"[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?")
+_COMPARATOR = re.compile(r"^\s*(<=?|>=?|≤|≥)")
+
+LIMITS = {"name": 200, "value_text": 200, "unit": 50, "reference_range_text": 200, "snippet": 500}
+
+
+@dataclass
+class ValidatedResult:
+    name: str
+    value_text: str
+    value_numeric: Decimal | None
+    unit: str | None
+    reference_range_text: str | None
+    reference_low: Decimal | None
+    reference_high: Decimal | None
+    observed_at: date | None
+    observed_at_precision: str | None
+    page: int | None
+    snippet: str | None
+    confidence: str
+    notes: str | None
+    findings: list[str] = field(default_factory=list)
+
+    @property
+    def needs_review(self) -> bool:
+        # Anything less than clearly legible, or any failed check, goes to the user.
+        return self.confidence != "high" or any(f in REVIEW_FINDINGS for f in self.findings)
+
+
+# Findings that require a person to check the value. Others are informational.
+REVIEW_FINDINGS = {
+    "numeric_value_mismatch",
+    "missing_unit",
+    "date_in_future",
+    "implausible_date",
+    "invalid_date",
+    "invalid_reference_range",
+    "possible_duplicate",
+    "value_truncated",
+}
+
+
+def parse_number(text: str | None) -> Decimal | None:
+    """The single number in a value as written, or None ('<0.5', 'Negative', '5-7' are not single numbers)."""
+    if not text or _COMPARATOR.match(text):
+        return None
+    numbers = _NUMBER.findall(text)
+    if len(numbers) != 1:
+        return None
+    token = numbers[0]
+    # "1,200" / "12,500.5" use commas for thousands; otherwise a comma is a decimal point ("5,4").
+    token = token.replace(",", "") if _THOUSANDS.fullmatch(token) else token.replace(",", ".")
+    try:
+        return Decimal(token)
+    except InvalidOperation:
+        return None
+
+
+def _decimal(value: float | None) -> Decimal | None:
+    return None if value is None else Decimal(str(value))
+
+
+def _clip(value: str | None, limit: int) -> tuple[str | None, bool]:
+    if value is None:
+        return None, False
+    value = value.strip()
+    return (value[:limit], True) if len(value) > limit else (value or None, False)
+
+
+def _parse_date(value: str | None, precision: str | None, today: date, findings: list[str]):
+    if not value:
+        return None, None
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        findings.append("invalid_date")
+        return None, None
+    if parsed > today:
+        findings.append("date_in_future")
+    elif parsed.year < 1900:
+        findings.append("implausible_date")
+    precision = precision or "day"
+    if precision == "month":
+        parsed = parsed.replace(day=1)
+    elif precision == "year":
+        parsed = parsed.replace(month=1, day=1)
+    return parsed, precision
+
+
+def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_count: int | None, today: date):
+    findings: list[str] = []
+
+    name, _ = _clip(result.test_name, LIMITS["name"])
+    value_text, truncated = _clip(result.value_text, LIMITS["value_text"])
+    if not name or not value_text:
+        return None  # nothing usable to review
+    if truncated:
+        findings.append("value_truncated")
+
+    # Our own parse of the written value wins; a disagreement with the model is flagged.
+    numeric = parse_number(value_text)
+    model_numeric = _decimal(result.value_numeric)
+    if model_numeric is not None and (numeric is None or numeric != model_numeric):
+        findings.append("numeric_value_mismatch")
+
+    unit, _ = _clip(result.unit, LIMITS["unit"])
+    if numeric is not None and not unit:
+        findings.append("missing_unit")
+
+    low, high = _decimal(result.reference_low), _decimal(result.reference_high)
+    if low is not None and high is not None and low > high:
+        findings.append("invalid_reference_range")
+
+    observed_at, precision = _parse_date(result.result_date, result.result_date_precision, today, findings)
+    if observed_at is None and not result.result_date and payload.report_date:
+        observed_at, precision = _parse_date(payload.report_date, payload.report_date_precision, today, findings)
+        if observed_at is not None:
+            findings.append("date_from_report")
+
+    page = result.page
+    if page is not None and (page < 1 or (page_count is not None and page > page_count)):
+        findings.append("page_out_of_range")
+        page = None
+
+    reference_text, _ = _clip(result.reference_range_text, LIMITS["reference_range_text"])
+    snippet, _ = _clip(result.source_text, LIMITS["snippet"])
+    return ValidatedResult(
+        name=name,
+        value_text=value_text,
+        value_numeric=numeric,
+        unit=unit,
+        reference_range_text=reference_text,
+        reference_low=low,
+        reference_high=high,
+        observed_at=observed_at,
+        observed_at_precision=precision,
+        page=page,
+        snippet=snippet,
+        confidence=result.confidence,
+        notes=(result.notes or "").strip() or None,
+        findings=findings,
+    )
+
+
+def validate_payload(payload: ExtractionPayload, page_count: int | None, today: date) -> list[ValidatedResult]:
+    validated = [item for item in (_validate_one(r, payload, page_count, today) for r in payload.lab_results) if item]
+
+    seen: dict[tuple, ValidatedResult] = {}
+    for item in validated:
+        key = (item.name.casefold(), item.value_text, (item.unit or "").casefold(), item.observed_at)
+        if key in seen:
+            item.findings.append("possible_duplicate")
+            if "possible_duplicate" not in seen[key].findings:
+                seen[key].findings.append("possible_duplicate")
+        else:
+            seen[key] = item
+    return validated

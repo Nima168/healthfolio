@@ -106,6 +106,7 @@ These are logical modules, not separate deployments. The modular monolith is kep
 - Deployed environments use secrets management where appropriate; access to secrets is restricted per component; rotation is supported without redesign.
 - Database, AI-provider, storage, and operational settings are independently configurable.
 - Authentication settings: `JWT_SECRET` (required, at least 32 characters), `JWT_ISSUER`, `COOKIE_SECURE`, `FRONTEND_BASE_URL` (for links in emails), `PASSWORD_RESET_MINUTES`, `LOGIN_MAX_FAILURES`, `LOCKOUT_MINUTES`, and `EMAIL_BACKEND` (`file` in development writes emails to a local, git-ignored folder; `ses` in deployment).
+- AI settings: `EXTRACTION_ENABLED` (default `false`), `GROQ_API_KEY` (secret; never committed), `AI_MODEL` (default `qwen/qwen3.8-27b`), `EXTRACTION_MAX_ATTEMPTS` (default 3), `WORKER_POLL_SECONDS`.
 - Document settings: `DOCUMENT_STORAGE_DIR` (local storage folder for development, git-ignored; default `storage/documents`) and `UPLOAD_RATE_LIMIT_PER_HOUR` (per user; default 30).
 - Initial development and testing use synthetic or de-identified data only. Real patient data requires authorization, privacy controls, and review first.
 
@@ -182,6 +183,7 @@ Preserve backward compatibility where practical. Breaking changes must be docume
 - Initially, suitable short-running operations are handled within the API request lifecycle.
 - Dedicated background processing is introduced when task duration, workload, reliability, or concurrency requirements make it necessary.
 - Queue, worker, and scheduler technologies are chosen by actual requirements, not introduced unnecessarily.
+- **Decided (extraction):** a PostgreSQL-backed queue in `processing_jobs` and a separate worker process (`python -m app.worker`). Workers claim jobs with `SELECT … FOR UPDATE SKIP LOCKED`; transient failures retry with backoff (30 s, 2 min, 10 min) up to `EXTRACTION_MAX_ATTEMPTS`; permanent failures stop immediately; stale running jobs (no heartbeat for 10 minutes) are returned to the queue when a worker starts.
 
 Candidates for background jobs include:
 

@@ -11,7 +11,7 @@ export const SECTIONS: Section[] = [
   { path: '/timeline', label: 'Health Timeline', description: 'Your records in date order, with filters and search.', available: false },
   { path: '/documents', label: 'Medical Documents', description: 'Upload and view reports, prescriptions, and summaries.', available: true },
   { path: '/medications', label: 'Medications and Prescriptions', description: 'Add, edit, and review your medication records.', available: false },
-  { path: '/follow-ups', label: 'Checkups and Follow-ups', description: 'Record checkups and see what is upcoming or overdue.', available: false },
+  { path: '/follow-ups', label: 'Checkups and Follow-ups', description: 'Record checkups and see what is upcoming or overdue.', available: true },
   { path: '/summaries', label: 'AI Summaries and Insights', description: 'Plain-language summaries of your records, with sources.', available: false },
   { path: '/alerts', label: 'Alerts', description: 'Safety alerts from validated rules, to review and acknowledge.', available: false },
   { path: '/profile', label: 'Health Profile', description: 'Your conditions, allergies, and other health details.', available: false },

@@ -186,7 +186,7 @@ The interface must:
 
 - Clearly distinguish unconfirmed extraction results from user-confirmed records.
 - Highlight uncertain or potentially high-impact information for review.
-- Allow users to confirm, correct, or reject extracted values where supported.
+- Allow users to confirm, correct, or reject extracted values where supported. Extracted lab results are shown as read, with no confirm/correct/reject step (decision 2026-10-11); uncertain values are still flagged.
 - Display conflicting source values without silently choosing a winner.
 - Preserve the original document and extraction history.
 - Record user corrections separately with provenance.
@@ -379,7 +379,7 @@ Test data follows `backend_spec.md` Section 2.4 (synthetic or de-identified only
 | FE-AC-04 | Users can upload supported PDF, JPEG, and PNG documents and see upload and processing status using the contract's state values. | F-2, F-3, AC-01 |
 | FE-AC-05 | Original documents remain available after extraction failures, subject to the applicable retention and deletion policy. | AC-01 |
 | FE-AC-06 | Extracted information is visibly distinguished from confirmed information. | F-3, AC-02 |
-| FE-AC-07 | Users can review, confirm, correct, or reject supported extracted information. | F-3, AC-02 |
+| FE-AC-07 | Users can review, confirm, correct, or reject supported extracted information (not lab results; see Section 10). | F-3, AC-02 |
 | FE-AC-08 | Conflicting information and uncertain AI outputs are presented transparently. | F-10 |
 | FE-AC-09 | AI summaries identify their AI-generated nature and communicate relevant evidence and uncertainty; general-knowledge explanations are labelled and show the doctor's-advice note. | F-8, AC-06 |
 | FE-AC-10 | Users can add, edit, and view medication and prescription records with change history; no medication reminders are offered. | F-5, AC-03 |

@@ -24,7 +24,7 @@ Conflicts between specifications are reconciled explicitly, not silently overrid
 - **Grounded:** Statements about the user's health are based only on the user's own authorized medical records. General-knowledge explanations of terms are labelled as such (Section 6.1).
 - **Traceable:** Users can identify the source of extracted information and AI-generated insights.
 - **Uncertainty-aware:** Ambiguity, low confidence, missing information, and conflicting records are clearly communicated.
-- **Human-controlled:** Users can review and correct extracted information.
+- **Human-controlled:** Users can review and correct extracted information. Extracted lab results are shown as read, with no confirm/correct/reject step (decision 2026-10-11); uncertain values are still flagged.
 - **Privacy-first:** Only the information needed for the requested task is processed.
 - **Modular:** OCR, extraction, language models, retrieval, and insight generation are replaceable.
 - **Safe by design:** No unsupported medical conclusions or unsafe recommendations.
@@ -112,7 +112,9 @@ Structural validity does not guarantee medical correctness.
 
 Not every component needs a deep learning model. Deterministic processing is preferred when it is more reliable and sufficient. Predictive models are not part of the initial scope (Section 16).
 
-Specific models, providers, embedding methods, and vector databases: not yet defined. They are selected when requirements and evaluations justify them.
+**Decided for lab-result extraction:** Qwen3.8-27B (`qwen/qwen3.8-27b`) on Groq, called through the official Groq Python SDK, with strict JSON-schema output (`response_format` `json_schema`, `strict: true`) and the model's reasoning hidden from the response (`reasoning_format: "hidden"`). Typed PDFs are sent as their extracted text layer. Scanned PDFs are rendered to page images (150 DPI) and photos are re-encoded; images are downscaled to at most 2,048 px on the longer side and sent at most 3 per request (provider limit), with each image labelled by its real page number and the results merged. Limits: 131K-token context, 16,384 output tokens, 30 scanned pages. There is no provider-side refusal fallback; a refusal fails the job with a clear message. Extraction is off unless `EXTRACTION_ENABLED=true` and runs on synthetic data only until the privacy review in Section 12 is complete (including Groq's data-retention terms).
+
+Embedding methods and vector databases: not yet defined. They are selected when requirements and evaluations justify them.
 
 ## 6. Health History and Insight Generation
 
@@ -171,7 +173,7 @@ Medication status and treatment boundaries are defined in `backend_spec.md` Sect
 
 Safety alerts are produced only by deterministic rules based on predefined, validated criteria (`backend_spec.md` Section 7.5). They must not depend solely on an LLM or other probabilistic AI component.
 
-Rules decide; AI explains. This includes flagging results outside the reference range stated in the source report: the rule raises the flag, and the AI may explain it as an item for review, not a diagnosis.
+Rules decide; AI explains. This includes flagging results outside the reference range stated in the source report: the rule raises the flag, and the AI may explain it as an item for review, not a diagnosis. For lab results this is implemented as the lab summary (`api_contract_spec.md` Section 6.2): the AI only reads the report; the above/below/normal/needs-review decision is deterministic code.
 
 AI may support alerts by:
 
@@ -183,7 +185,7 @@ Potential emergencies use predefined safety messaging directing the user to qual
 
 ### 9.2 Follow-Up Detection
 
-AI may detect documented checkup and follow-up recommendations and present them to the user as suggestions. A follow-up entry is created only when the user confirms or records it (`goal_spec.md` UC-5). Automated reminder delivery is deferred.
+AI may detect documented checkup and follow-up recommendations and present them to the user as suggestions. A follow-up entry is created only when the user confirms or records it (`goal_spec.md` UC-5). Automated reminder delivery is deferred. Implemented for prescriptions (`api_contract_spec.md` Section 6.3): the AI copies the timing as written; dates are calculated by code; "Add as reminders" is the user's confirmation. Prompt versions: `prescription-v3-groq`, `discharge-v2-groq`, `consultation-v1-groq`, `imaging-v1-groq`, `test-report-v2-groq`, `classify-v3-groq`. Scan images (MRI, CT, X-ray pictures, ECG tracings) are not interpreted; only written reports are read (decision 2026-10-12).
 
 ## 10. Confidence, Uncertainty, and Source Attribution
 
@@ -269,7 +271,9 @@ Record, where applicable:
 - Processing duration and failure category.
 - Evaluation results and quality trends.
 
-Model, prompt, and pipeline changes are versioned and evaluated before release, and each result can be traced to the versions that produced it.
+Model, prompt, and pipeline changes are versioned and evaluated before release, and each result can be traced to the versions that produced it. Each extraction job records the model that answered (`model_version`, which shows a fallback model if one was used), the prompt version (`prompt_version`, currently `lab-results-v3-groq`), and token usage. Logs contain IDs, timings, and token counts only, never document text, prompts, or responses.
+
+**Evaluation status:** the Section 11 thresholds have not yet been measured. Lab-result extraction is therefore unvalidated and not production-ready until an evaluation set of labelled synthetic reports has been run.
 
 ## 16. Extensibility
 

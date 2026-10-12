@@ -105,6 +105,7 @@ def configure_logging(level: str, environment: str) -> None:
         logging.getLogger(name).handlers = []
         logging.getLogger(name).propagate = True
 
-    # HTTP client libraries log full URLs (with query strings) at INFO.
-    for name in ("httpx", "httpcore"):
+    # HTTP client libraries log full URLs (with query strings) at INFO: httpx is used by the
+    # Groq SDK and the test client; the others are listed in case a dependency brings them in.
+    for name in ("httpx", "httpcore", "httpx2", "httpcore2"):
         logging.getLogger(name).setLevel(logging.WARNING)

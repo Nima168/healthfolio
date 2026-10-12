@@ -10,15 +10,19 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import BinaryIO
 
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import ApiError
 from app.models.document import Document
+from app.models.extraction import Observation
+from app.models.prescription import Condition, Medication, Suggestion
 from app.repositories.auth import AuditRepository
 from app.repositories.documents import DocumentRepository
 from app.schemas.documents import DocumentUpdate, normalise_date
+from app.services import jobs
 from app.services.document_validation import SNIFF_BYTES, detect_media_type, sanitise_filename
 from app.services.storage import CHUNK_SIZE, DocumentStorage, StorageError, storage_key
 
@@ -102,6 +106,8 @@ class DocumentService:
 
         try:
             self.documents.add(document)
+            # Queued in the same transaction: a stored document always has its extraction job.
+            jobs.enqueue_extraction(self.session, document)
             self.audit.record("document.uploaded", "success", user_id, {"document_id": str(document.id)})
             self.session.commit()
         except IntegrityError as exc:  # the same file uploaded twice at the same moment
@@ -198,6 +204,25 @@ class DocumentService:
         document.provider_name = None
         document.document_date = None
         document.document_date_precision = None
+        # Extracted results go with their document, and any queued extraction is cancelled.
+        jobs.cancel_active_jobs(self.session, document.id)
+        self.session.execute(
+            update(Observation)
+            .where(Observation.source_document_id == document.id, Observation.deleted_at.is_(None))
+            .values(deleted_at=document.deleted_at)
+        )
+        for model in (Medication, Condition):
+            self.session.execute(
+                update(model)
+                .where(model.source_document_id == document.id, model.deleted_at.is_(None))
+                .values(deleted_at=document.deleted_at)
+            )
+        # Follow-ups the user already added stay theirs; ones not yet added are withdrawn.
+        self.session.execute(
+            update(Suggestion)
+            .where(Suggestion.source_document_id == document.id, Suggestion.status == "pending")
+            .values(status="superseded")
+        )
         self.audit.record("document.deleted", "success", user_id, {"document_id": str(document.id)})
         self.session.commit()
 

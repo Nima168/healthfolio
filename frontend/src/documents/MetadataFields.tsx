@@ -20,16 +20,25 @@ export function MetadataFields({ values, onChange, errors = {} }: Props) {
 
   return (
     <div className="metadata-grid">
-      <SelectField
-        label="Document type"
-        value={values.category}
-        onChange={(e) => set('category', e.target.value as Category | '')}
-        options={[
-          { value: '', label: 'Not set' },
-          ...CATEGORIES.filter((c) => c !== 'unknown').map((c) => ({ value: c, label: CATEGORY_LABELS[c] })),
-        ]}
-        error={errors.category}
-      />
+      <div>
+        <SelectField
+          label="Document type"
+          value={values.category}
+          onChange={(e) => set('category', e.target.value as Category | '')}
+          options={[
+            { value: '', label: 'Not set' },
+            ...CATEGORIES.filter((c) => c !== 'unknown').map((c) => ({ value: c, label: CATEGORY_LABELS[c] })),
+          ]}
+          error={errors.category}
+          aria-describedby={values.category === 'discharge_summary' ? 'discharge-page-note' : undefined}
+        />
+        {values.category === 'discharge_summary' && (
+          <p id="discharge-page-note" className="field-note">
+            <strong>Note:</strong> Please upload a 1-page discharge summary. Discharge summaries with more than one
+            page will be supported in a later update.
+          </p>
+        )}
+      </div>
       <FormField
         label="Document date"
         type="date"

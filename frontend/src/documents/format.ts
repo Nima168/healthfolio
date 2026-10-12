@@ -23,9 +23,8 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/** Show only as much of the date as is actually known, so a month is never shown as an exact day. */
-export function formatDocumentDate(document: Pick<MedicalDocument, 'document_date' | 'document_date_precision'>): string {
-  const { document_date: value, document_date_precision: precision } = document
+/** Show only as much of a date as is actually known, so a month is never shown as an exact day. */
+export function formatPreciseDate(value: string | null, precision: DatePrecision | null): string {
   if (!value) return 'Not set'
   const [year, month, day] = value.split('-').map(Number)
   const date = new Date(Date.UTC(year, month - 1, day))
@@ -39,6 +38,10 @@ export function formatDocumentDate(document: Pick<MedicalDocument, 'document_dat
   return precision === 'unknown' ? `${text} (unsure)` : text
 }
 
+export function formatDocumentDate(document: Pick<MedicalDocument, 'document_date' | 'document_date_precision'>): string {
+  return formatPreciseDate(document.document_date, document.document_date_precision)
+}
+
 export function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 }
@@ -47,6 +50,16 @@ export function typeLabel(mediaType: string): string {
   return mediaType === 'application/pdf' ? 'PDF' : mediaType === 'image/png' ? 'PNG image' : 'JPEG image'
 }
 
-export function processingLabel(status: string): string {
-  return status === 'pending' ? 'Waiting for processing (extraction coming soon)' : status.replaceAll('_', ' ')
+/** A known calendar day as "07-Oct-2026" (summaries); `value` is YYYY-MM-DD. */
+export function formatDayMonthYear(value: string): string {
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const monthName = date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }).slice(0, 3)
+  return `${String(day).padStart(2, '0')}-${monthName}-${year}`
+}
+
+/** Today's date in the user's time zone, as YYYY-MM-DD. */
+export function todayIso(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }

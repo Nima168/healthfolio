@@ -217,9 +217,36 @@ All require a Bearer access token. Another user's document returns `404` on ever
 - **Duplicates:** the same file content (SHA-256) already uploaded by the same user and not deleted returns `409 DUPLICATE_DOCUMENT`. The error details include `{"field": "existing_document_id", "issue": "<uuid>"}` so the client can link to it. Other users' files are never compared.
 - **File name:** stored only as a sanitised display name (base name, no control characters, at most 255 characters).
 - **Download headers:** the original `Content-Type`, `Content-Disposition` (`inline` or `attachment` with the sanitised name), `X-Content-Type-Options: nosniff`, and `Cache-Control: private, no-store`.
-- **Deletion:** removes the stored file immediately. The record remains only as a tombstone (no title, file name, provider, date, or hash) for audit integrity and is excluded from all responses. Backup copies expire per `observability_and_reliability_spec.md` Section 8.2. Effects on extracted information are defined when extraction is introduced.
+- **Deletion:** removes the stored file immediately. The record remains only as a tombstone (no title, file name, provider, date, or hash) for audit integrity and is excluded from all responses. Backup copies expire per `observability_and_reliability_spec.md` Section 8.2. Its extracted results are deleted with it, and any queued extraction is cancelled.
 - **Rate limit:** uploads are limited per user (`UPLOAD_RATE_LIMIT_PER_HOUR`, default 30).
-- **Processing retries:** defined with the extraction pipeline.
+- **Extraction:** every upload queues an extraction job automatically (Section 6.2).
+
+### 6.2 Extracted Results and Review
+
+| Method | Path | Request | Success | Errors |
+|---|---|---|---|---|
+| GET | `/documents/{id}/observations` | — | `200` extraction state | `404` |
+| POST | `/documents/{id}/extract` | — | `202` extraction state | `404`, `409 EXTRACTION_IN_PROGRESS` |
+
+**Extraction state:** `{ "extraction_enabled": bool, "job": {status, attempts, error_category, updated_at} | null, "items": [observation, ...], "summary": lab summary | null }`. `job` is null for documents uploaded before extraction existed; `POST /extract` queues one. `POST /extract` is also how a failed or cancelled extraction is retried, and how a completed one is read again ("Read again", decision 2026-10-12: AI reading varies between runs). It is refused only while a job is pending/running. A new reading replaces the previous one: its rows are withdrawn (soft-deleted; follow-up suggestions not yet added are superseded) and only the latest reading is shown; follow-ups already added are kept and are never added twice.
+
+**Observation:** `id, name, value_text, value_numeric, unit, reference_range_text, reference_low, reference_high, observed_at, observed_at_precision, page, source_snippet, confidence, needs_review, validation_findings, notes`. Numbers are exact decimal strings (e.g. `"13.8"`), never floats. `value_text` is always the value as written; `value_numeric` is set only when it contains exactly one number.
+
+**Result rules:**
+
+- Extracted lab results are shown as read, with no confirm/correct/reject step (decision 2026-10-11); uncertain values are still flagged.
+- `needs_review` is true when confidence is not `high` or a validation finding needs attention.
+
+**Lab summary** (decision 2026-10-11; present once extraction has completed): `{ report_date, above[], below[], normal[], invalid[] }`. Value lines are `{name, value_text, unit, reference_range_text}`; invalid lines add `reason`. `report_date` is the date exactly as printed (null when not printed, or for extractions made before it was captured). Rules (backend code, never the AI; `backend/app/services/lab_summary.py`):
+
+1. Only the reference range printed next to each test is used; never outside or assumed ranges.
+2. Values, units, and ranges are copied exactly as extracted; nothing is rounded.
+3. No range, a value that is not a single number (e.g. `<150`, `Positive`), a range that cannot be read (e.g. split by sex), or an unclear value/unit/range (low or medium confidence, missing unit, possible misread) goes to `invalid` (shown as "Invalid Records") instead of being judged.
+4. `< X`, `<= X`, `> X`, `>= X` are applied exactly as written; `a - b` includes both ends.
+5. No diagnosis, causes, or advice.
+
+The client shows it as plain text: `Report Date`, `Values Above Range`, `Values Below Range`, `Normal Values` (each `None` when empty), then `Invalid Records` only when there are any. Invalid records are shown as written (value, unit, range), never judged. No closing line (removed 2026-10-11).
+- `error_category` values are safe codes (e.g. `ai_unavailable`, `ai_refused`, `image_too_large`, `unreadable_pdf`); clients map them to plain-language messages.
 
 Rules:
 
@@ -227,7 +254,64 @@ Rules:
 - Uploaded files are never publicly accessible; access is authorized independently of whether a user knows a document identifier.
 - The API never exposes storage paths or requires the frontend to know whether a file is in local or object storage.
 
+### 6.3 Prescriptions and Follow-ups
+
+Decision 2026-10-11. Which reading a document gets: the upload's `category` (`lab_report` or `prescription`); for any other category the AI first classifies the document (`lab_report`, `prescription`, `other`). `GET /documents/{id}/observations` returns `document_kind` and, for prescriptions, `prescription`:
+
+`{ prescribed_on, date_text, prescriber_name, medications[], follow_ups[], reminders }`. Medication lines are `{name, strength, instructions, duration_text, unclear, reason}` copied as written; follow-up lines are `{due_date, description, unclear, reason}`, clear same-day items joined by " + ", in date order with undated (unclear) items last; `reminders` is `available`, `added`, or `none`.
+
+Rules (deterministic code, never the AI; `backend/app/ai/prescription_validation.py`, `backend/app/services/prescription_summary.py`):
+
+1. The AI copies what is written and never calculates dates. A relative timing ("after 4 weeks", "in 3 months") is turned into a date by code from the printed prescription date (calendar months; a day past the month's end moves to its last day).
+2. Flagged `unclear` (shown inline as "(unclear – check original)", the reason on hover) instead of guessing: low or medium confidence, missing instructions, a medicine listed twice, no timing, an unreadable date, a relative timing with no prescription date, a date before the prescription, or a timing beyond two years.
+3. Medicines are never marked as currently taken (`status = unknown`).
+
+The client shows it as plain text: `PRESCRIPTION SUMMARY — 07-Oct-2026 (Dr. Name)`, `Medications`, `Upcoming Follow-Ups` (past dates marked), and an "Add to Checkups and Follow-ups" button. Medicine names with strength and follow-up dates are bold. No Needs Review section (removed 2026-10-11).
+
+| Method | Path | Request | Success | Errors |
+|---|---|---|---|---|
+| POST | `/documents/{id}/follow-ups` | — | `201` extraction state (`reminders: "added"`) | `404`, `409 NOTHING_TO_ADD` |
+| GET | `/follow-ups` | — | `200 {items: [follow-up]}`; scheduled first by due date | — |
+| PATCH | `/follow-ups/{id}` | `{"status": "scheduled" \| "completed" \| "cancelled"}` | `200` follow-up | `404`, `422` |
+
+**Follow-up:** `id, title, kind (investigation | appointment | checkup), due_date, status, overdue (computed), completed_at, source_document_id, source_document_title`. "Add as reminders" adds only clear, dated follow-ups, once each. No reminder is sent yet (delivery is deferred). Deleting the document keeps follow-ups already added and withdraws ones not yet added.
+
+### 6.4 Discharge Summaries
+
+Decision 2026-10-12. Documents with category `discharge_summary` (or classified as one) get `discharge`:
+
+`{ facility_name, admitted_on, admitted_text, discharged_on, discharged_text, stay_days, diagnoses[], key_results[], medications[], follow_ups[], reminders, warning_signs[] }`. Key-result lines are `{name, first_value, last_value, unit, reference_range_text, flag (high | low | null), still, last_tested, unclear}`; medications and follow-ups as in Section 6.3.
+
+Rules (deterministic code; the AI only copies what is written; `backend/app/ai/discharge_validation.py`, `backend/app/services/discharge_summary.py`):
+
+1. Diagnoses and warning signs exactly as written; never reworded.
+2. `stay_days` counts calendar days with both the admission and the discharge day.
+3. Results: one value per test per date; dates written without a year take the admission year (the next year past December). A value is numeric only if it is a plain number.
+4. Key results: a test is listed when its last value is outside the reference range printed in the document (Section 6.2 range rules), or when its result is text. `still` = the first value was outside on the same side. `last_tested` = the last test was before the discharge date. No "slightly": the document gives no threshold.
+5. Medicines: discharge medications only, not treatment given in hospital. Follow-ups written as relative timings count from the discharge date.
+
+The client shows it as plain text: `DISCHARGE SUMMARY — <hospital>`, `Admitted … → Discharged … (N days)`, `Diagnosis`, `Key Results`, `Discharge Medications`, `Upcoming Follow-Ups` with "Add to Checkups and Follow-ups", `Return to Emergency If`.
+
+### 6.5 Consultation Notes, Imaging Reports, and Other Test Reports
+
+Decision 2026-10-12. Upload types `consultation_note` and `imaging_report` decide the reading directly; `other` and "not set" are classified first (`lab_report`, `prescription`, `discharge_summary`, `consultation_note`, `imaging_report`, `test_report`, or `other` = nothing extracted). `GET /documents/{id}/observations` returns, by kind:
+
+- `consultation`: `{ visit_date, visit_text, clinician_name, symptoms[], observations[], assessment[], plan[], follow_ups[], reminders }`.
+- `imaging`: `{ is_written_report, exam_name, report_id, facility_name, exam_date, exam_text, report_date, report_text, body_region, findings[], impression[], uncertainty[] }`.
+- `test_report` (e.g. ECG): `{ test_type, test_name, report_id, facility_name, report_form, test_date, test_text, measurements[{name, value_text, unit, reference_range_text, flag, unclear}], interpretations[{source, confirmed, text}], visual_content[] }`.
+
+Rules (deterministic code; the AI only copies; `backend/app/ai/report_validation.py`, `backend/app/services/report_summaries.py`):
+
+1. All text exactly as written (line breaks from the page layout joined); nothing reworded.
+2. Follow-ups (consultation): a deadline ("Tests by 10-Nov-2026: A, B") is one dated follow-up per test; an approximate timing ("mid-January 2027") is shown as written with "(no exact date)" and is never added to Checkups and Follow-ups; relative timings count from the consultation date.
+3. Imaging: only the written report is read; scan images are never interpreted (planned later). Scan images without a report give `is_written_report: false`. Uncertainty lists only statements written in the report.
+4. Test reports: a measurement is flagged high/low only against its printed range (Section 6.2 range rules) and only when the value is a plain number; "no range given" otherwise. Interpretations are kept apart by source (machine first, then physician); `confirmed` only when the report says so. Charts and tracings are listed as "not extracted (image only)".
+
+The client shows them as plain text: `CONSULTATION SUMMARY — date (doctor)` with Symptoms, Observations, Assessment, Plan, Follow-Up; `IMAGING SUMMARY — exam` with Source, Examination Date (reported …), Body Region, Findings, Impression, Uncertainty; `<TYPE> SUMMARY — test` with Source, Date, Reported Measurements, Interpretation, Visual Content.
+
 ## 7. Asynchronous Processing and AI APIs
+
+Document extraction is the first asynchronous operation: the upload responds immediately, and progress is read from `GET /documents/{id}/observations` (clients poll every few seconds while the job is `pending` or `running`).
 
 Long-running document processing or AI analysis may run asynchronously when needed. The contract must not depend on a particular background-processing technology.
 

@@ -1,0 +1,180 @@
+"""Validate an extracted prescription and settle follow-up dates (DL_AI_spec.md Sections 4.5, 8, 9.2).
+
+Deterministic code only. The model copies what is written; this module decides:
+- the follow-up date: a written calendar date, or one calculated here from the printed
+  prescription date for timings such as "after 4 weeks" (the model never calculates dates);
+- what needs review, with a plain reason, instead of guessing.
+"""
+
+import calendar
+from dataclasses import dataclass
+from datetime import date, timedelta
+
+from app.ai.schema import ExtractedFollowUp, ExtractedMedication, PrescriptionPayload
+
+LIMITS = {"name": 200, "strength": 100, "instructions": 300, "duration": 100, "description": 300, "date_text": 200}
+MAX_RELATIVE = {"days": 730, "weeks": 104, "months": 24}  # beyond two years is treated as unclear
+
+UNCLEAR_MEDICATION = "The name, strength, or instructions were not clearly legible."
+NO_INSTRUCTIONS = "How to take it is not written or unclear."
+DUPLICATE_MEDICATION = "This medicine appears more than once."
+UNCLEAR_FOLLOW_UP = "The follow-up was not clearly legible."
+NO_TIMING = "No follow-up date or timing is written."
+UNREADABLE_DATE = "The follow-up date could not be read."
+NO_BASE_DATE = "The prescription or discharge date is missing, so the follow-up date cannot be calculated."
+BEFORE_PRESCRIPTION = "The follow-up date is before the prescription or discharge date."
+
+
+@dataclass
+class PrescriptionHeader:
+    prescribed_on: date | None
+    date_text: str | None
+    prescriber_name: str | None
+
+
+@dataclass
+class ValidatedMedication:
+    name: str
+    strength: str | None
+    instructions: str | None
+    duration_text: str | None
+    page: int | None
+    snippet: str | None
+    confidence: str
+    notes: str | None
+    review_reason: str | None
+
+
+@dataclass
+class ValidatedFollowUp:
+    description: str
+    kind: str
+    date_text: str | None
+    due_date: date | None
+    due_date_basis: str | None  # "written" or "calculated"; None for an approximate timing
+    page: int | None
+    snippet: str | None
+    confidence: str
+    notes: str | None
+    review_reason: str | None
+
+
+def _clean(value: str | None, limit: int) -> str | None:
+    value = (value or "").strip()
+    return value[:limit] or None
+
+
+def _iso_date(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat((value or "").strip())
+    except ValueError:
+        return None
+
+
+def add_months(start: date, months: int) -> date:
+    """Calendar months; the day is kept, or moved back to the last day of a shorter month."""
+    year, month = divmod(start.month - 1 + months, 12)
+    year += start.year
+    month += 1
+    return start.replace(year=year, month=month, day=min(start.day, calendar.monthrange(year, month)[1]))
+
+
+def calculate_due_date(base: date, amount: int, unit: str) -> date:
+    if unit == "days":
+        return base + timedelta(days=amount)
+    if unit == "weeks":
+        return base + timedelta(weeks=amount)
+    return add_months(base, amount)
+
+
+def _page(page: int | None, page_count: int | None) -> int | None:
+    return page if page is not None and page >= 1 and (page_count is None or page <= page_count) else None
+
+
+def _medication(item: ExtractedMedication, page_count: int | None, seen: set[tuple[str, str]]) -> ValidatedMedication:
+    name = _clean(item.name, LIMITS["name"]) or "Unnamed medicine"
+    strength = _clean(item.strength, LIMITS["strength"])
+    instructions = _clean(item.instructions, LIMITS["instructions"])
+
+    reason = None
+    if item.confidence != "high" or name == "Unnamed medicine":
+        reason = UNCLEAR_MEDICATION
+    elif instructions is None:
+        reason = NO_INSTRUCTIONS
+    key = (name.casefold(), (strength or "").casefold())
+    if reason is None and key in seen:
+        reason = DUPLICATE_MEDICATION
+    seen.add(key)
+
+    return ValidatedMedication(
+        name=name,
+        strength=strength,
+        instructions=instructions,
+        duration_text=_clean(item.duration_text, LIMITS["duration"]),
+        page=_page(item.page, page_count),
+        snippet=_clean(item.source_text, 500),
+        confidence=item.confidence,
+        notes=_clean(item.notes, 1000),
+        review_reason=reason,
+    )
+
+
+def _follow_up(item: ExtractedFollowUp, header: PrescriptionHeader, page_count: int | None) -> ValidatedFollowUp:
+    due, basis, reason = None, None, None
+    if item.date:
+        due = _iso_date(item.date)
+        basis = "written" if due else None
+        reason = None if due else UNREADABLE_DATE
+    elif item.relative_amount is not None and item.relative_unit is not None:
+        if not 0 < item.relative_amount <= MAX_RELATIVE[item.relative_unit]:
+            reason = UNCLEAR_FOLLOW_UP
+        elif header.prescribed_on is None:
+            reason = NO_BASE_DATE
+        else:
+            due = calculate_due_date(header.prescribed_on, item.relative_amount, item.relative_unit)
+            basis = "calculated"
+    elif not (item.date_text or "").strip():
+        reason = NO_TIMING
+    # Otherwise an approximate timing such as "mid-January 2027": shown as written, never dated or added
+    # (decision 2026-10-12).
+
+    if reason is None and item.confidence != "high":
+        reason = UNCLEAR_FOLLOW_UP
+    if reason is None and due and header.prescribed_on and due < header.prescribed_on:
+        reason = BEFORE_PRESCRIPTION
+
+    return ValidatedFollowUp(
+        description=_clean(item.description, LIMITS["description"]) or "Follow-up",
+        kind=item.kind,
+        date_text=_clean(item.date_text, LIMITS["date_text"]),
+        due_date=due,
+        due_date_basis=basis,
+        page=_page(item.page, page_count),
+        snippet=_clean(item.source_text, 500),
+        confidence=item.confidence,
+        notes=_clean(item.notes, 1000),
+        review_reason=reason,
+    )
+
+
+def validate_prescription(
+    payload: PrescriptionPayload, page_count: int | None
+) -> tuple[PrescriptionHeader, list[ValidatedMedication], list[ValidatedFollowUp]]:
+    header = PrescriptionHeader(
+        prescribed_on=_iso_date(payload.prescription_date),
+        date_text=_clean(payload.prescription_date_text, 100),
+        prescriber_name=_clean(payload.prescriber_name, 200),
+    )
+    seen: set[tuple[str, str]] = set()
+    medications = [_medication(item, page_count, seen) for item in payload.medications]
+    follow_ups: list[ValidatedFollowUp] = []
+    seen_follow_ups: set[tuple[str, object]] = set()
+    for item in payload.follow_ups:
+        follow_up = _follow_up(item, header, page_count)
+        # The same test on the same date listed twice is one follow-up (never added as two reminders).
+        key = (follow_up.description.casefold(), follow_up.due_date or follow_up.date_text)
+        if key in seen_follow_ups:
+            continue
+        seen_follow_ups.add(key)
+        follow_ups.append(follow_up)
+    return header, medications, follow_ups

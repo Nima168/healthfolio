@@ -1,17 +1,18 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { ApiError } from '../api/client'
 import { toFormErrors, type FormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
 import { documentsApi, TITLE_MAX_LENGTH, type MedicalDocument } from './documentsApi'
+import { ExtractedResults } from './ExtractedResults'
+import type { JobStatus } from './extractionApi'
 import {
   CATEGORY_LABELS,
   formatBytes,
   formatDocumentDate,
   formatTimestamp,
   PRECISION_LABELS,
-  processingLabel,
   typeLabel,
 } from './format'
 import type { MetadataValues } from './metadata'
@@ -60,6 +61,18 @@ function toValues(document: MedicalDocument): MetadataValues {
   }
 }
 
+/** Trash-can icon (inline SVG, no icon library needed). */
+function TrashIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
 export function DocumentDetailPage() {
   const { documentId = '' } = useParams()
   const navigate = useNavigate()
@@ -71,6 +84,11 @@ export function DocumentDetailPage() {
   const [errors, setErrors] = useState<FormErrors>({ fields: {} })
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  // Stable identity: ExtractedResults reloads when this changes.
+  const handleStatusChange = useCallback((status: JobStatus) => {
+    setDocument((current) => (current && current.processing_status !== status ? { ...current, processing_status: status } : current))
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -172,100 +190,106 @@ export function DocumentDetailPage() {
         </p>
       )}
 
+      <div className="card document-details">
+        <h2>Details</h2>
+        {editing && values ? (
+          <form onSubmit={handleSave} noValidate>
+            <FormField
+              label="Name (required)"
+              required
+              maxLength={TITLE_MAX_LENGTH}
+              value={titleValue}
+              onChange={(e) => setTitleValue(e.target.value)}
+              error={errors.fields.title}
+            />
+            <MetadataFields values={values} onChange={setValues} errors={errors.fields} />
+            <div className="button-row">
+              <button type="submit" className="button" disabled={busy}>
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" className="button button-secondary" onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <dl className="detail-list">
+              <dt>Document type</dt>
+              <dd>{CATEGORY_LABELS[document.category]}</dd>
+              <dt>Document date</dt>
+              <dd>
+                {formatDocumentDate(document)}
+                {document.document_date_precision && document.document_date_precision !== 'day' && (
+                  <span className="form-hint"> ({PRECISION_LABELS[document.document_date_precision]})</span>
+                )}
+              </dd>
+              <dt>Hospital, lab, or clinic</dt>
+              <dd>{document.provider_name ?? 'Not set'}</dd>
+            </dl>
+            <div className="button-row">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => {
+                  setValues(toValues(document))
+                  setTitleValue(document.title)
+                  setErrors({ fields: {} })
+                  setEditing(true)
+                }}
+              >
+                Edit details
+              </button>
+              <button type="button" className="button button-secondary" onClick={() => void handleDownload()}>
+                Download
+              </button>
+              <button
+                type="button"
+                className="icon-button icon-button-danger"
+                aria-label="Delete document"
+                title="Delete document"
+                aria-expanded={confirmingDelete}
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <TrashIcon />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Asked to confirm before anything is deleted. */}
+      {confirmingDelete && (
+        <div className="card danger-zone delete-confirm">
+          <h2>Delete document</h2>
+          <div role="alertdialog" aria-labelledby="delete-question" aria-describedby="delete-explanation">
+            <p id="delete-question">
+              <strong>Delete “{document.title}” permanently?</strong>
+            </p>
+            <p id="delete-explanation">
+              The file is removed now and cannot be recovered from the app. Backup copies are erased automatically
+              within 30 days.
+            </p>
+            <div className="button-row">
+              <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={busy}>
+                {busy ? 'Deleting…' : 'Delete permanently'}
+              </button>
+              <button type="button" className="button button-secondary" onClick={() => setConfirmingDelete(false)}>
+                Keep document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* The summary sits beside the original so values can be checked against it. */}
       <div className="document-layout">
         <div className="card">
           <DocumentPreview document={document} />
         </div>
-
-        <div className="document-side">
-          <div className="card">
-            <h2>Details</h2>
-            {editing && values ? (
-              <form onSubmit={handleSave} noValidate>
-                <FormField
-                  label="Name (required)"
-                  required
-                  maxLength={TITLE_MAX_LENGTH}
-                  value={titleValue}
-                  onChange={(e) => setTitleValue(e.target.value)}
-                  error={errors.fields.title}
-                />
-                <MetadataFields values={values} onChange={setValues} errors={errors.fields} />
-                <div className="button-row">
-                  <button type="submit" className="button" disabled={busy}>
-                    {busy ? 'Saving…' : 'Save'}
-                  </button>
-                  <button type="button" className="button button-secondary" onClick={() => setEditing(false)}>
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <>
-                <dl className="detail-list">
-                  <dt>Document type</dt>
-                  <dd>{CATEGORY_LABELS[document.category]}</dd>
-                  <dt>Document date</dt>
-                  <dd>
-                    {formatDocumentDate(document)}
-                    {document.document_date_precision && document.document_date_precision !== 'day' && (
-                      <span className="form-hint"> ({PRECISION_LABELS[document.document_date_precision]})</span>
-                    )}
-                  </dd>
-                  <dt>Hospital, lab, or clinic</dt>
-                  <dd>{document.provider_name ?? 'Not set'}</dd>
-                  <dt>Processing</dt>
-                  <dd>{processingLabel(document.processing_status)}</dd>
-                </dl>
-                <div className="button-row">
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={() => {
-                      setValues(toValues(document))
-                      setTitleValue(document.title)
-                      setErrors({ fields: {} })
-                      setEditing(true)
-                    }}
-                  >
-                    Edit details
-                  </button>
-                  <button type="button" className="button button-secondary" onClick={() => void handleDownload()}>
-                    Download
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="card danger-zone">
-            <h2>Delete document</h2>
-            {confirmingDelete ? (
-              <div role="alertdialog" aria-labelledby="delete-question" aria-describedby="delete-explanation">
-                <p id="delete-question">
-                  <strong>Delete “{document.title}” permanently?</strong>
-                </p>
-                <p id="delete-explanation">
-                  The file is removed now and cannot be recovered from the app. Backup copies are erased automatically
-                  within 30 days.
-                </p>
-                <div className="button-row">
-                  <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={busy}>
-                    {busy ? 'Deleting…' : 'Delete permanently'}
-                  </button>
-                  <button type="button" className="button button-secondary" onClick={() => setConfirmingDelete(false)}>
-                    Keep document
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" className="button button-secondary" onClick={() => setConfirmingDelete(true)}>
-                Delete…
-              </button>
-            )}
-          </div>
-        </div>
+        <ExtractedResults documentId={document.id} onStatusChange={handleStatusChange} />
       </div>
+
     </section>
   )
 }

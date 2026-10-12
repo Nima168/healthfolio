@@ -41,10 +41,20 @@ describe('Documents page', () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([makeDocument()]) })
     renderAt('/documents')
 
-    const item = (await screen.findByRole('link', { name: 'Blood test March' })).closest('li') as HTMLElement
-    expect(within(item).getByText(/Lab report · March 2026 · City Diagnostics/)).toBeInTheDocument()
-    expect(within(item).getByText(/blood-test\.pdf · PDF · 178 KB/)).toBeInTheDocument()
-    expect(within(item).getByText('Waiting for processing (extraction coming soon)')).toBeInTheDocument()
+    const table = await screen.findByRole('table', { name: 'Your documents' })
+    expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual([
+      'Name',
+      'Type',
+      'Document date',
+      'Hospital, lab, or clinic',
+      'File',
+      'Uploaded',
+    ])
+    const row = within(table).getByRole('link', { name: 'Blood test March' }).closest('tr') as HTMLElement
+    const cells = within(row).getAllByRole('cell').map((td) => td.textContent)
+    expect(cells.slice(0, 3)).toEqual(['Lab report', 'March 2026', 'City Diagnostics'])
+    expect(cells[3]).toBe('blood-test.pdfPDF · 178 KB')
+    expect(within(row).queryByText('Queued for extraction')).not.toBeInTheDocument() // no processing status shown
   })
 
   it('shows your documents above the upload panel, with a link down to it', async () => {
@@ -55,6 +65,22 @@ describe('Documents page', () => {
     const uploadHeading = screen.getByRole('heading', { name: 'Upload a document' })
     expect(listHeading.compareDocumentPosition(uploadHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole('link', { name: /Upload a document/ })).toHaveAttribute('href', '#upload')
+  })
+
+  it('notes that only 1-page discharge summaries are supported for now', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
+    renderAt('/documents')
+
+    await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
+    await userEvent.click(screen.getByText('Add details (optional)'))
+    const type = screen.getByLabelText('Document type')
+    expect(screen.queryByText(/1-page discharge summary/)).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(type, 'discharge_summary')
+
+    const note = screen.getByText(/Please upload a 1-page discharge summary/)
+    expect(note).toHaveTextContent('more than one page will be supported in a later update')
+    expect(type).toHaveAttribute('aria-describedby', note.id)
   })
 
   it('explains what is missing when Upload is clicked with nothing chosen', async () => {
@@ -239,7 +265,7 @@ describe('Document detail page', () => {
     })
     renderAt('/documents/doc-1')
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Delete…' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete document' }))
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveTextContent('Delete “Blood test March” permanently?')
     expect(dialog).toHaveTextContent('Backup copies are erased automatically within 30 days')

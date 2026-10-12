@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { toFormErrors } from '../auth/formErrors'
 import { SelectField } from '../components/SelectField'
 import { CATEGORIES, documentsApi, type Category, type MedicalDocument } from './documentsApi'
-import { CATEGORY_LABELS, formatBytes, formatDocumentDate, formatTimestamp, processingLabel, typeLabel } from './format'
+import { CATEGORY_LABELS, formatBytes, formatDocumentDate, formatTimestamp, typeLabel } from './format'
 import { UploadPanel } from './UploadPanel'
 
 export function DocumentsPage() {
@@ -80,28 +80,42 @@ export function DocumentsPage() {
       )}
 
       {documents.length > 0 && (
-        <ul className="document-list" aria-busy={loading}>
-          {documents.map((document) => (
-            <li key={document.id} className="card document-row">
-              <div>
-                <Link to={`/documents/${document.id}`} className="document-name">
-                  {document.title}
-                </Link>
-                <p className="document-meta">
-                  {CATEGORY_LABELS[document.category]} · {formatDocumentDate(document)}
-                  {document.provider_name && <> · {document.provider_name}</>}
-                </p>
-                <p className="document-meta mono">
-                  {document.original_filename} · {typeLabel(document.media_type)} · {formatBytes(document.size_bytes)} · Uploaded{' '}
-                  {formatTimestamp(document.created_at)}
-                </p>
-              </div>
-              <span className="status-badge" data-state="checking">
-                {processingLabel(document.processing_status)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        // The wrapper scrolls sideways on narrow screens, so the page itself never does.
+        <div className="card document-table-wrap">
+          <table className="document-table" aria-busy={loading}>
+            <caption className="visually-hidden">Your documents</caption>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Type</th>
+                <th scope="col">Document date</th>
+                <th scope="col">Hospital, lab, or clinic</th>
+                <th scope="col">File</th>
+                <th scope="col">Uploaded</th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((document) => (
+                <tr key={document.id}>
+                  <th scope="row">
+                    <Link to={`/documents/${document.id}`} className="document-name">
+                      {document.title}
+                    </Link>
+                  </th>
+                  <td>{CATEGORY_LABELS[document.category]}</td>
+                  <td>{formatDocumentDate(document)}</td>
+                  <td>{document.provider_name ?? '—'}</td>
+                  <td className="mono document-file">
+                    {document.original_filename}
+                    <br />
+                    {typeLabel(document.media_type)} · {formatBytes(document.size_bytes)}
+                  </td>
+                  <td className="mono">{formatTimestamp(document.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {loading && <p role="status">Loading documents…</p>}

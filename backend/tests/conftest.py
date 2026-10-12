@@ -17,6 +17,7 @@ os.environ["JWT_SECRET"] = "test-secret-" + "x" * 40
 os.environ["EMAIL_BACKEND"] = "file"
 os.environ["DEV_MAIL_DIR"] = tempfile.mkdtemp(prefix="test_mail_")
 os.environ["DOCUMENT_STORAGE_DIR"] = tempfile.mkdtemp(prefix="test_documents_")
+os.environ["EXTRACTION_ENABLED"] = "false"  # tests turn it on explicitly where needed
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -31,7 +32,10 @@ from app.db.session import get_engine, get_session_factory  # noqa: E402
 from app.main import create_app  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-ALL_TABLES = "documents, audit_events, email_deliveries, password_reset_tokens, refresh_tokens, users"
+ALL_TABLES = (
+    "follow_ups, suggestions, conditions, medications, observations, processing_jobs, documents, "
+    "audit_events, email_deliveries, password_reset_tokens, refresh_tokens, users"
+)
 
 
 @pytest.fixture(autouse=True)
