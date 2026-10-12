@@ -46,17 +46,20 @@ function profile(overrides: Partial<Profile> = {}): Profile {
   }
 }
 
+const NO_READINGS = { 'GET /vitals': () => jsonResponse(200, { items: [] }) }
+
 describe('Health profile', () => {
   it('shows details, allergies, conditions, and suggestions apart from confirmed data', async () => {
-    stubFetch({ ...LOGGED_IN, 'GET /profile': () => jsonResponse(200, profile()) })
+    stubFetch({ ...LOGGED_IN, ...NO_READINGS, 'GET /profile': () => jsonResponse(200, profile()) })
     renderAt('/profile')
 
     expect(await screen.findByLabelText('Date of birth')).toHaveValue('1985-04-12')
     expect(screen.getByLabelText('Sex')).toHaveValue('female')
     expect(screen.getByLabelText('Height (cm)')).toHaveValue('162')
     expect(screen.getByRole('note', { name: 'Allergies' })).toHaveTextContent('Allergies: Penicillin (drug) — Hives')
-    expect(screen.queryByLabelText(/Blood pressure/)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/Heart rate/)).not.toBeInTheDocument()
+    const personal = screen.getByRole('region', { name: 'Personal Data' })
+    expect(within(personal).queryByLabelText(/Blood pressure|Systolic/)).not.toBeInTheDocument()
+    expect(within(personal).queryByLabelText(/Heart rate/)).not.toBeInTheDocument()
     // Suggestions sit in Medical history; a notice at the top links to them.
     expect(screen.getByRole('link', { name: /1 diagnosis from your documents to review/ })).toHaveAttribute('href', '#suggestions-title')
     expect(within(screen.getByRole('region', { name: 'Medical history' })).getByRole('region', { name: /Suggested from your documents/ })).toBeInTheDocument()
@@ -77,6 +80,7 @@ describe('Health profile', () => {
     let attempts = 0
     const fetchMock = stubFetch({
       ...LOGGED_IN,
+      ...NO_READINGS,
       'GET /profile': () => jsonResponse(200, profile()),
       'PATCH /profile/values': () =>
         ++attempts === 1
@@ -100,6 +104,7 @@ describe('Health profile', () => {
   it('shows the change history', async () => {
     stubFetch({
       ...LOGGED_IN,
+      ...NO_READINGS,
       'GET /profile': () => jsonResponse(200, profile()),
       'GET /profile/history': () =>
         jsonResponse(200, {
@@ -120,6 +125,7 @@ describe('Health profile', () => {
   it('accepts, corrects, or rejects a suggestion', async () => {
     const fetchMock = stubFetch({
       ...LOGGED_IN,
+      ...NO_READINGS,
       'GET /profile': () => jsonResponse(200, profile()),
       'POST /profile/suggestions/s-1': () => jsonResponse(200, profile({ suggestions: [] })),
     })
@@ -141,6 +147,7 @@ describe('Health profile', () => {
   it('adds and removes allergies and conditions', async () => {
     const fetchMock = stubFetch({
       ...LOGGED_IN,
+      ...NO_READINGS,
       'GET /profile': () => jsonResponse(200, profile({ suggestions: [] })),
       'POST /profile/allergies': () => jsonResponse(201, { id: 'al-2', name: 'Peanuts', added_at: '' }),
       'DELETE /profile/allergies/al-1': () => new Response(null, { status: 204 }),
@@ -167,6 +174,7 @@ describe('Health profile', () => {
   it('shows BMI, hospital stays from documents, and active medications', async () => {
     stubFetch({
       ...LOGGED_IN,
+      ...NO_READINGS,
       'GET /profile': () =>
         jsonResponse(
           200,
@@ -206,6 +214,7 @@ describe('Health profile', () => {
   it('adds family history with the relative', async () => {
     const fetchMock = stubFetch({
       ...LOGGED_IN,
+      ...NO_READINGS,
       'GET /profile': () => jsonResponse(200, profile({ suggestions: [] })),
       'POST /profile/records': () =>
         jsonResponse(201, { id: 'r-1', kind: 'family', name: 'Heart disease', occurred_on: null, relation: 'Father', notes: null }),
@@ -227,6 +236,7 @@ describe('Health profile', () => {
     let call = 0
     stubFetch({
       ...LOGGED_IN,
+      ...NO_READINGS,
       'GET /profile': () =>
         jsonResponse(200, ++call === 1 ? profile({ suggestions: [], bmi: 22.1, bmi_category: null }) : profile()),
     })

@@ -17,6 +17,7 @@ from app.schemas.profile import (
     ConditionSuggestionResponse,
     ConditionUpdate,
     DocumentStayResponse,
+    LatestVitalResponse,
     ProfileHistoryEntry,
     ProfileHistoryResponse,
     ProfileResponse,
@@ -27,6 +28,7 @@ from app.schemas.profile import (
     ValuesUpdate,
 )
 from app.services.profile_service import SINGLE_FIELDS, ProfileService, clean_value
+from app.services.vitals_service import VitalsService
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -67,8 +69,25 @@ def _record(item) -> RecordItemResponse:
     )
 
 
+def _latest(reading, kind: str) -> LatestVitalResponse | None:
+    if reading is None:
+        return None
+    value, unit = (
+        (f"{reading.systolic}/{reading.diastolic}", "mmHg")
+        if kind == "blood_pressure"
+        else (str(reading.heart_rate), "bpm")
+    )
+    return LatestVitalResponse(
+        value=value,
+        unit=unit,
+        measured_on=reading.measured_on,
+        measured_time=reading.measured_time.strftime("%H:%M") if reading.measured_time else None,
+    )
+
+
 def _profile(service: ProfileService, user_id: uuid.UUID) -> ProfileResponse:
     data = service.profile(user_id)
+    latest = VitalsService(service.session).latest(user_id)
     values = {}
     for field in SINGLE_FIELDS:
         value = data["values"].get(field)
@@ -79,6 +98,8 @@ def _profile(service: ProfileService, user_id: uuid.UUID) -> ProfileResponse:
         values=values,
         bmi=data["bmi"],
         bmi_category=data["bmi_category"],
+        latest_blood_pressure=_latest(latest["blood_pressure"], "blood_pressure"),
+        latest_heart_rate=_latest(latest["heart_rate"], "heart_rate"),
         allergies=[_allergy(a) for a in data["allergies"]],
         surgeries=[_record(r) for r in data["surgeries"]],
         hospitalizations=[_record(r) for r in data["hospitalizations"]],

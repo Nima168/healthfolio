@@ -1,9 +1,9 @@
 """Health profile values and their history (data_model_spec.md Section 5.4)."""
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Text, Time, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -87,4 +87,28 @@ class MedicalRecordItem(TimestampMixin, Base):
     occurred_on: Mapped[date | None] = mapped_column(Date)  # surgeries and hospitalizations
     relation: Mapped[str | None] = mapped_column(String(50))  # family history: e.g. Mother
     notes: Mapped[str | None] = mapped_column(Text)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class VitalReading(TimestampMixin, Base):
+    """One blood pressure and/or heart rate reading at a point in time, as entered by the user.
+
+    Kept as separate dated readings because these values change over time; never labelled high or low.
+    """
+
+    __tablename__ = "vital_readings"
+    __table_args__ = (
+        CheckConstraint("systolic IS NOT NULL OR heart_rate IS NOT NULL", name="ck_vital_readings_something_measured"),
+        CheckConstraint("(systolic IS NULL) = (diastolic IS NULL)", name="ck_vital_readings_pressure_pair"),
+        Index("ix_vital_readings_user_measured", "user_id", "measured_on"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    measured_on: Mapped[date] = mapped_column(Date, nullable=False)
+    measured_time: Mapped[time | None] = mapped_column(Time)
+    systolic: Mapped[int | None] = mapped_column(Integer)  # mmHg
+    diastolic: Mapped[int | None] = mapped_column(Integer)  # mmHg
+    heart_rate: Mapped[int | None] = mapped_column(Integer)  # beats per minute
+    context: Mapped[str | None] = mapped_column(String(200))  # e.g. "morning, at home, sitting"
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

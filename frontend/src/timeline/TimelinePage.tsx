@@ -23,6 +23,7 @@ const CATEGORY_LABELS: Record<TimelineCategory, string> = {
   prescriptions: 'Prescriptions',
   medications: 'Medications',
   follow_ups: 'Follow-ups',
+  vitals: 'Vital signs',
   documents: 'Other documents',
 }
 

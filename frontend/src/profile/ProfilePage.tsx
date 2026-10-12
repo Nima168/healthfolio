@@ -21,6 +21,7 @@ import {
   type RecordItem,
   type RecordKind,
 } from './profileApi'
+import { VitalsSection } from './VitalsSection'
 
 const FIELD_LABELS: Record<string, string> = {
   date_of_birth: 'Date of birth',
@@ -421,7 +422,7 @@ export function ProfilePage() {
   return (
     <section aria-labelledby="page-title">
       <h1 id="page-title">Health Profile</h1>
-      <HelperNote>Your vital signs, medical history, medicines, allergies, and family history in one place.</HelperNote>
+      <HelperNote>Your personal data, vital signs, medical history, medicines, allergies, and family history in one place.</HelperNote>
 
       {/* Allergies first: the most important thing for anyone treating you. */}
       <div className={`allergy-banner${profile.allergies.length ? '' : ' allergy-banner-none'}`} role="note" aria-label="Allergies">
@@ -503,6 +504,8 @@ export function ProfilePage() {
           </div>
         )}
       </section>
+
+      <VitalsSection />
 
       <section className="card profile-section" aria-labelledby="history-title">
         <h2 id="history-title">Medical history</h2>

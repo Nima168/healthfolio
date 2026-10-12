@@ -336,7 +336,7 @@ Rules:
 
 Decision 2026-10-12 (`backend/app/services/timeline_service.py`). `GET /api/v1/timeline` returns the user's records in date order, built from the existing records on each request (nothing new is stored).
 
-Query: `category` (repeatable: `lab_results`, `imaging`, `test_reports`, `consultations`, `hospital_stays`, `prescriptions`, `medications`, `follow_ups`, `documents`), `date_from`, `date_to` (undated entries are left out when either is set; `422` when `date_to` is before `date_from`), `limit` (1–100, default 50), `cursor`.
+Query: `category` (repeatable: `lab_results`, `imaging`, `test_reports`, `consultations`, `hospital_stays`, `prescriptions`, `medications`, `follow_ups`, `vitals`, `documents`), `date_from`, `date_to` (undated entries are left out when either is set; `422` when `date_to` is before `date_from`), `limit` (1–100, default 50), `cursor`.
 
 Response: `{ items: [{ id, date, date_precision, category, title, lines[], trust, tag, source_document_id, source_document_title, link }], next_cursor }`. `trust` is `from_document` (read by AI, not checked by the user), `confirmed_by_you`, `edited_by_you`, or `added_by_you`.
 
@@ -385,6 +385,18 @@ Rules:
 5. BMI (2026-10-13) is calculated from the saved height and weight (kg/m², one decimal). `bmi_category` uses the adult categories on that value: underweight below 18.5; healthy 18.5–24.9; overweight 25.0–29.9; obesity class 1 30.0–34.9, class 2 35.0–39.9, class 3 40.0 or greater. It is null when the date of birth shows an age under 18. Blood pressure and heart rate are not profile values, because they change over time (removed 2026-10-13; the database still accepts the field names from migration 0013, unused).
 6. Medical history: conditions, past surgeries and hospitalizations (dates optional, not in the future); `document_stays` lists hospital stays read from discharge summaries (as written, not editable here). Family history needs a relative (Mother, Father, Sister, Brother, Grandmother, Grandfather, Aunt, Uncle, Child, Other) and has no date.
 7. Active medications are the medicines marked as taking (`status: active`) on the Medications page; a document never makes a medicine active. Medicines have a `kind`: `prescription` (default, and all medicines from documents), `over_the_counter`, or `supplement`.
+
+### 6.10 Vital Sign Readings
+
+Decision 2026-10-13 (`backend/app/services/vitals_service.py`, migration 0014). Blood pressure and heart rate change over time, so they are dated readings, not profile values.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/vitals` | The user's readings, newest first: `{id, measured_on, measured_time, systolic, diastolic, heart_rate, context}` |
+| POST | `/api/v1/vitals` | Add a reading: `measured_on` (required, not in the future), optional `measured_time`, a blood pressure (both numbers) and/or a heart rate, optional `context` (e.g. "morning, at home") |
+| DELETE | `/api/v1/vitals/{id}` | Remove a reading |
+
+Rules: systolic 50–260 and diastolic 30–160 mmHg with systolic higher; heart rate 20–250 bpm (outside these is treated as a typing mistake, `422` with the field). Readings are shown as recorded: never labelled high or low, not compared or trended. `GET /profile` adds `latest_blood_pressure` and `latest_heart_rate` (`{value, unit, measured_on, measured_time}` or null), each from the latest reading that has it. Each reading is one Timeline entry (category `vitals`). Values printed in documents are not read into readings yet.
 
 ## 7. Asynchronous Processing and AI APIs
 

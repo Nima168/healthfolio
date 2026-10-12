@@ -156,7 +156,7 @@ def test_filters_by_category_and_date(client, asha):
     assert [e["category"] for e in dated] == ["prescriptions"]  # undated entries are left out of a date range
     rejected = client.get(URL, headers=asha, params={"date_from": "2026-10-02", "date_to": "2026-10-01"})
     assert rejected.status_code == 422
-    assert client.get(URL, headers=asha, params={"category": "vitals"}).status_code == 422
+    assert client.get(URL, headers=asha, params={"category": "weather"}).status_code == 422
 
 
 def test_pages(client, asha):

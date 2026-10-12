@@ -15,6 +15,7 @@ TimelineCategory = Literal[
     "prescriptions",
     "medications",
     "follow_ups",
+    "vitals",
     "documents",
 ]
 

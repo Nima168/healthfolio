@@ -21,6 +21,7 @@ from app.models.prescription import Condition, FollowUp, Medication
 from app.services.lab_summary import classify
 from app.services.medication_service import MedicationService
 from app.services.report_summaries import summarise_consultation, summarise_imaging, summarise_test_report
+from app.services.vitals_service import VitalsService
 
 CATEGORIES = (
     "lab_results",
@@ -31,6 +32,7 @@ CATEGORIES = (
     "prescriptions",
     "medications",
     "follow_ups",
+    "vitals",
     "documents",
 )
 _COMPLETED = ("completed", "completed_with_warnings")
@@ -340,6 +342,31 @@ class TimelineService:
             )
         return entries
 
+    def _vitals(self, user_id: uuid.UUID) -> list[TimelineEntry]:
+        entries = []
+        for reading in VitalsService(self.session).readings(user_id):
+            parts = []
+            if reading.systolic is not None:
+                parts.append(f"Blood pressure {reading.systolic}/{reading.diastolic} mmHg")
+            if reading.heart_rate is not None:
+                parts.append(f"Heart rate {reading.heart_rate} bpm")
+            lines = [reading.measured_time.strftime("%H:%M")] if reading.measured_time else []
+            if reading.context:
+                lines.append(reading.context)
+            entries.append(
+                TimelineEntry(
+                    id=f"vitals:{reading.id}",
+                    date=reading.measured_on,
+                    date_precision="day",
+                    category="vitals",
+                    title=" · ".join(parts),
+                    lines=[" · ".join(lines)] if lines else [],
+                    trust="added_by_you",
+                    link="/profile#vitals-title",
+                )
+            )
+        return entries
+
     # ---------- public ----------
 
     def entries(
@@ -368,6 +395,7 @@ class TimelineService:
         entries += self._reports(documents, jobs, conditions)
         entries += self._medications(user_id, documents, entries)
         entries += self._follow_ups(user_id, documents)
+        entries += self._vitals(user_id)
 
         def keep(entry: TimelineEntry) -> bool:
             if categories and entry.category not in categories:

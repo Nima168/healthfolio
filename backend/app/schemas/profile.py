@@ -71,6 +71,13 @@ class ConditionSuggestionResponse(BaseModel):
     source_document_date: date | None
 
 
+class LatestVitalResponse(BaseModel):
+    value: str  # "128/84" or "72"
+    unit: str
+    measured_on: date
+    measured_time: str | None  # HH:MM
+
+
 class ProfileResponse(BaseModel):
     values: dict[PersonalField, ProfileValueResponse | None]
     bmi: float | None  # calculated from height and weight
@@ -84,6 +91,9 @@ class ProfileResponse(BaseModel):
     document_stays: list[DocumentStayResponse]  # read from discharge summaries
     family_history: list[RecordItemResponse]
     active_medications: list[ActiveMedicationResponse]  # marked as taking on the Medications page
+    # The latest dated readings (from vital_readings), each with its own date.
+    latest_blood_pressure: LatestVitalResponse | None
+    latest_heart_rate: LatestVitalResponse | None
 
 
 class ProfileHistoryEntry(BaseModel):

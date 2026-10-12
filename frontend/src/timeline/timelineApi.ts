@@ -10,6 +10,7 @@ export const TIMELINE_CATEGORIES = [
   'prescriptions',
   'medications',
   'follow_ups',
+  'vitals',
   'documents',
 ] as const
 export type TimelineCategory = (typeof TIMELINE_CATEGORIES)[number]

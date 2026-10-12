@@ -1354,3 +1354,44 @@ button {
   margin-top: 0;
 }
 
+/* ---------- vital sign readings ---------- */
+.vitals-latest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+.vital-tile {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 2px 6px;
+  min-width: 200px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.vital-name {
+  grid-column: 1 / -1;
+  font-weight: 700;
+}
+.vital-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.vital-unit {
+  color: var(--color-text-muted);
+}
+.vital-when {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+}
+.vitals-form .button {
+  margin-bottom: 16px;
+}
+.vitals-table-wrap {
+  margin-bottom: 8px;
+}
+
