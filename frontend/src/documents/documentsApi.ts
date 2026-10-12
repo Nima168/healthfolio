@@ -35,6 +35,24 @@ export interface DocumentPage {
   pagination: { limit: number; next_cursor: string | null }
 }
 
+/** Filters for the documents list; dates are the report's own date (YYYY-MM-DD). */
+export interface DocumentFilters {
+  category: Category | ''
+  dateFrom: string
+  dateTo: string
+  /** A hospital or clinic name, NO_PROVIDER, or '' for all. */
+  provider: string
+}
+
+/** The "No hospital given" choice in the hospital filter. */
+export const NO_PROVIDER = '__none__'
+
+export interface ProviderList {
+  /** Names as most often written; case and spacing variants are counted together. */
+  items: { name: string; document_count: number }[]
+  without_provider: number
+}
+
 export interface DocumentMetadata {
   title?: string
   category?: Category | null
@@ -49,14 +67,19 @@ export const MAX_UPLOAD_MB = 20
 export const TITLE_MAX_LENGTH = 200
 
 export const documentsApi = {
-  list: (params: { cursor?: string | null; category?: Category | ''; limit?: number } = {}) => {
+  list: (params: { cursor?: string | null; limit?: number } & Partial<DocumentFilters> = {}) => {
     const query = new URLSearchParams()
     if (params.limit) query.set('limit', String(params.limit))
     if (params.cursor) query.set('cursor', params.cursor)
     if (params.category) query.set('category', params.category)
+    if (params.dateFrom) query.set('date_from', params.dateFrom)
+    if (params.dateTo) query.set('date_to', params.dateTo)
+    if (params.provider === NO_PROVIDER) query.set('provider_missing', 'true')
+    else if (params.provider) query.set('provider', params.provider)
     const suffix = query.toString() ? `?${query}` : ''
     return apiGet<DocumentPage>(`/documents${suffix}`)
   },
+  providers: () => apiGet<ProviderList>('/documents/providers'),
   get: (id: string) => apiGet<MedicalDocument>(`/documents/${encodeURIComponent(id)}`),
   upload: (file: File, metadata: DocumentMetadata, options?: UploadOptions) => {
     const form = new FormData()

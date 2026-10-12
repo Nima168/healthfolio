@@ -158,12 +158,22 @@ class ObservationService:
 
     def _withdraw_readings(self, document_id: uuid.UUID) -> None:
         now = datetime.now(UTC)
-        for model in (Observation, Medication, Condition):
+        for model in (Observation, Condition):
             self.session.execute(
                 update(model)
                 .where(model.source_document_id == document_id, model.deleted_at.is_(None))
                 .values(deleted_at=now)
             )
+        # Medicines the user changed are kept; the new reading re-links a matching one (extraction_service).
+        self.session.execute(
+            update(Medication)
+            .where(
+                Medication.source_document_id == document_id,
+                Medication.deleted_at.is_(None),
+                Medication.user_updated_at.is_(None),
+            )
+            .values(deleted_at=now)
+        )
         self.session.execute(
             update(Suggestion)
             .where(Suggestion.source_document_id == document_id, Suggestion.status == "pending")

@@ -178,7 +178,8 @@ All require a Bearer access token. Another user's document returns `404` on ever
 | Method | Path | Request | Success | Errors |
 |---|---|---|---|---|
 | POST | `/documents` | `multipart/form-data`: `file` and `title` (both required); optional `category`, `document_date` (`YYYY-MM-DD`), `document_date_precision`, `provider_name` | `201` document | `409 DUPLICATE_DOCUMENT`, `413`, `415`, `422`, `429` |
-| GET | `/documents` | Query: `limit` (1–50, default 20), `cursor`, optional `category` | `200` page of documents, newest first | `422` |
+| GET | `/documents` | Query: `limit` (1–50, default 20), `cursor`, optional `category`, `date_from` and `date_to` (`YYYY-MM-DD`, on the report's own date; undated documents are left out when either is set), `provider` (matched ignoring case and extra spaces, never by similar spelling), `provider_missing=true` (documents with no hospital or clinic). Filters combine. | `200` page of documents, newest first | `422` (also when `date_to` is before `date_from`) |
+| GET | `/documents/providers` | — | `200` `{ items: [{name, document_count}], without_provider }`: the user's hospital and clinic names (case and spacing variants counted together, shown with the most used spelling), A to Z | — |
 | GET | `/documents/{id}` | — | `200` document | `404` |
 | GET | `/documents/{id}/file` | Query: `download=true` for a download, otherwise inline | `200` original bytes | `404` |
 | PATCH | `/documents/{id}` | JSON with any of `title`, `category`, `document_date`, `document_date_precision`, `provider_name` (`null` clears a field, except `title`) | `200` document | `404`, `422` |
@@ -308,6 +309,28 @@ Rules (deterministic code; the AI only copies; `backend/app/ai/report_validation
 4. Test reports: a measurement is flagged high/low only against its printed range (Section 6.2 range rules) and only when the value is a plain number; "no range given" otherwise. Interpretations are kept apart by source (machine first, then physician); `confirmed` only when the report says so. Charts and tracings are listed as "not extracted (image only)".
 
 The client shows them as plain text: `CONSULTATION SUMMARY — date (doctor)` with Symptoms, Observations, Assessment, Plan, Follow-Up; `IMAGING SUMMARY — exam` with Source, Examination Date (reported …), Body Region, Findings, Impression, Uncertainty; `<TYPE> SUMMARY — test` with Source, Date, Reported Measurements, Interpretation, Visual Content.
+
+### 6.6 Medication Records
+
+Decision 2026-10-12. The user's medicine list: read from prescriptions and discharge summaries, or added by the user (`backend/app/services/medication_service.py`).
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/medications` | The user's medicines: taking (`active`), not confirmed (`unknown`), then `stopped` |
+| POST | `/api/v1/medications` | Add a medicine (`origin = user_entered`; status defaults to `active`) |
+| PATCH | `/api/v1/medications/{id}` | Change details or status; only the fields sent change (`null` clears an optional one) |
+| DELETE | `/api/v1/medications/{id}` | Remove from the list (soft delete; the row and its history are kept) |
+| GET | `/api/v1/medications/{id}/history` | Change history, newest first: `{change, changed_at, changes {field: [before, after]}, snapshot}` |
+
+A medicine is `{ id, name, strength, dosage_text, duration_text, prescriber_name, start_date, end_date, notes, status, origin, status_confirmed, edited, review_reason, source_document_id, source_document_title, source_document_date, source_document_deleted, updated_at }`.
+
+Rules:
+
+1. A document never sets a medicine as being taken: medicines read from documents are `unknown` until the user marks them `active` or `stopped` (`status_confirmed`).
+2. Every change writes a history entry (`added`, `edited`, `status_changed`, `removed`) with the values before it. A change that alters nothing writes none. Editing details clears `review_reason`.
+3. Medicines the user changed stay theirs: "Read again" and deleting the source document withdraw only medicines the user has not changed. A new reading re-links a kept medicine with the same name and strength instead of adding it twice.
+4. Medicines are never merged across documents. No medication-taking or renewal reminders (out of scope).
+5. Validation: name required (max 200 characters); the end date cannot be before the start date; unknown fields are rejected (422). Other users' medicines return 404.
 
 ## 7. Asynchronous Processing and AI APIs
 

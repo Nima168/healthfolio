@@ -12,6 +12,7 @@ from pydantic import BeforeValidator
 from app.api.deps import CurrentUser, DbDep, SettingsDep
 from app.core.errors import ApiError
 from app.core.rate_limit import check_user_rate_limit
+from app.repositories.documents import DocumentFilters
 from app.schemas.documents import (
     Category,
     DatePrecision,
@@ -19,7 +20,9 @@ from app.schemas.documents import (
     DocumentResponse,
     DocumentUpdate,
     Pagination,
+    ProviderList,
     ProviderName,
+    ProviderOption,
     check_title,
     empty_to_none,
 )
@@ -85,11 +88,32 @@ def list_documents(
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
     cursor: Annotated[str | None, Query(max_length=200)] = None,
     category: Category | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    provider: Annotated[str | None, Query(max_length=200)] = None,
+    provider_missing: bool = False,
 ) -> DocumentPage:
-    items, next_cursor = service.list_documents(user.id, limit, cursor, category)
+    """Filters combine; dates are the report's own date, and the hospital matches ignoring case and spacing."""
+    filters = DocumentFilters(
+        category=category,
+        date_from=date_from,
+        date_to=date_to,
+        provider=provider.strip() or None if provider else None,
+        provider_missing=provider_missing,
+    )
+    items, next_cursor = service.list_documents(user.id, limit, cursor, filters)
     return DocumentPage(
         items=[DocumentResponse.model_validate(item) for item in items],
         pagination=Pagination(limit=limit, next_cursor=next_cursor),
+    )
+
+
+@router.get("/providers")
+def list_providers(user: CurrentUser, service: ServiceDep) -> ProviderList:
+    """The hospitals and clinics in the user's documents, for the filter (api_contract_spec.md Section 6.1.1)."""
+    names, missing = service.providers(user.id)
+    return ProviderList(
+        items=[ProviderOption(name=name, document_count=count) for name, count in names], without_provider=missing
     )
 
 

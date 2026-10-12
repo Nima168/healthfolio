@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { toFormErrors, type FormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
+import { TrashIcon } from '../components/icons'
 import { documentsApi, TITLE_MAX_LENGTH, type MedicalDocument } from './documentsApi'
 import { ExtractedResults } from './ExtractedResults'
 import type { JobStatus } from './extractionApi'
@@ -59,18 +60,6 @@ function toValues(document: MedicalDocument): MetadataValues {
     document_date_precision: document.document_date_precision === 'day' ? '' : (document.document_date_precision ?? ''),
     provider_name: document.provider_name ?? '',
   }
-}
-
-/** Trash-can icon (inline SVG, no icon library needed). */
-function TrashIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-      <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
-  )
 }
 
 export function DocumentDetailPage() {

@@ -198,9 +198,148 @@ describe('Documents page', () => {
     expect(await screen.findByRole('link', { name: 'Older report' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByLabelText('Show'), 'prescription')
-    expect(await screen.findByText('No documents of this type yet.')).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'prescription')
+    expect(await screen.findByText('No documents match these filters.')).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/documents?category=prescription'))).toBe(true)
+  })
+})
+
+describe('Filtering and grouping documents', () => {
+  const PROVIDERS = {
+    items: [
+      { name: 'Apollo Hospitals', document_count: 2 },
+      { name: 'SampleCare Clinic', document_count: 1 },
+    ],
+    without_provider: 1,
+  }
+  const day = { document_date_precision: 'day' as const }
+  const LIBRARY = [
+    makeDocument({ id: 'a', title: 'CBC', document_date: '2026-10-07', ...day, provider_name: 'Apollo Hospitals' }),
+    makeDocument({ id: 'b', title: 'Lipids', document_date: '2026-08-15', ...day, provider_name: 'apollo  hospitals' }),
+    makeDocument({
+      id: 'c',
+      title: 'Prescription Oct',
+      category: 'prescription',
+      document_date: '2026-10-01',
+      ...day,
+      provider_name: 'SampleCare Clinic',
+    }),
+    makeDocument({
+      id: 'd',
+      title: 'Old scan',
+      category: 'imaging_report',
+      document_date: '2024-01-01',
+      document_date_precision: 'year',
+      provider_name: null,
+    }),
+    makeDocument({
+      id: 'e',
+      title: 'Undated note',
+      category: 'other',
+      document_date: null,
+      document_date_precision: null,
+      provider_name: null,
+    }),
+  ]
+  const groupHeadings = () =>
+    screen.getAllByRole('region', { name: /\(\d+\)$/ }).map((region) => within(region).getByRole('heading').textContent)
+  const groupTitles = (name: RegExp) =>
+    within(screen.getByRole('region', { name })).getAllByRole('link').map((link) => link.textContent)
+  const providers = () => jsonResponse(200, PROVIDERS)
+
+  it('groups by hospital, counting spelling variants together, with "No hospital given" last', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents/providers': providers, 'GET /documents?limit=50': () => page(LIBRARY) })
+    renderAt('/documents?group=hospital')
+
+    await screen.findByRole('region', { name: /Apollo Hospitals/ })
+    expect(groupHeadings()).toEqual(['Apollo Hospitals (2)', 'SampleCare Clinic (1)', 'No hospital given (2)'])
+    expect(groupTitles(/Apollo Hospitals/)).toEqual(['CBC', 'Lipids'])
+  })
+
+  it('groups by report month, newest first, with year-only and undated documents placed clearly', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents/providers': providers, 'GET /documents?limit=50': () => page(LIBRARY) })
+    renderAt('/documents?group=date')
+
+    await screen.findByRole('region', { name: /October 2026/ })
+    expect(groupHeadings()).toEqual([
+      'October 2026 (2)',
+      'August 2026 (1)',
+      '2024 (month not given) (1)',
+      'No date (1)',
+    ])
+    expect(groupTitles(/October 2026/)).toEqual(['CBC', 'Prescription Oct'])
+  })
+
+  it('groups by type in the usual type order', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents/providers': providers, 'GET /documents?limit=50': () => page(LIBRARY) })
+    renderAt('/documents?group=type')
+
+    await screen.findByRole('region', { name: /Lab report/ })
+    expect(groupHeadings()).toEqual(['Lab report (2)', 'Prescription (1)', 'Imaging report (1)', 'Other (1)'])
+  })
+
+  it('loads every page when grouped, so groups are complete', async () => {
+    stubFetch({
+      ...LOGGED_IN,
+      'GET /documents/providers': providers,
+      'GET /documents?limit=50': () => page(LIBRARY.slice(0, 2), 'next-page'),
+      'GET /documents?limit=50&cursor=next-page': () => page(LIBRARY.slice(2)),
+    })
+    renderAt('/documents?group=type')
+
+    expect(await screen.findByRole('region', { name: /Other/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
+  })
+
+  it('sends the filters to the server and keeps them until cleared', async () => {
+    const fetchMock = stubFetch({
+      ...LOGGED_IN,
+      'GET /documents/providers': providers,
+      'GET /documents': () => page(LIBRARY),
+      'GET /documents?category=lab_report': () => page(LIBRARY.slice(0, 2)),
+      'GET /documents?category=lab_report&provider=Apollo+Hospitals': () => page(LIBRARY.slice(0, 2)),
+      'GET /documents?category=lab_report&provider_missing=true': () => page([]),
+    })
+    renderAt('/documents')
+
+    const hospital = await screen.findByLabelText('Hospital or clinic')
+    expect(await within(hospital).findByRole('option', { name: 'Apollo Hospitals (2)' })).toBeInTheDocument()
+    expect(within(hospital).getByRole('option', { name: 'No hospital given (1)' })).toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'lab_report')
+    await userEvent.selectOptions(hospital, 'Apollo Hospitals')
+    expect(await screen.findByRole('link', { name: 'Lipids' })).toBeInTheDocument()
+    const called = (suffix: string) => fetchMock.mock.calls.some(([url]) => String(url).endsWith(suffix))
+    await screen.findByRole('link', { name: 'CBC' })
+    expect(called('/documents?category=lab_report&provider=Apollo+Hospitals')).toBe(true)
+
+    await userEvent.selectOptions(hospital, 'No hospital given (1)')
+    expect(await screen.findByText('No documents match these filters.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(await screen.findByRole('link', { name: 'Undated note' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Type')).toHaveValue('')
+  })
+
+  it('reads filters from the address and filters by report date', async () => {
+    stubFetch({
+      ...LOGGED_IN,
+      'GET /documents/providers': providers,
+      'GET /documents?date_from=2026-09-01&date_to=2026-10-31': () => page([LIBRARY[0], LIBRARY[2]]),
+    })
+    renderAt('/documents?from=2026-09-01&to=2026-10-31')
+
+    expect(await screen.findByRole('link', { name: 'CBC' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Report date from')).toHaveValue('2026-09-01')
+    expect(screen.getByText(/without a report date are not shown/)).toBeInTheDocument()
+  })
+
+  it('does not load when the end date is before the start date', async () => {
+    const fetchMock = stubFetch({ ...LOGGED_IN, 'GET /documents/providers': providers })
+    renderAt('/documents?from=2026-10-01&to=2026-09-01')
+
+    expect(await screen.findByText('The end date cannot be before the start date.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('date_from'))).toBe(false)
   })
 })
 

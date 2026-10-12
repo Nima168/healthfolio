@@ -14,6 +14,7 @@ from app.models.document import _in
 from app.models.extraction import CONFIDENCE_LEVELS, ORIGINS
 
 MEDICATION_STATUSES = ("active", "stopped", "unknown")
+MEDICATION_CHANGES = ("added", "edited", "status_changed", "removed")
 CONDITION_STATUSES = ("active", "resolved", "unknown")
 FOLLOW_UP_KINDS = ("investigation", "appointment", "checkup")
 SUGGESTION_TYPES = ("follow_up",)
@@ -32,6 +33,7 @@ class Medication(TimestampMixin, Base):
         CheckConstraint(_in("origin", ORIGINS), name="ck_medications_origin"),
         CheckConstraint(_CONFIDENCE, name="ck_medications_confidence"),
         Index("ix_medications_document", "source_document_id", "position"),
+        Index("ix_medications_user_status", "user_id", "status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -50,7 +52,31 @@ class Medication(TimestampMixin, Base):
     review_reason: Mapped[str | None] = mapped_column(Text)  # set when the item must be checked, not judged
     source_location: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    # Set when the user marks it as taking or stopped; a document never confirms anything.
+    status_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set on any change by the user; "Read again" and document deletion keep such rows.
+    user_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MedicationHistory(Base):
+    """One change to a medication: the values before it (`snapshot`) and what changed. Never edited."""
+
+    __tablename__ = "medication_history"
+    __table_args__ = (
+        CheckConstraint(_in("change_origin", MEDICATION_CHANGES), name="ck_medication_history_change"),
+        Index("ix_medication_history_medication", "medication_id", "changed_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    medication_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("medications.id", ondelete="RESTRICT"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    change_origin: Mapped[str] = mapped_column(String(20), nullable=False)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)  # values before
+    changes: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)  # field: [old, new]
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class Condition(TimestampMixin, Base):

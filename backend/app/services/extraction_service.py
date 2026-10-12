@@ -9,6 +9,7 @@ import logging
 import time
 from datetime import UTC, date, datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.discharge_validation import validate_discharge
@@ -76,6 +77,10 @@ def _to_observation(job: ProcessingJob, item: ValidatedResult, position: int) ->
         validation_findings=item.findings,
         notes=item.notes,
     )
+
+
+def _medication_key(name: str, strength: str | None) -> tuple[str, str]:
+    return " ".join(name.lower().split()), " ".join((strength or "").lower().split())
 
 
 def _to_medication(job: ProcessingJob, item: ValidatedMedication, position: int) -> Medication:
@@ -341,8 +346,7 @@ class ExtractionRunner:
                     validation_findings=[],
                 )
             )
-        for position, medication in enumerate(validated.medications):
-            self.session.add(_to_medication(job, medication, position))
+        self._add_medications(job, validated.medications)
         for position, follow_up in enumerate(validated.follow_ups):
             self.session.add(_to_suggestion(job, follow_up, position))
         unclear = sum(item.review_reason is not None for item in [*validated.medications, *validated.follow_ups])
@@ -352,6 +356,29 @@ class ExtractionRunner:
             "needs_review": unclear,
             "warnings": bool(outcome.payload.warnings) or unclear > 0,
         }
+
+    def _add_medications(self, job: ProcessingJob, medications: list[ValidatedMedication]) -> None:
+        """Save the medicines read; one the user already changed (kept by "Read again") is re-linked, not doubled.
+
+        A kept medicine matches on the same name and strength (ignoring case and spacing).
+        """
+        kept = list(
+            self.session.scalars(
+                select(Medication).where(
+                    Medication.source_document_id == job.document_id,
+                    Medication.deleted_at.is_(None),
+                    Medication.user_updated_at.is_not(None),
+                )
+            )
+        )
+        by_key = {_medication_key(m.name, m.strength): m for m in kept}
+        for position, item in enumerate(medications):
+            match = by_key.pop(_medication_key(item.name, item.strength), None)
+            if match is not None:
+                match.processing_job_id = job.id  # shown in the new reading, with the user's values
+                match.position = position
+            else:
+                self.session.add(_to_medication(job, item, position))
 
     def _prescription(self, job: ProcessingJob, prepared: PreparedDocument) -> dict:
         outcome = self.extractor.extract_prescription(prepared)
@@ -363,8 +390,7 @@ class ExtractionRunner:
 
         jobs.heartbeat(self.session, job, "validating")
         self._live_document(job)  # deleted while we were waiting for the model?
-        for position, medication in enumerate(medications):
-            self.session.add(_to_medication(job, medication, position))
+        self._add_medications(job, medications)
         for position, follow_up in enumerate(follow_ups):
             self.session.add(_to_suggestion(job, follow_up, position))
         needs_review = sum(item.review_reason is not None for item in [*medications, *follow_ups])

@@ -73,6 +73,16 @@ class Pagination(BaseModel):
     next_cursor: str | None
 
 
+class ProviderOption(BaseModel):
+    name: str  # the most used spelling; case and spacing variants are counted together
+    document_count: int
+
+
+class ProviderList(BaseModel):
+    items: list[ProviderOption]
+    without_provider: int  # documents with no hospital or clinic given
+
+
 class DocumentPage(BaseModel):
     items: list[DocumentResponse]
     pagination: Pagination

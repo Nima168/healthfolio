@@ -20,7 +20,7 @@ from app.models.document import Document
 from app.models.extraction import Observation
 from app.models.prescription import Condition, Medication, Suggestion
 from app.repositories.auth import AuditRepository
-from app.repositories.documents import DocumentRepository
+from app.repositories.documents import DocumentFilters, DocumentRepository
 from app.schemas.documents import DocumentUpdate, normalise_date
 from app.services import jobs
 from app.services.document_validation import SNIFF_BYTES, detect_media_type, sanitise_filename
@@ -152,11 +152,21 @@ class DocumentService:
         return document
 
     def list_documents(
-        self, user_id: uuid.UUID, limit: int, cursor: str | None, category: str | None
+        self, user_id: uuid.UUID, limit: int, cursor: str | None, filters: DocumentFilters
     ) -> tuple[list[Document], str | None]:
-        rows = self.documents.list_page(user_id, limit, decode_cursor(cursor) if cursor else None, category)
+        if filters.date_from and filters.date_to and filters.date_to < filters.date_from:
+            raise ApiError(
+                422,
+                "VALIDATION_ERROR",
+                "The end date cannot be before the start date.",
+                [{"field": "date_to", "issue": "The end date cannot be before the start date."}],
+            )
+        rows = self.documents.list_page(user_id, limit, decode_cursor(cursor) if cursor else None, filters)
         page, has_more = rows[:limit], len(rows) > limit
         return page, encode_cursor(page[-1]) if has_more and page else None
+
+    def providers(self, user_id: uuid.UUID) -> tuple[list[tuple[str, int]], int]:
+        return self.documents.providers(user_id)
 
     def open_file(self, user_id: uuid.UUID, document_id: uuid.UUID) -> tuple[Document, Iterator[bytes]]:
         document = self.get(user_id, document_id)
@@ -211,12 +221,21 @@ class DocumentService:
             .where(Observation.source_document_id == document.id, Observation.deleted_at.is_(None))
             .values(deleted_at=document.deleted_at)
         )
-        for model in (Medication, Condition):
-            self.session.execute(
-                update(model)
-                .where(model.source_document_id == document.id, model.deleted_at.is_(None))
-                .values(deleted_at=document.deleted_at)
+        self.session.execute(
+            update(Condition)
+            .where(Condition.source_document_id == document.id, Condition.deleted_at.is_(None))
+            .values(deleted_at=document.deleted_at)
+        )
+        # Medicines the user changed (edited, or marked taking or stopped) are theirs now and stay.
+        self.session.execute(
+            update(Medication)
+            .where(
+                Medication.source_document_id == document.id,
+                Medication.deleted_at.is_(None),
+                Medication.user_updated_at.is_(None),
             )
+            .values(deleted_at=document.deleted_at)
+        )
         # Follow-ups the user already added stay theirs; ones not yet added are withdrawn.
         self.session.execute(
             update(Suggestion)

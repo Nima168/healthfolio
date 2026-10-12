@@ -3,7 +3,7 @@
 from app.models.auth import AuditEvent, EmailDelivery, PasswordResetToken, RefreshToken, User
 from app.models.document import Document
 from app.models.extraction import Observation, ProcessingJob
-from app.models.prescription import Condition, FollowUp, Medication, Suggestion
+from app.models.prescription import Condition, FollowUp, Medication, MedicationHistory, Suggestion
 
 __all__ = [
     "AuditEvent",
@@ -12,6 +12,7 @@ __all__ = [
     "EmailDelivery",
     "FollowUp",
     "Medication",
+    "MedicationHistory",
     "Observation",
     "PasswordResetToken",
     "ProcessingJob",

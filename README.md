@@ -102,6 +102,10 @@ Consultation notes (symptoms, observations, assessment, plan, follow-ups), writt
 
 Discharge summaries show the hospital, the stay (with the number of days), diagnoses exactly as written, key results (last value outside the printed range, with first → last, or text results), discharge medicines, follow-ups, and when to return to the emergency department. If a summary looks incomplete, **Read again** replaces it with a new reading.
 
+The **Medical Documents** list can be filtered by type, report date range, and hospital or clinic, and grouped by type, month, or hospital, with a count per group. The choices are kept in the page address, so refreshing keeps them.
+
+The **Medications and Prescriptions** page lists every medicine read from your documents and any you add yourself, grouped as taking now, not confirmed, and stopped. A medicine from a document is never marked as being taken until you confirm it. You can edit details, mark a medicine as taking or stopped, or remove it, and each medicine keeps a full change history. Medicines you changed are kept when a document is read again or deleted.
+
 Prescriptions get their own summary: the date and doctor, each medicine with its instructions and duration, upcoming follow-ups grouped by date (dates written as "after 4 weeks" are calculated by code from the prescription date), with anything unclear marked "(unclear – check original)". "Add to Checkups and Follow-ups" saves the follow-ups to the Checkups and Follow-ups page, where each can be marked done or cancelled. If no document type was chosen at upload, the AI first decides whether it is a lab report or a prescription.
 
 ### Database migrations
@@ -156,7 +160,8 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 | POST | `/api/v1/auth/password/reset` | Set a new password with a reset token |
 | GET | `/api/v1/users/me` | The logged-in user |
 | POST | `/api/v1/documents` | Upload a PDF, JPEG, or PNG (multipart; optional type, date, provider) |
-| GET | `/api/v1/documents` | List your documents (newest first, paginated, filter by type) |
+| GET | `/api/v1/documents` | List your documents (newest first, paginated; filter by type, report date range, hospital or clinic) |
+| GET | `/api/v1/documents/providers` | Your hospital and clinic names, for the filter |
 | GET | `/api/v1/documents/{id}` | Document details |
 | GET | `/api/v1/documents/{id}/file` | The original file (inline, or `?download=true`) |
 | PATCH | `/api/v1/documents/{id}` | Edit type, date, or provider |
@@ -166,6 +171,9 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 | POST | `/api/v1/documents/{id}/follow-ups` | Add a prescription's follow-ups to Checkups and Follow-ups |
 | GET | `/api/v1/follow-ups` | List follow-ups (overdue computed) |
 | PATCH | `/api/v1/follow-ups/{id}` | Mark a follow-up done, cancelled, or scheduled again |
+| GET, POST | `/api/v1/medications` | List medicines; add one |
+| PATCH, DELETE | `/api/v1/medications/{id}` | Edit or change status; remove (history kept) |
+| GET | `/api/v1/medications/{id}/history` | A medicine's change history |
 
 Full request/response details: `spec/api_contract_spec.md` Sections 5.1, 6.1, and 6.2.
 

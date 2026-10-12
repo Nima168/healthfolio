@@ -200,7 +200,7 @@ Extracted lab results are shown as read, with no confirm/correct/reject step (de
 | origin, source_document_id, review_status | |
 | created_at, updated_at, deleted_at | |
 
-**medication_history:** `id`, `medication_id`, `snapshot` (JSON of previous values), `changed_at`, `change_origin`.
+**medication_history:** `id`, `medication_id`, `user_id`, `snapshot` (JSON of previous values), `changes` (JSON `field: [before, after]`), `changed_at`, `change_origin` (`added`, `edited`, `status_changed`, `removed`). Never edited.
 
 ### 5.6 follow_ups
 `id`, `user_id`, `title`, `kind` (`checkup`, `investigation`, `appointment`), `due_at`, `timezone`, `recurrence_rule` (nullable RRULE), `status` (`scheduled`, `completed`, `cancelled`), `completed_at`, `origin`, `suggestion_id`, `source_document_id`, timestamps. "Overdue" is computed (`status = scheduled` and `due_at` in the past), not stored.
@@ -242,5 +242,6 @@ Schema changes are made through Alembic migrations (`backend_spec.md` Section 11
 | processing_jobs, observations | Built (step 4: lab-result extraction; `search_vector` and normalised values pending) |
 | conditions | Built (discharge summaries, 2026-10-12): diagnoses as written, `status = unknown`, no `review_status`, `onset_date`, or `search_vector` yet |
 | processing_jobs.details | JSON, kept as written: discharge (facility, dates, warning signs), consultation (sections), imaging (report fields and sections), other test reports (measurements, interpretations, visual content) |
-| medications, suggestions, follow_ups | Built (prescriptions, 2026-10-11): extracted medicines (no `medication_history` or user editing yet), follow-up suggestions, and follow-ups added from them. `follow_ups.due_date` is a date (no time, time zone, or recurrence yet); medications and suggestions carry `review_reason` instead of `review_status` |
+| medications, medication_history | Built (2026-10-12, migration 0010): medicines from documents and added by the user; user editing with history; `start_date`, `end_date`, `status_confirmed_at`, `user_updated_at` (changed by the user: kept by "Read again" and document deletion). Not yet: `frequency_text`, `route`, date precision |
+| suggestions, follow_ups | Built (prescriptions, 2026-10-11): follow-up suggestions, and follow-ups added from them. `follow_ups.due_date` is a date (no time, time zone, or recurrence yet); medications and suggestions carry `review_reason` instead of `review_status` |
 | All others | Specified, not yet built |

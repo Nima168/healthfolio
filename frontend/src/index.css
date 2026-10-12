@@ -127,12 +127,15 @@ button {
 
 .content {
   padding: 48px 56px;
-  max-width: 980px;
+  width: 100%;
+  min-width: 0; /* lets wide tables scroll inside their card instead of stretching the page */
+  max-width: 1600px; /* uses the width of desktop screens; very wide screens keep a readable line */
 }
 
 .page-intro {
   color: var(--color-text-muted);
   margin: 0 0 28px;
+  max-width: 80ch; /* long sentences stay easy to read on wide screens */
 }
 
 .card {
@@ -747,4 +750,121 @@ button {
   font-size: 0.95rem;
   background: var(--color-lilac);
   border-radius: var(--radius-sm);
+}
+
+/* ---------- medications ---------- */
+.medication-safety-note {
+  padding: 10px 14px;
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-lilac);
+}
+.medication-group {
+  margin-top: 24px;
+}
+.medication-group .count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.medication-table {
+  min-width: 900px;
+}
+.medication-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.medication-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.medication-tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--color-mint);
+  color: var(--color-ok-text);
+}
+.medication-tag-document {
+  background: var(--color-sky);
+  color: var(--color-text);
+}
+.medication-source-date {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-muted);
+}
+.medication-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.medication-actions .icon-button {
+  margin-left: 0;
+}
+.icon-button-small {
+  width: 34px;
+  height: 34px;
+}
+.document-table tbody tr.medication-panel-row:hover {
+  background: transparent;
+}
+.medication-panel-row td {
+  background: var(--color-bg);
+}
+.medication-form h3,
+.medication-history h3 {
+  margin-top: 0;
+}
+.medication-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 16px;
+}
+.history-list {
+  margin: 0;
+  padding-left: 18px;
+}
+.history-list > li {
+  margin-bottom: 8px;
+}
+.medication-remove p {
+  margin-top: 0;
+}
+
+
+/* ---------- documents: filters and groups ---------- */
+.document-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0 16px;
+  align-items: end;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+}
+.document-filters .form-field input,
+.document-filters .form-field select {
+  width: 100%;
+}
+.filters-clear {
+  margin-bottom: 16px;
+  justify-self: start;
+}
+.filters-note {
+  grid-column: 1 / -1;
+  margin: 0 0 12px;
+}
+.document-group h3 {
+  margin: 24px 0 10px;
+}
+.document-group .count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
 }
