@@ -1395,3 +1395,74 @@ button {
   margin-bottom: 8px;
 }
 
+/* ---------- dashboard ---------- */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+.dashboard-card {
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-card h2 {
+  margin-top: 0;
+}
+.dashboard-card-body {
+  flex: 1;
+}
+.dashboard-card-body p {
+  margin-top: 0;
+}
+.dashboard-card-link {
+  margin-top: 12px;
+  font-weight: 700;
+}
+.dashboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dashboard-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.dashboard-list li:last-child {
+  border-bottom: 0;
+}
+.dashboard-count {
+  margin-bottom: 6px;
+}
+.dashboard-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--color-mint);
+  color: var(--color-ok-text);
+}
+.dashboard-tag-alert {
+  background: var(--color-problem-bg);
+  color: var(--color-problem-text);
+}
+.dashboard-allergies {
+  color: var(--color-problem-text);
+}
+.dashboard-urgent {
+  display: block;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--color-problem-text);
+  border-radius: var(--radius-sm);
+  background: var(--color-problem-bg);
+  color: var(--color-problem-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+.dashboard-start {
+  margin-bottom: 20px;
+}
+

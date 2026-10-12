@@ -398,6 +398,14 @@ Decision 2026-10-13 (`backend/app/services/vitals_service.py`, migration 0014). 
 
 Rules: systolic 50–260 and diastolic 30–160 mmHg with systolic higher; heart rate 20–250 bpm (outside these is treated as a typing mistake, `422` with the field). Readings are shown as recorded: never labelled high or low, not compared or trended. `GET /profile` adds `latest_blood_pressure` and `latest_heart_rate` (`{value, unit, measured_on, measured_time}` or null), each from the latest reading that has it. Each reading is one Timeline entry (category `vitals`). Values printed in documents are not read into readings yet.
 
+### 6.11 Dashboard
+
+Decision 2026-10-13 (`backend/app/services/dashboard_service.py`). `GET /api/v1/dashboard` returns one overview built from the user's existing records; nothing new is calculated or stored.
+
+Contents: document count, documents being read, the 5 most recent documents with their reading status; overdue follow-ups and those due within 30 days (5 each); open, acknowledged, and urgent alert counts with up to 3 open alerts (urgent first; the alert rules are applied first, as on the Alerts page); items to review (diagnosis suggestions, medicines read from documents not yet confirmed, follow-ups that can be added per document, documents that could not be read); profile completeness (5 personal fields, with the missing ones), allergies, number of conditions and active medicines, BMI and category, latest blood pressure and heart rate; the 5 most recent Timeline entries dated up to today.
+
+The client never presents missing information as good health ("No open alerts" is followed by "This is not a health check"), shows urgent alerts first, and links every card to its page. No AI is used.
+
 ## 7. Asynchronous Processing and AI APIs
 
 Document extraction is the first asynchronous operation: the upload responds immediately, and progress is read from `GET /documents/{id}/observations` (clients poll every few seconds while the job is `pending` or `running`).

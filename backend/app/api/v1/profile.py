@@ -69,7 +69,7 @@ def _record(item) -> RecordItemResponse:
     )
 
 
-def _latest(reading, kind: str) -> LatestVitalResponse | None:
+def latest_vital(reading, kind: str) -> LatestVitalResponse | None:
     if reading is None:
         return None
     value, unit = (
@@ -98,8 +98,8 @@ def _profile(service: ProfileService, user_id: uuid.UUID) -> ProfileResponse:
         values=values,
         bmi=data["bmi"],
         bmi_category=data["bmi_category"],
-        latest_blood_pressure=_latest(latest["blood_pressure"], "blood_pressure"),
-        latest_heart_rate=_latest(latest["heart_rate"], "heart_rate"),
+        latest_blood_pressure=latest_vital(latest["blood_pressure"], "blood_pressure"),
+        latest_heart_rate=latest_vital(latest["heart_rate"], "heart_rate"),
         allergies=[_allergy(a) for a in data["allergies"]],
         surgeries=[_record(r) for r in data["surgeries"]],
         hospitalizations=[_record(r) for r in data["hospitalizations"]],

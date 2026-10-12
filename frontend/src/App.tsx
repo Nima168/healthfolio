@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 
 import { AlertsPage } from './alerts/AlertsPage'
 import { AuthLayout } from './auth/AuthLayout'
+import { DashboardPage } from './dashboard/DashboardPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppShell } from './components/AppShell'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
@@ -30,6 +31,7 @@ export default function App() {
 
       <Route element={<AppShell />}>
         <Route element={<ProtectedRoute />}>
+          <Route index element={<DashboardPage />} />
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/documents/:documentId" element={<DocumentDetailPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
