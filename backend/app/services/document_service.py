@@ -224,7 +224,11 @@ class DocumentService:
         )
         self.session.execute(
             update(Condition)
-            .where(Condition.source_document_id == document.id, Condition.deleted_at.is_(None))
+            .where(
+                Condition.source_document_id == document.id,
+                Condition.deleted_at.is_(None),
+                Condition.origin == "document_extracted",  # conditions the user accepted into the profile stay
+            )
             .values(deleted_at=document.deleted_at)
         )
         # Medicines the user changed (edited, or marked taking or stopped) are theirs now and stay.

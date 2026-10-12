@@ -17,6 +17,7 @@ function medication(overrides: Partial<Medication> = {}): Medication {
     end_date: null,
     notes: null,
     status: 'unknown',
+    kind: 'prescription',
     origin: 'document_extracted',
     status_confirmed: false,
     edited: false,
@@ -120,6 +121,7 @@ describe('Medications page', () => {
       end_date: null,
       notes: null,
       status: 'active',
+      kind: 'prescription',
     })
   })
 

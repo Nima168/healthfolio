@@ -789,6 +789,10 @@ button {
   background: var(--color-mint);
   color: var(--color-ok-text);
 }
+.medication-tag-kind {
+  background: var(--color-lilac);
+  color: var(--color-text);
+}
 .medication-tag-document {
   background: var(--color-sky);
   color: var(--color-text);
@@ -1067,5 +1071,286 @@ button {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
+}
+
+/* ---------- health profile ---------- */
+.profile-section {
+  margin-bottom: 20px;
+}
+.profile-section h2 {
+  margin-top: 0;
+}
+.profile-section .count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.suggestions-card {
+  border-left: 4px solid var(--color-dusty-blue);
+}
+.suggestion-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+}
+.suggestion-name {
+  margin: 0;
+  font-weight: 700;
+}
+.suggestion-correct {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 12px;
+}
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0 16px;
+}
+.form-success-inline {
+  color: var(--color-ok-text);
+  font-weight: 700;
+}
+.profile-history {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.allergy-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.allergy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  background: var(--color-peach);
+  font-weight: 700;
+}
+.chip-remove {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 6px;
+  border-radius: 50%;
+}
+.chip-remove:hover,
+.chip-remove:focus-visible {
+  background: var(--color-surface);
+}
+.inline-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 12px;
+  margin-top: 12px;
+}
+.inline-add .button {
+  margin-bottom: 16px;
+}
+.profile-conditions select {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.allergy-banner {
+  max-width: 80ch;
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--color-problem-text);
+  border-radius: var(--radius-sm);
+  background: var(--color-problem-bg);
+  color: var(--color-problem-text);
+}
+.allergy-banner-none {
+  border-left-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+.profile-section h3 {
+  margin: 20px 0 8px;
+}
+.profile-section h3:first-of-type {
+  margin-top: 4px;
+}
+.bmi-label {
+  font-weight: 700;
+}
+.bmi-value {
+  margin: 0;
+  padding: 10px 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+.record-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.record-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.record-list .icon-button {
+  margin-left: 0;
+}
+.record-list .medication-tag {
+  margin-left: 8px;
+}
+.allergy-type,
+.allergy-reaction {
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+.allergy-type {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+.allergy-reaction::before {
+  content: '· ';
+}
+
+/* ---------- BMI indicator and suggestions notice ---------- */
+.bmi-indicator {
+  margin: 4px 0 16px;
+  max-width: 640px;
+}
+.bmi-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin: 0 0 8px;
+}
+.bmi-value {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.bmi-category {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.bmi-scale {
+  position: relative;
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: visible;
+  margin-bottom: 6px;
+}
+.bmi-band {
+  flex-basis: 0;
+  opacity: 0.55;
+}
+.bmi-band:first-child {
+  border-radius: 999px 0 0 999px;
+}
+.bmi-band:nth-last-child(2) {
+  border-radius: 0 999px 999px 0;
+}
+.bmi-band-current {
+  opacity: 1;
+}
+.bmi-marker {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 20px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--color-text);
+}
+.bmi-underweight {
+  background: var(--color-dusty-blue);
+}
+.bmi-healthy {
+  background: #b9c99a;
+}
+.bmi-overweight {
+  background: var(--color-peach);
+}
+.bmi-obesity_1 {
+  background: #dd9f86;
+}
+.bmi-obesity_2 {
+  background: #c9785f;
+  color: var(--color-surface);
+}
+.bmi-obesity_3 {
+  background: var(--color-problem-text);
+  color: var(--color-surface);
+}
+.bmi-empty {
+  margin: 0 0 16px;
+}
+.suggestions-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 20px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--color-sky);
+  border: 1px solid var(--color-dusty-blue);
+  color: var(--color-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+.suggestions-notice:hover,
+.suggestions-notice:focus-visible {
+  background: var(--color-dusty-blue);
+}
+.suggestions-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.suggestions-box {
+  margin: 16px 0 8px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--color-dusty-blue);
+  border-radius: var(--radius-sm);
+  background: var(--color-sky);
+  scroll-margin-top: 16px;
+}
+.suggestions-box h3 {
+  margin-top: 0;
 }
 

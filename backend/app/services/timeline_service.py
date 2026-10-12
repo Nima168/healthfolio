@@ -355,7 +355,11 @@ class TimelineService:
         conditions: dict[uuid.UUID, list[str]] = {}
         for condition in self.session.scalars(
             select(Condition)
-            .where(Condition.user_id == user_id, Condition.deleted_at.is_(None))
+            .where(
+                Condition.user_id == user_id,
+                Condition.deleted_at.is_(None),
+                Condition.origin == "document_extracted",  # diagnoses as written in the document
+            )
             .order_by(Condition.position)
         ):
             conditions.setdefault(condition.source_document_id, []).append(condition.name)

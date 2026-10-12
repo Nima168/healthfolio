@@ -7,6 +7,7 @@ from typing import Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MedicationStatus = Literal["active", "stopped", "unknown"]
+MedicationKind = Literal["prescription", "over_the_counter", "supplement"]
 MedicationChange = Literal["added", "edited", "status_changed", "removed"]
 
 
@@ -21,6 +22,7 @@ class MedicationResponse(BaseModel):
     end_date: date | None
     notes: str | None
     status: MedicationStatus
+    kind: MedicationKind
     origin: Literal["user_entered", "document_extracted", "suggestion_accepted"]
     status_confirmed: bool  # the user marked it as taking or stopped
     edited: bool  # the user changed it after it was read from a document
@@ -81,6 +83,7 @@ class _Fields(BaseModel):
 class MedicationCreate(_Fields):
     name: str = Field(min_length=1, max_length=200)
     status: MedicationStatus = "active"
+    kind: MedicationKind = "prescription"
 
     @field_validator("name")
     @classmethod
@@ -96,6 +99,7 @@ class MedicationUpdate(_Fields):
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     status: MedicationStatus | None = None
+    kind: MedicationKind | None = None
 
     @field_validator("name")
     @classmethod

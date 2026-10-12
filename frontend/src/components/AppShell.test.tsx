@@ -19,9 +19,9 @@ describe('AppShell', () => {
 
   it('marks planned sections as coming soon', async () => {
     stubFetch(LOGGED_IN)
-    renderAt('/profile')
+    renderAt('/summaries')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Health Profile' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'AI Summaries and Insights' })).toBeInTheDocument()
     expect(screen.getByText(/planned and not available yet/i)).toBeInTheDocument()
   })
 

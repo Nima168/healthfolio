@@ -14,6 +14,7 @@ import { FollowUpsPage } from './followUps/FollowUpsPage'
 import { MedicationsPage } from './medications/MedicationsPage'
 import { ComingSoon, NotFound } from './pages/ComingSoon'
 import { StatusPage } from './pages/StatusPage'
+import { ProfilePage } from './profile/ProfilePage'
 import { TimelinePage } from './timeline/TimelinePage'
 import { SECTIONS, STATUS_SECTION } from './sections'
 
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/documents/:documentId" element={<DocumentDetailPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/alerts" element={<AlertsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/medications" element={<MedicationsPage />} />
           <Route path="/follow-ups" element={<FollowUpsPage />} />
           {SECTIONS.filter((section) => !section.available).map((section) =>

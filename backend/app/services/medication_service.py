@@ -36,6 +36,7 @@ TRACKED_FIELDS = (
     "end_date",
     "notes",
     "status",
+    "kind",
 )
 
 
@@ -70,6 +71,7 @@ class MedicationService:
             end_date=medication.end_date,
             notes=medication.notes,
             status=medication.status,
+            kind=medication.kind,
             origin=medication.origin,
             status_confirmed=medication.status_confirmed_at is not None,
             edited=edited and medication.origin != "user_entered",
@@ -183,6 +185,7 @@ class MedicationService:
             end_date=data.end_date,
             notes=data.notes,
             status=data.status,
+            kind=data.kind,
             origin="user_entered",
             status_confirmed_at=now if data.status != "unknown" else None,
             user_updated_at=now,
@@ -203,7 +206,7 @@ class MedicationService:
             if field not in sent:
                 continue
             value = getattr(change, field)
-            if field in ("name", "status") and value is None:
+            if field in ("name", "status", "kind") and value is None:
                 continue  # required values cannot be cleared
             setattr(medication, field, value)
         if medication.start_date and medication.end_date and medication.end_date < medication.start_date:
@@ -218,7 +221,7 @@ class MedicationService:
         if after == before:
             return self._one(medication)
         now = datetime.now(UTC)
-        details_changed = any(before[f] != after[f] for f in TRACKED_FIELDS if f != "status")
+        details_changed = any(before[f] != after[f] for f in TRACKED_FIELDS if f != "status")  # kind counts as a detail
         if after["status"] != before["status"]:
             medication.status_confirmed_at = now if medication.status != "unknown" else None
         if details_changed:

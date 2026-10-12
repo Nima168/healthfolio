@@ -322,7 +322,7 @@ Decision 2026-10-12. The user's medicine list: read from prescriptions and disch
 | DELETE | `/api/v1/medications/{id}` | Remove from the list (soft delete; the row and its history are kept) |
 | GET | `/api/v1/medications/{id}/history` | Change history, newest first: `{change, changed_at, changes {field: [before, after]}, snapshot}` |
 
-A medicine is `{ id, name, strength, dosage_text, duration_text, prescriber_name, start_date, end_date, notes, status, origin, status_confirmed, edited, review_reason, source_document_id, source_document_title, source_document_date, source_document_deleted, updated_at }`.
+A medicine is `{ id, name, strength, dosage_text, duration_text, prescriber_name, start_date, end_date, notes, status, kind (prescription, over_the_counter, supplement), origin, status_confirmed, edited, review_reason, source_document_id, source_document_title, source_document_date, source_document_deleted, updated_at }`.
 
 Rules:
 
@@ -361,6 +361,30 @@ An alert is `{ id, rule_code, rule_version, rule_description, severity, status, 
 Rule `RESULT_OUTSIDE_REPORT_RANGE` v1 (severity `warning`, "for review"): a plain-number result outside the reference range printed on the same report (Section 6.2 range rules). Inputs: lab results, discharge-summary results (each test's last value only), and test-report measurements. No alert for results without a printed range, non-numeric values, unreadable ranges, or unclear readings. No clinical thresholds, other reports' ranges, or trends are used. Urgent (critical-value) rules are not defined yet: they need clinical thresholds reviewed against validated sources.
 
 Lifecycle: alerts are evaluated when a reading completes, when a document is deleted, and when alerts are listed. An alert is keyed by its result's content (document, test, value, date), so reading a document again keeps the same alert and the user's acknowledgement. When the result disappears, the system resolves it (`resolved_by: system`); if it returns, the system reopens it. Alerts the user resolved stay resolved. Every change is recorded in `alert_events`. Rules change only through migrations.
+
+### 6.9 Health Profile
+
+Decision 2026-10-12 (`backend/app/services/profile_service.py`, migration 0012).
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/profile` | `{ values: {date_of_birth, sex, blood_group, height, weight} (each {value, unit, updated_at} or null), bmi, bmi_category, allergies[{name, category, reaction}], conditions[], suggestions[], surgeries[], hospitalizations[], document_stays[], family_history[], active_medications[] }` |
+| PATCH | `/api/v1/profile/values` | Set, change, or clear (empty string) personal values; all sent fields are validated first, so one mistake saves nothing (`422` with field details) |
+| GET | `/api/v1/profile/history` | Changes to personal values and allergies, newest first: `{field, change (added, changed, removed), previous_value, new_value, changed_at}` |
+| POST, DELETE | `/api/v1/profile/allergies`, `/allergies/{id}` | Add (`409` when already recorded) or remove an allergy |
+| POST, PATCH, DELETE | `/api/v1/profile/conditions`, `/conditions/{id}` | The user's conditions: name and status (`active`, `resolved`, `unknown`) |
+| POST, DELETE | `/api/v1/profile/records`, `/records/{id}` | `{kind: surgery \| hospitalization \| family, name, occurred_on?, relation?, notes?}`: past surgeries, hospitalizations, family medical history |
+| POST | `/api/v1/profile/suggestions/{id}` | `{action: accept \| correct \| reject, name?, status?}` for a diagnosis suggested from a document |
+
+Rules:
+
+1. Validation: date of birth `YYYY-MM-DD`, not in the future, after 1900; sex `female`, `male`, `other`, `prefer_not_to_say`; blood group A+/A-/B+/B-/AB+/AB-/O+/O-; height 30–272 cm; weight 1–500 kg. Each change is kept in `profile_value_history`; an unchanged value writes none.
+2. Diagnoses read from documents (discharge summaries) are suggestions shown apart from the profile. They change nothing until the user accepts (as written) or corrects (with a new name) them; accepting creates a profile condition (`origin: suggestion_accepted`, status `unknown` unless chosen) linked to its document. Nothing is replaced silently: a suggestion that matches a condition already in the profile is not shown, and accepting one that matches links to the existing condition.
+3. Reviewed suggestions stay reviewed: a rejected diagnosis is not suggested again after "Read again"; accepted conditions stay when the document is read again or deleted.
+4. Allergies are entered by the user only (none are extracted from documents yet), with a type (`drug`, `food`, `environmental`, `other`) and an optional reaction. Other users' data returns 404.
+5. BMI (2026-10-13) is calculated from the saved height and weight (kg/m², one decimal). `bmi_category` uses the adult categories on that value: underweight below 18.5; healthy 18.5–24.9; overweight 25.0–29.9; obesity class 1 30.0–34.9, class 2 35.0–39.9, class 3 40.0 or greater. It is null when the date of birth shows an age under 18. Blood pressure and heart rate are not profile values, because they change over time (removed 2026-10-13; the database still accepts the field names from migration 0013, unused).
+6. Medical history: conditions, past surgeries and hospitalizations (dates optional, not in the future); `document_stays` lists hospital stays read from discharge summaries (as written, not editable here). Family history needs a relative (Mother, Father, Sister, Brother, Grandmother, Grandfather, Aunt, Uncle, Child, Other) and has no date.
+7. Active medications are the medicines marked as taking (`status: active`) on the Medications page; a document never makes a medicine active. Medicines have a `kind`: `prescription` (default, and all medicines from documents), `over_the_counter`, or `supplement`.
 
 ## 7. Asynchronous Processing and AI APIs
 

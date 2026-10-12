@@ -2,6 +2,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '../api/client'
 
 export type MedicationStatus = 'active' | 'stopped' | 'unknown'
+export type MedicationKind = 'prescription' | 'over_the_counter' | 'supplement'
 
 export interface Medication {
   id: string
@@ -15,6 +16,7 @@ export interface Medication {
   end_date: string | null
   notes: string | null
   status: MedicationStatus
+  kind: MedicationKind
   origin: 'user_entered' | 'document_extracted' | 'suggestion_accepted'
   /** The user marked it as taking or stopped (a document never does). */
   status_confirmed: boolean
@@ -40,6 +42,7 @@ export interface MedicationFields {
   end_date: string | null
   notes: string | null
   status: MedicationStatus
+  kind: MedicationKind
 }
 
 export type HistoryField = keyof MedicationFields

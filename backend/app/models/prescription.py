@@ -14,8 +14,10 @@ from app.models.document import _in
 from app.models.extraction import CONFIDENCE_LEVELS, ORIGINS
 
 MEDICATION_STATUSES = ("active", "stopped", "unknown")
+MEDICATION_KINDS = ("prescription", "over_the_counter", "supplement")
 MEDICATION_CHANGES = ("added", "edited", "status_changed", "removed")
 CONDITION_STATUSES = ("active", "resolved", "unknown")
+CONDITION_REVIEWS = ("accepted", "corrected", "rejected")
 FOLLOW_UP_KINDS = ("investigation", "appointment", "checkup")
 SUGGESTION_TYPES = ("follow_up",)
 SUGGESTION_STATUSES = ("pending", "accepted", "rejected", "superseded")
@@ -30,6 +32,7 @@ class Medication(TimestampMixin, Base):
     __tablename__ = "medications"
     __table_args__ = (
         CheckConstraint(_in("status", MEDICATION_STATUSES), name="ck_medications_status"),
+        CheckConstraint(_in("kind", MEDICATION_KINDS), name="ck_medications_kind"),
         CheckConstraint(_in("origin", ORIGINS), name="ck_medications_origin"),
         CheckConstraint(_CONFIDENCE, name="ck_medications_confidence"),
         Index("ix_medications_document", "source_document_id", "position"),
@@ -47,6 +50,8 @@ class Medication(TimestampMixin, Base):
     duration_text: Mapped[str | None] = mapped_column(String(100))
     prescriber_name: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
+    # Medicines from documents are prescriptions; the user chooses for ones they add.
+    kind: Mapped[str] = mapped_column(String(20), default="prescription", nullable=False)
     origin: Mapped[str] = mapped_column(String(32), default="document_extracted", nullable=False)
     confidence: Mapped[str | None] = mapped_column(String(10))
     review_reason: Mapped[str | None] = mapped_column(Text)  # set when the item must be checked, not judged
@@ -87,6 +92,9 @@ class Condition(TimestampMixin, Base):
         CheckConstraint(_in("status", CONDITION_STATUSES), name="ck_conditions_status"),
         CheckConstraint(_in("origin", ORIGINS), name="ck_conditions_origin"),
         Index("ix_conditions_document", "source_document_id", "position"),
+        CheckConstraint(
+            f"review_status IS NULL OR {_in('review_status', CONDITION_REVIEWS)}", name="ck_conditions_review"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -97,6 +105,11 @@ class Condition(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(300), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
     origin: Mapped[str] = mapped_column(String(32), default="document_extracted", nullable=False)
+    # A diagnosis read from a document is a suggestion for the profile until the user reviews it (null = pending).
+    # Accepting or correcting it adds a separate profile condition (origin suggestion_accepted) and links it here.
+    review_status: Mapped[str | None] = mapped_column(String(20))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    profile_condition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("conditions.id", ondelete="SET NULL"))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

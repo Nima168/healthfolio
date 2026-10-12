@@ -13,6 +13,7 @@ import {
   type Medication,
   type MedicationFields,
   type MedicationHistoryEntry,
+  type MedicationKind,
   type MedicationStatus,
 } from './medicationsApi'
 
@@ -42,6 +43,13 @@ const FIELD_LABELS: Record<HistoryField, string> = {
   end_date: 'End date',
   notes: 'Notes',
   status: 'Status',
+  kind: 'Type',
+}
+
+const KIND_LABELS: Record<MedicationKind, string> = {
+  prescription: 'Prescription',
+  over_the_counter: 'Over the counter',
+  supplement: 'Supplement',
 }
 
 const CHANGE_LABELS: Record<MedicationHistoryEntry['change'], string> = {
@@ -65,10 +73,11 @@ const EMPTY_FORM: FormValues = {
   end_date: '',
   notes: '',
   status: 'active',
+  kind: 'prescription',
 }
 
 function toForm(medication: Medication): FormValues {
-  const values = { ...EMPTY_FORM, name: medication.name, status: medication.status }
+  const values = { ...EMPTY_FORM, name: medication.name, status: medication.status, kind: medication.kind }
   for (const field of TEXT_FIELDS) values[field] = medication[field] ?? ''
   return values
 }
@@ -77,6 +86,7 @@ function toFields(values: FormValues): MedicationFields {
   const fields: MedicationFields = {
     name: values.name.trim(),
     status: values.status as MedicationStatus,
+    kind: values.kind as MedicationKind,
     strength: null,
     dosage_text: null,
     duration_text: null,
@@ -92,6 +102,7 @@ function toFields(values: FormValues): MedicationFields {
 function historyValue(field: HistoryField, value: string | null): string {
   if (value === null || value === '') return '—'
   if (field === 'status') return STATUS_LABELS[value as MedicationStatus] ?? value
+  if (field === 'kind') return KIND_LABELS[value as MedicationKind] ?? value
   if (field === 'start_date' || field === 'end_date') return formatDayMonthYear(value)
   return value
 }
@@ -151,6 +162,12 @@ function MedicationForm({
         <FormField label="How to take" hint="As written, for example once daily after dinner" value={values.dosage_text} onChange={set('dosage_text')} maxLength={300} error={errors.fields.dosage_text} />
         <FormField label="Duration" hint="For example 90 days" value={values.duration_text} onChange={set('duration_text')} maxLength={100} error={errors.fields.duration_text} />
         <FormField label="Prescriber" value={values.prescriber_name} onChange={set('prescriber_name')} maxLength={200} error={errors.fields.prescriber_name} />
+        <SelectField
+          label="Type"
+          value={values.kind}
+          onChange={set('kind')}
+          options={(['prescription', 'over_the_counter', 'supplement'] as const).map((kind) => ({ value: kind, label: KIND_LABELS[kind] }))}
+        />
         <SelectField
           label="Status"
           value={values.status}
@@ -240,6 +257,7 @@ function Labels({ medication }: { medication: Medication }) {
       : [medication.status_confirmed ? 'Confirmed by you' : 'From document', ...(medication.edited ? ['Edited by you'] : [])]
   return (
     <>
+      <span className="medication-tag medication-tag-kind">{KIND_LABELS[medication.kind]}</span>
       {labels.map((label) => (
         <span key={label} className={`medication-tag${label === 'From document' ? ' medication-tag-document' : ''}`}>
           {label}
