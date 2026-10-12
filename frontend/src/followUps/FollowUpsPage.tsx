@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { toFormErrors } from '../auth/formErrors'
 import { formatDayMonthYear } from '../documents/format'
 import { followUpsApi, type FollowUp, type FollowUpStatus } from './followUpsApi'
+import { HelperNote } from '../components/HelperNote'
 
 const KIND_LABELS: Record<FollowUp['kind'], string> = {
   investigation: 'Test',
@@ -116,10 +117,7 @@ export function FollowUpsPage() {
   return (
     <section aria-labelledby="page-title">
       <h1 id="page-title">Checkups and Follow-ups</h1>
-      <p className="page-intro">
-        Tests, checkups, and doctor visits you added from your prescriptions, grouped by report. Reminders are not
-        sent yet, so check this page.
-      </p>
+      <HelperNote>Tests and visits added from your reports. Reminders are not sent yet, so check here.</HelperNote>
 
       {error && (
         <p role="alert" className="form-alert">

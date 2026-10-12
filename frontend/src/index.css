@@ -973,3 +973,99 @@ button {
   font-style: italic;
 }
 
+/* ---------- safety alerts ---------- */
+.alert-safety-note {
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-left: 4px solid var(--color-problem-text);
+  border-radius: var(--radius-sm);
+  background: var(--color-problem-bg);
+}
+.alert-safety-note p {
+  margin: 0 0 6px;
+}
+.alert-safety-note p:last-child {
+  margin-bottom: 0;
+}
+.alert-group {
+  margin-top: 24px;
+}
+.alert-group .count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.alert-group summary {
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.alert-table {
+  min-width: 820px;
+}
+.alert-result {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.document-table tbody tr.alert-panel-row:hover {
+  background: transparent;
+}
+.alert-panel-row td {
+  background: var(--color-bg);
+}
+.alert-panel p {
+  margin: 0 0 8px;
+}
+.alert-severity {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-lilac);
+  color: #8a5a1c;
+  white-space: nowrap;
+}
+.alert-severity-urgent {
+  background: var(--color-problem-bg);
+  color: var(--color-problem-text);
+}
+.alert-severity-info {
+  background: var(--color-sky);
+  color: var(--color-text);
+}
+
+/* ---------- helper note under each page title ---------- */
+.helper-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 80ch;
+  margin: 0 0 24px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-mint);
+  color: var(--color-text-muted);
+}
+.helper-note-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+

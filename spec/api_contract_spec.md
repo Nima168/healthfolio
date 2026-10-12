@@ -347,6 +347,21 @@ Rules:
 3. Entries: lab results; imaging, test reports, consultations, and hospital stays (diagnoses as written) by their own date; prescriptions on the prescription date, listing their medicines and the user's confirmation; medicines with a start or end date, and medicines the user added; follow-ups by due date with status (Upcoming, Overdue, Done, Cancelled); documents not read (or not readable) as plain documents.
 4. Only the user's own records from documents that are not deleted. Free-text search is not built yet (`search_vector` pending).
 
+### 6.8 Safety Alerts
+
+Decision 2026-10-12 (`backend/app/services/alert_service.py`, migration 0011). Rules decide, deterministically; no AI is used.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/alerts` | The user's alerts: open, then acknowledged, then resolved (the rules are applied to current records first) |
+| PATCH | `/api/v1/alerts/{id}` | `{status: "acknowledged" \| "resolved", note?}`; `409 INVALID_TRANSITION` for anything else (open → acknowledged → resolved, or open → resolved; resolved is final for the user) |
+
+An alert is `{ id, rule_code, rule_version, rule_description, severity, status, title, reason, uncertainty, next_steps, explanation_text, source_document_id, source_document_title, report_type (as read, else the upload type), report_date (the result's own date, else the report's), created_at, acknowledged_at, resolved_at, resolved_by, resolution_note, history[{event, actor, note, occurred_at}] }`.
+
+Rule `RESULT_OUTSIDE_REPORT_RANGE` v1 (severity `warning`, "for review"): a plain-number result outside the reference range printed on the same report (Section 6.2 range rules). Inputs: lab results, discharge-summary results (each test's last value only), and test-report measurements. No alert for results without a printed range, non-numeric values, unreadable ranges, or unclear readings. No clinical thresholds, other reports' ranges, or trends are used. Urgent (critical-value) rules are not defined yet: they need clinical thresholds reviewed against validated sources.
+
+Lifecycle: alerts are evaluated when a reading completes, when a document is deleted, and when alerts are listed. An alert is keyed by its result's content (document, test, value, date), so reading a document again keeps the same alert and the user's acknowledgement. When the result disappears, the system resolves it (`resolved_by: system`); if it returns, the system reopens it. Alerts the user resolved stay resolved. Every change is recorded in `alert_events`. Rules change only through migrations.
+
 ## 7. Asynchronous Processing and AI APIs
 
 Document extraction is the first asynchronous operation: the upload responds immediately, and progress is read from `GET /documents/{id}/observations` (clients poll every few seconds while the job is `pending` or `running`).

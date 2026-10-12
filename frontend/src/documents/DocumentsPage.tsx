@@ -16,6 +16,7 @@ import {
 import { CATEGORY_LABELS, formatBytes, formatDocumentDate, formatTimestamp, typeLabel } from './format'
 import { GROUPING_LABELS, GROUPINGS, groupDocuments, hasFilters, matchesFilters, type Grouping } from './grouping'
 import { UploadPanel } from './UploadPanel'
+import { HelperNote } from '../components/HelperNote'
 
 /** Filters and grouping live in the address (?type=&from=&to=&hospital=&nohospital=1&group=), so refresh and Back keep them. */
 function readSettings(params: URLSearchParams): { filters: DocumentFilters; grouping: Grouping } {
@@ -169,7 +170,7 @@ export function DocumentsPage() {
   return (
     <section aria-labelledby="page-title">
       <h1 id="page-title">Medical Documents</h1>
-      <p className="page-intro">Your reports, prescriptions, and summaries. Originals are kept exactly as uploaded.</p>
+      <HelperNote>Upload, filter, and open your medical reports. Originals are kept exactly as uploaded.</HelperNote>
 
       <div className="list-header">
         <div>

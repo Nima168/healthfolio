@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import { toFormErrors, type FormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
+import { HelperNote } from '../components/HelperNote'
 import { TrashIcon } from '../components/icons'
 import { SelectField } from '../components/SelectField'
 import { formatDayMonthYear, formatTimestamp } from '../documents/format'
@@ -429,10 +430,7 @@ export function MedicationsPage() {
   return (
     <section aria-labelledby="page-title">
       <h1 id="page-title">Medications and Prescriptions</h1>
-      <p className="page-intro">
-        Medicines read from your prescriptions and discharge summaries, and medicines you add yourself. Every change is
-        kept in each medicine’s history.
-      </p>
+      <HelperNote>Medicines from your documents and ones you add. Mark what you take; every change is kept.</HelperNote>
       <p className="medication-safety-note">
         This list is a record, not medical advice. Do not start, stop, or change a medicine without your doctor’s advice.
       </p>

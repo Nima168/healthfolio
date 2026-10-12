@@ -13,7 +13,7 @@ export const SECTIONS: Section[] = [
   { path: '/medications', label: 'Medications and Prescriptions', description: 'Add, edit, and review your medication records.', available: true },
   { path: '/follow-ups', label: 'Checkups and Follow-ups', description: 'Record checkups and see what is upcoming or overdue.', available: true },
   { path: '/summaries', label: 'AI Summaries and Insights', description: 'Plain-language summaries of your records, with sources.', available: false },
-  { path: '/alerts', label: 'Alerts', description: 'Safety alerts from validated rules, to review and acknowledge.', available: false },
+  { path: '/alerts', label: 'Alerts', description: 'Safety alerts from validated rules, to review and acknowledge.', available: true },
   { path: '/profile', label: 'Health Profile', description: 'Your conditions, allergies, and other health details.', available: false },
   { path: '/settings', label: 'Account and Privacy Settings', description: 'Account, export, and deletion options.', available: false },
 ]

@@ -34,6 +34,7 @@ from app.models.extraction import Observation, ProcessingJob
 from app.models.prescription import Condition, Medication, Suggestion
 from app.repositories.auth import AuditRepository
 from app.services import jobs
+from app.services.alert_service import AlertService
 from app.services.storage import DocumentStorage, StorageError
 
 logger = logging.getLogger(__name__)
@@ -180,6 +181,8 @@ class ExtractionRunner:
                 counts = {"results": 0, "needs_review": 0, "warnings": False}
 
             jobs.finish(self.session, job, "completed_with_warnings" if counts["warnings"] else "completed")
+            self.session.flush()
+            AlertService(self.session).try_sync(job.user_id)  # approved safety rules on the new results
             audit.record(
                 "ai.extraction_completed",
                 "success",

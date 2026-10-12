@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 
+import { AlertsPage } from './alerts/AlertsPage'
 import { AuthLayout } from './auth/AuthLayout'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppShell } from './components/AppShell'
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/documents/:documentId" element={<DocumentDetailPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/medications" element={<MedicationsPage />} />
           <Route path="/follow-ups" element={<FollowUpsPage />} />
           {SECTIONS.filter((section) => !section.available).map((section) =>

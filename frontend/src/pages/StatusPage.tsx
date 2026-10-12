@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { ApiError, apiGet } from '../api/client'
+import { HelperNote } from '../components/HelperNote'
 
 type State = 'checking' | 'ok' | 'problem'
 
@@ -71,7 +72,7 @@ export function StatusPage() {
   return (
     <section aria-labelledby="page-title">
       <h1 id="page-title">System Status</h1>
-      <p className="page-intro">Whether the application and its database are reachable right now.</p>
+      <HelperNote>Shows whether the app and its database are reachable right now.</HelperNote>
 
       <div className="card">
         <ul className="status-list" aria-live="polite" aria-busy={isChecking}>

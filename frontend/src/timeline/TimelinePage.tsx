@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { toFormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
+import { HelperNote } from '../components/HelperNote'
 import { formatDayMonthYear } from '../documents/format'
 import {
   TIMELINE_CATEGORIES,
@@ -157,10 +158,7 @@ export function TimelinePage() {
   return (
     <section aria-labelledby="page-title">
       <h1 id="page-title">Health Timeline</h1>
-      <p className="page-intro">
-        Your records in date order, newest first. Each date is shown on its own; results from different dates are not
-        combined or compared.
-      </p>
+      <HelperNote>All your records in date order, newest first. Each date stays separate.</HelperNote>
 
       <div className="card timeline-filters" role="search" aria-label="Filter the timeline">
         <fieldset className="timeline-categories">

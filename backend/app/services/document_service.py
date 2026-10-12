@@ -23,6 +23,7 @@ from app.repositories.auth import AuditRepository
 from app.repositories.documents import DocumentFilters, DocumentRepository
 from app.schemas.documents import DocumentUpdate, normalise_date
 from app.services import jobs
+from app.services.alert_service import AlertService
 from app.services.document_validation import SNIFF_BYTES, detect_media_type, sanitise_filename
 from app.services.storage import CHUNK_SIZE, DocumentStorage, StorageError, storage_key
 
@@ -242,6 +243,8 @@ class DocumentService:
             .where(Suggestion.source_document_id == document.id, Suggestion.status == "pending")
             .values(status="superseded")
         )
+        self.session.flush()
+        AlertService(self.session).try_sync(user_id)  # alerts from this document's results are resolved
         self.audit.record("document.deleted", "success", user_id, {"document_id": str(document.id)})
         self.session.commit()
 

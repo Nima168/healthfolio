@@ -32,9 +32,10 @@ from app.db.session import get_engine, get_session_factory  # noqa: E402
 from app.main import create_app  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+# safety_rules is not emptied: its rows are seeded by migration 0011 and are global.
 ALL_TABLES = (
-    "follow_ups, suggestions, conditions, medication_history, medications, observations, processing_jobs, documents, "
-    "audit_events, email_deliveries, password_reset_tokens, refresh_tokens, users"
+    "alert_events, alerts, follow_ups, suggestions, conditions, medication_history, medications, observations, "
+    "processing_jobs, documents, audit_events, email_deliveries, password_reset_tokens, refresh_tokens, users"
 )
 
 
