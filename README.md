@@ -108,6 +108,8 @@ The **Health Profile** brings together your body measurements (height, weight, a
 
 The **Dashboard** gives a one-page overview: open and urgent alerts, items to review, overdue and upcoming follow-ups, recent documents and their reading status, profile completeness with allergies, BMI, and the latest vital signs, and recent activity, each linking to its page.
 
+**AI Summaries and Insights** writes a plain-language summary of your whole history, or of one document, only when you ask. The AI works from your already-extracted records, given as numbered facts, and must cite them; code then removes any sentence whose numbers, months, or sources do not match. Each statement links to its source, AI interpretations and general medical information are labelled separately (with a reminder to ask your doctor), gaps such as unconfirmed medicines or overdue follow-ups are found by fixed rules, and the page says when your records changed since the summary. Your name, email, and date of birth are never sent.
+
 **Alerts** come from fixed, documented rules, never from AI. The first rule flags a result outside the range printed on its own report, as an item to review with a doctor, not a diagnosis. Each alert explains why it was raised, what to keep in mind, what to do next, and links to its source. Alerts can be acknowledged and resolved, and keep their history. The page always shows emergency guidance and states that having no alerts does not mean you are healthy.
 
 **Search** (on the Timeline page) finds any word across your records (tests, medicines, diagnoses, report text, allergies, history), shows which field matched with the words highlighted, and can be narrowed by document type, hospital, condition, and dates. The search text is never put in the page address or logs.
@@ -151,6 +153,7 @@ Backend settings come from environment variables (`backend/.env` in development)
 | `EMAIL_BACKEND` / `DEV_MAIL_DIR` | `file` writes emails to a local folder in development | `file` / `.dev_mail` |
 | `DOCUMENT_STORAGE_DIR` | Where uploaded documents are stored in development (git-ignored) | `storage/documents` |
 | `UPLOAD_RATE_LIMIT_PER_HOUR` | Uploads allowed per user per hour | `30` |
+| `SUMMARY_RATE_LIMIT_PER_HOUR` | AI summaries a user can request per hour | `20` |
 | `EXTRACTION_ENABLED` | Turn on AI extraction (external provider; synthetic data only) | `false` |
 | `GROQ_API_KEY` | Your Groq API key (secret; never committed) | — |
 | `AI_MODEL` | Model used for extraction | `qwen/qwen3.8-27b` |
@@ -182,6 +185,8 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 | GET, POST | `/api/v1/vitals` | Your blood pressure and heart rate readings; add one |
 | GET | `/api/v1/dashboard` | One-page overview for the dashboard |
 | POST | `/api/v1/search` | Search your records (query in the body, never in the URL) |
+| GET, POST | `/api/v1/summaries/history` | Read or write the AI summary of your whole history |
+| GET, POST | `/api/v1/documents/{id}/summary` | Read or write the AI summary of one document |
 | POST | `/api/v1/profile/suggestions/{id}` | Accept, correct, or reject a suggested diagnosis |
 | GET | `/api/v1/documents/{id}` | Document details |
 | GET | `/api/v1/documents/{id}/file` | The original file (inline, or `?download=true`) |
@@ -238,4 +243,4 @@ The system is defined by these specs: `goal_spec.md` (product scope), `backend_s
 
 ## Future Improvements
 
-An accuracy evaluation set for AI extraction, reminder delivery, editing medications, safety alerts, AI summaries, search, and export — delivered incrementally as their data model and API contracts are defined.
+An accuracy evaluation set for AI extraction and summaries, reminder delivery, account export and deletion, trends across dates, and Health Q&A — delivered incrementally as their data model and API contracts are defined.

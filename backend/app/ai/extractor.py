@@ -491,6 +491,10 @@ class GroqExtractor:
             int(getattr(usage, "completion_tokens", 0) or 0),
         )
 
+    def call(self, request: dict[str, Any], task: Task) -> tuple[Any, str, int, int]:
+        """One request with the same error handling and output checks (used for summaries too)."""
+        return self._call(request, task)
+
     def _run(self, document: PreparedDocument, task: Task) -> _Usage:
         usage = _Usage(model=self.settings.ai_model)
         for request in build_requests(document, self.settings, task):

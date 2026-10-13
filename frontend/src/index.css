@@ -1513,3 +1513,109 @@ button {
   border-radius: 3px;
 }
 
+
+/* ---------- AI summaries ---------- */
+.ai-summary {
+  margin-top: 24px;
+}
+.ai-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ai-summary-head h2 {
+  margin: 0;
+}
+.ai-badge,
+.ai-kind {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.ai-badge {
+  padding: 2px 10px;
+  background: var(--color-mint);
+  color: var(--color-accent-dark);
+  border: 1px solid var(--color-accent);
+}
+.ai-kind {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 8px;
+  background: var(--color-lilac);
+  color: var(--color-text-muted);
+}
+.ai-summary-meta {
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  margin: 8px 0 4px;
+}
+.ai-summary-section {
+  margin-top: 20px;
+}
+.ai-summary-section h3 {
+  font-size: 1.2rem;
+  margin-bottom: 6px;
+}
+.ai-summary-section ul,
+.ai-summary-section ol {
+  margin: 0;
+  padding-left: 22px;
+}
+.ai-summary-section li {
+  margin-bottom: 6px;
+}
+.ai-interpretation {
+  font-style: italic;
+}
+.summary-cites {
+  margin-left: 4px;
+}
+.summary-cite {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 2px;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-style: normal;
+  text-align: center;
+  text-decoration: none;
+  vertical-align: super;
+  border-radius: var(--radius-sm);
+  background: var(--color-mint);
+}
+.general-info {
+  margin-top: 20px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-sky);
+  border-left: 4px solid var(--color-dusty-blue);
+}
+.general-info h3 {
+  font-size: 1.1rem;
+}
+.general-info dt {
+  font-weight: 700;
+}
+.general-info dd {
+  margin: 0 0 10px;
+}
+.general-info-note {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+.summary-stale {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-problem-bg);
+  color: var(--color-problem-text);
+}
+.summary-sources li {
+  font-size: 0.95rem;
+}

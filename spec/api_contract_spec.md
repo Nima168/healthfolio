@@ -409,6 +409,24 @@ Contents: document count, documents being read, the 5 most recent documents with
 
 The client never presents missing information as good health ("No open alerts" is followed by "This is not a health check"), shows urgent alerts first, and links every card to its page. No AI is used.
 
+### 6.12 AI Summaries
+
+Decision 2026-10-13 (`backend/app/services/summary_service.py`, `summary_facts.py`, `backend/app/ai/summary.py`). Rules decide; AI explains.
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/summaries/history` | `{enabled, can_create, summary \| null, stale}` |
+| POST | `/summaries/history` | `201` same; writes a new summary |
+| GET | `/documents/{id}/summary` | same, for one document (`404` for another user's document) |
+| POST | `/documents/{id}/summary` | `201` same; `409` while the document is not read |
+
+- **On request only.** Nothing is sent to the AI provider until the user asks. Off unless `EXTRACTION_ENABLED=true` (`503`); `409` when there are no records; `429` above `SUMMARY_RATE_LIMIT_PER_HOUR` (default 20); `503` with a user-safe message when the provider is unavailable, rate-limited, or nothing could be checked. Written during the request (typically 5–40 s), not in the job queue: the queue is per document.
+- **Facts.** The records are collected as numbered facts: Timeline entries (`F…`, newest first, at most 120) plus profile conditions, allergies, surgeries, hospitalizations, family history, BMI, sex and blood group; and gaps found by fixed rules (`C…`: open alerts, overdue follow-ups, unconfirmed medicines, diagnoses to review, follow-ups not added, unread or failed documents, no lab result in 12 months, missing profile details). Names, email, date of birth, and document titles are never sent.
+- **Model output** (strict JSON schema, reasoning hidden): sections `overview`, `conditions`, `medicines`, `results`, `follow_ups`, `gaps`, each a list of sentences `{text, kind (record | interpretation), fact_ids}`; and `explanations` `{term, text, fact_ids}` of general medical knowledge.
+- **Checking** (code): a sentence is kept only if it cites existing facts and every number (digits or number words) and month it states appears in the cited facts; at most 10 per section. An explanation is kept only if its term appears in a cited fact and it contains no numbers. Dropped items are counted and the user is told. A summary with nothing left fails.
+- **Stored** in `ai_summaries` with sources, explanations, rule-based insights, `fingerprint` of the facts, `model_version`, `prompt_version`, and token counts. `stale` = the facts changed since. Deleting a document deletes its summary and every whole-history summary. Logs carry counts and timings only.
+- **Client:** "AI-generated" badge; "AI interpretation" label on interpretation sentences; numbered citations to a Sources list (record, date, document, and whether the user checked it); general information in a separate box with the doctor's-advice note; rule-based "Things to check" labelled as not from the AI; "not medical advice".
+
 ## 7. Asynchronous Processing and AI APIs
 
 Document extraction is the first asynchronous operation: the upload responds immediately, and progress is read from `GET /documents/{id}/observations` (clients poll every few seconds while the job is `pending` or `running`).

@@ -6,6 +6,8 @@ import { toFormErrors, type FormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
 import { TrashIcon } from '../components/icons'
 import { documentsApi, TITLE_MAX_LENGTH, type MedicalDocument } from './documentsApi'
+import { AiSummaryPanel } from '../summaries/AiSummaryPanel'
+import { summariesApi } from '../summaries/summariesApi'
 import { ExtractedResults } from './ExtractedResults'
 import type { JobStatus } from './extractionApi'
 import {
@@ -73,6 +75,9 @@ export function DocumentDetailPage() {
   const [errors, setErrors] = useState<FormErrors>({ fields: {} })
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  const loadSummary = useCallback(() => summariesApi.document(documentId), [documentId])
+  const createSummary = useCallback(() => summariesApi.createDocument(documentId), [documentId])
 
   // Stable identity: ExtractedResults reloads when this changes.
   const handleStatusChange = useCallback((status: JobStatus) => {
@@ -278,6 +283,15 @@ export function DocumentDetailPage() {
         </div>
         <ExtractedResults documentId={document.id} onStatusChange={handleStatusChange} />
       </div>
+
+      {/* Reloads when the reading finishes, so the summary button appears without a page refresh. */}
+      <AiSummaryPanel
+        key={document.processing_status}
+        title="Plain-language summary"
+        load={loadSummary}
+        create={createSummary}
+        emptyText="A summary can be written once this document has been read."
+      />
 
     </section>
   )

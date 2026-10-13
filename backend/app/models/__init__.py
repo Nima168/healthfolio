@@ -6,8 +6,10 @@ from app.models.document import Document
 from app.models.extraction import Observation, ProcessingJob
 from app.models.prescription import Condition, FollowUp, Medication, MedicationHistory, Suggestion
 from app.models.profile import MedicalRecordItem, ProfileValue, ProfileValueHistory, VitalReading
+from app.models.summary import AiSummary
 
 __all__ = [
+    "AiSummary",
     "Alert",
     "AlertEvent",
     "AuditEvent",

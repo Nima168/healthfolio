@@ -11,6 +11,7 @@ from app.api.v1 import (
     observations,
     profile,
     search,
+    summaries,
     timeline,
     users,
     vitals,
@@ -30,3 +31,4 @@ api_router.include_router(profile.router)
 api_router.include_router(vitals.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(search.router)
+api_router.include_router(summaries.router)

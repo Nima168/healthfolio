@@ -16,6 +16,7 @@ import { MedicationsPage } from './medications/MedicationsPage'
 import { ComingSoon, NotFound } from './pages/ComingSoon'
 import { StatusPage } from './pages/StatusPage'
 import { ProfilePage } from './profile/ProfilePage'
+import { SummariesPage } from './summaries/SummariesPage'
 import { TimelinePage } from './timeline/TimelinePage'
 import { SECTIONS, STATUS_SECTION } from './sections'
 
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/medications" element={<MedicationsPage />} />
           <Route path="/follow-ups" element={<FollowUpsPage />} />
+          <Route path="/summaries" element={<SummariesPage />} />
           {SECTIONS.filter((section) => !section.available).map((section) =>
             section.path === '/' ? (
               <Route key={section.path} index element={<ComingSoon section={section} />} />

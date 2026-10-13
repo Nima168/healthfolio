@@ -109,12 +109,42 @@ function setup(state: DocumentExtraction | (() => DocumentExtraction), extra: Re
     'GET /documents/doc-1': () => jsonResponse(200, DOCUMENT),
     'GET /documents/doc-1/file': () => new Response(new Blob(['%PDF'])),
     'GET /documents/doc-1/observations': () => jsonResponse(200, next()),
+    'GET /documents/doc-1/summary': () => jsonResponse(200, { enabled: true, can_create: false, summary: null, stale: false }),
     ...extra,
   })
 }
 
 afterEach(() => {
   vi.useRealTimers()
+})
+
+describe('Plain-language summary of one document', () => {
+  it('offers a summary once the document is read, and writes it only when asked', async () => {
+    const summary = {
+      id: 'sum-d',
+      scope: 'document',
+      created_at: '2026-10-13T09:00:00Z',
+      model_version: 'qwen/qwen3.8-27b',
+      sections: [{ key: 'overview', title: 'Overview', sentences: [{ text: 'This report has 4 tests.', kind: 'record', fact_ids: ['F1'] }] }],
+      explanations: [],
+      insights: [],
+      sources: { F1: { kind: 'lab_results', title: 'Lab results: 4 tests', date: '2026-03-14', trust: 'from_document', source_document_id: 'doc-1', source_document_title: 'Blood test March', link: '/documents/doc-1' } },
+      dropped_count: 0,
+    }
+    const fetchMock = setup(extraction(), {
+      'GET /documents/doc-1/summary': () => jsonResponse(200, { enabled: true, can_create: true, summary: null, stale: false }),
+      'POST /documents/doc-1/summary': () => jsonResponse(201, { enabled: true, can_create: true, summary, stale: false }),
+    })
+    renderAt('/documents/doc-1')
+
+    const panel = await screen.findByRole('region', { name: 'Plain-language summary' })
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Create summary' }))
+
+    expect(await within(panel).findByText('AI-generated')).toBeInTheDocument()
+    expect(within(panel).getByText('This report has 4 tests.')).toBeInTheDocument()
+    const posts = fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/documents/doc-1/summary') && init?.method === 'POST')
+    expect(posts).toHaveLength(1)
+  })
 })
 
 describe('Extracted lab results', () => {

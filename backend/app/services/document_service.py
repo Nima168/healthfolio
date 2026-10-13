@@ -22,7 +22,7 @@ from app.models.prescription import Condition, Medication, Suggestion
 from app.repositories.auth import AuditRepository
 from app.repositories.documents import DocumentFilters, DocumentRepository
 from app.schemas.documents import DocumentUpdate, normalise_date
-from app.services import jobs, upload_quality
+from app.services import jobs, summary_service, upload_quality
 from app.services.alert_service import AlertService
 from app.services.document_validation import SNIFF_BYTES, detect_media_type, sanitise_filename
 from app.services.storage import CHUNK_SIZE, DocumentStorage, StorageError, storage_key
@@ -228,6 +228,7 @@ class DocumentService:
         document.document_date_precision = None
         # Extracted results go with their document, and any queued extraction is cancelled.
         jobs.cancel_active_jobs(self.session, document.id)
+        summary_service.forget_document(self.session, user_id, document.id)
         self.session.execute(
             update(Observation)
             .where(Observation.source_document_id == document.id, Observation.deleted_at.is_(None))

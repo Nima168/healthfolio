@@ -250,4 +250,5 @@ Schema changes are made through Alembic migrations (`backend_spec.md` Section 11
 | medical_record_items | Built (2026-10-13, migration 0013): past surgeries, hospitalizations, and family medical history entered by the user (`kind`, `name`, `occurred_on`, `relation`, `notes`) |
 | medications.kind | Built (2026-10-13): prescription, over_the_counter, supplement |
 | vital_readings | Built (2026-10-13, migration 0014): `measured_on`, `measured_time`, `systolic`, `diastolic`, `heart_rate`, `context`; at least one measurement, blood pressure as a pair |
+| ai_summaries | Built (2026-10-13, migration 0015): `scope`, `document_id` (document scope), `content` (checked sections), `source_refs`, `general_knowledge_sections`, plus `insights` (rule-based gaps), `dropped_count`, `fingerprint` (records-changed check), token counts. Deleted with the document they used |
 | All others | Specified, not yet built |
