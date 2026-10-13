@@ -4,11 +4,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Header, Response, status
 
-from app.api.deps import DbDep, EmailSenderDep, SettingsDep
+from app.api.deps import CurrentUser, DbDep, EmailSenderDep, SettingsDep
 from app.core.config import Settings
 from app.core.errors import ApiError
 from app.core.rate_limit import rate_limit
 from app.schemas.auth import (
+    ChangePasswordRequest,
+    DeleteAccountRequest,
     ForgotPasswordRequest,
     LoginRequest,
     MessageResponse,
@@ -17,7 +19,9 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
+from app.services.account_service import AccountService
 from app.services.auth_service import AuthResult, AuthService, send_password_reset_email
+from app.services.storage import get_document_storage
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -128,3 +132,37 @@ def forgot_password(
 )
 def reset_password(body: ResetPasswordRequest, session: DbDep, settings: SettingsDep) -> None:
     AuthService(session, settings).reset_password(body.token, body.new_password)
+
+
+# ---------- account settings (under /auth so the refresh cookie is sent) ----------
+
+
+@router.post(
+    "/password/change",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("password_change", 10, 3600)), CsrfCheck],
+)
+def change_password(
+    body: ChangePasswordRequest,
+    user: CurrentUser,
+    session: DbDep,
+    settings: SettingsDep,
+    refresh_token: RefreshCookie = None,
+) -> None:
+    """Other devices are signed out; this one stays signed in."""
+    AccountService(session, settings).change_password(user, body.current_password, body.new_password, refresh_token)
+
+
+@router.post(
+    "/account/delete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("account_delete", 10, 3600)), CsrfCheck],
+)
+def delete_account(
+    body: DeleteAccountRequest, user: CurrentUser, response: Response, session: DbDep, settings: SettingsDep
+) -> None:
+    """Permanently deletes the account, its files, and its records, then signs out."""
+    AccountService(session, settings).delete_account(
+        user, body.password, body.confirmation, get_document_storage(settings)
+    )
+    _clear_refresh_cookie(response, settings)

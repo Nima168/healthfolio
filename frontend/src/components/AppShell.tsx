@@ -3,12 +3,16 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/AuthContext'
 import { SECTIONS, STATUS_SECTION, type Section } from '../sections'
+import { BrandMark, SectionIcon } from './icons'
 
 function NavItem({ section }: { section: Section }) {
   return (
     <li>
       <NavLink to={section.path} end={section.path === '/'} className="nav-link">
-        <span>{section.label}</span>
+        <span className="nav-label">
+          <SectionIcon path={section.path} />
+          <span>{section.label}</span>
+        </span>
         {!section.available && (
           <span className="soon-tag" aria-label="coming soon">
             Soon
@@ -37,7 +41,8 @@ function AccountBox() {
   async function handleLogout() {
     setLoggingOut(true)
     await logout()
-    navigate('/login', { replace: true })
+    // The home address shows the Welcome page when signed out; go there directly so both redirects agree.
+    navigate('/welcome', { replace: true })
   }
 
   return (
@@ -59,7 +64,13 @@ export function AppShell() {
       </a>
       <div className="shell">
         <aside className="sidebar">
-          <p className="brand">Health Records</p>
+          <Link to="/welcome" className="brand" title="About Healthfolio">
+            <BrandMark />
+            <span>
+              <span className="brand-name">Healthfolio</span>
+              <span className="brand-tagline">Your medical history, organised</span>
+            </span>
+          </Link>
           <nav aria-label="Main">
             <ul className="nav-list">
               {SECTIONS.map((section) => (

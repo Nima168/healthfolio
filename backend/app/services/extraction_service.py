@@ -1,7 +1,8 @@
 """Runs one extraction job end to end (backend_spec.md Sections 6.4–6.6, DL_AI_spec.md Section 13).
 
-read original → prepare (text layer / vision) → [classify, only if the user chose no type]
-→ extract with the AI model (Groq) → validate (deterministic) → persist.
+read original → prepare (PyMuPDF text for digital PDFs, Tesseract OCR for scanned copies, page images
+for pages OCR cannot read) → [classify, only if the user chose no type] → organise into fields with the
+AI model (Groq) → validate (deterministic) → persist.
 Lab reports become observations; prescriptions become medications and follow-up suggestions.
 """
 
@@ -25,7 +26,7 @@ from app.ai.extractor import (
     GroqExtractor,
 )
 from app.ai.prescription_validation import ValidatedFollowUp, ValidatedMedication, validate_prescription
-from app.ai.reading import PreparedDocument, ReadingError, prepare
+from app.ai.reading import Ocr, PreparedDocument, ReadingError, prepare
 from app.ai.report_validation import validate_consultation, validate_imaging, validate_test_report
 from app.ai.validation import ValidatedResult, validate_payload
 from app.core.config import Settings
@@ -124,11 +125,19 @@ def _to_suggestion(job: ProcessingJob, item: ValidatedFollowUp, position: int) -
 
 
 class ExtractionRunner:
-    def __init__(self, session: Session, settings: Settings, storage: DocumentStorage, extractor: GroqExtractor):
+    def __init__(
+        self,
+        session: Session,
+        settings: Settings,
+        storage: DocumentStorage,
+        extractor: GroqExtractor,
+        ocr: Ocr | None = None,
+    ):
         self.session = session
         self.settings = settings
         self.storage = storage
         self.extractor = extractor
+        self.ocr = ocr  # None: scanned pages are read by the AI from their images
 
     def _live_document(self, job: ProcessingJob) -> Document:
         self.session.refresh(job)
@@ -148,7 +157,15 @@ class ExtractionRunner:
                 content = b"".join(self.storage.open(document.storage_key or ""))
             except (StorageError, ValueError) as exc:
                 raise ExtractionError("file_unavailable", transient=True) from exc
-            prepared = prepare(content, document.media_type)
+            prepared = prepare(
+                content,
+                document.media_type,
+                document.copy_type,
+                ocr=self.ocr,
+                min_confidence=self.settings.ocr_min_confidence,
+            )
+            job.reading_method = prepared.method
+            job.ocr_confidence = prepared.ocr_confidence
 
             # The user's chosen type decides; the AI classifies only when none was chosen.
             kind = document.category if document.category in DIRECT_KINDS else None
@@ -234,6 +251,7 @@ class ExtractionRunner:
                 "model": job.model_version,
                 # Not named "*token*": the log redactor masks those keys.
                 "ai_usage": {"input": job.input_tokens, "output": job.output_tokens},
+                "reading_method": job.reading_method,
                 "duration_ms": round((time.perf_counter() - started) * 1000),
             },
         )

@@ -15,7 +15,9 @@ import { FollowUpsPage } from './followUps/FollowUpsPage'
 import { MedicationsPage } from './medications/MedicationsPage'
 import { ComingSoon, NotFound } from './pages/ComingSoon'
 import { StatusPage } from './pages/StatusPage'
+import { WelcomePage } from './pages/WelcomePage'
 import { ProfilePage } from './profile/ProfilePage'
+import { AccountDeletedPage, SettingsPage } from './settings/SettingsPage'
 import { SummariesPage } from './summaries/SummariesPage'
 import { TimelinePage } from './timeline/TimelinePage'
 import { SECTIONS, STATUS_SECTION } from './sections'
@@ -23,11 +25,13 @@ import { SECTIONS, STATUS_SECTION } from './sections'
 export default function App() {
   return (
     <Routes>
+      <Route path="/welcome" element={<WelcomePage />} />
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/account-deleted" element={<AccountDeletedPage />} />
       </Route>
 
       <Route element={<AppShell />}>
@@ -41,6 +45,7 @@ export default function App() {
           <Route path="/medications" element={<MedicationsPage />} />
           <Route path="/follow-ups" element={<FollowUpsPage />} />
           <Route path="/summaries" element={<SummariesPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           {SECTIONS.filter((section) => !section.available).map((section) =>
             section.path === '/' ? (
               <Route key={section.path} index element={<ComingSoon section={section} />} />

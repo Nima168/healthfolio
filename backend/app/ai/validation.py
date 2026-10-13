@@ -51,6 +51,7 @@ REVIEW_FINDINGS = {
     "invalid_reference_range",
     "possible_duplicate",
     "value_truncated",
+    "unreadable_characters",
 }
 
 
@@ -138,6 +139,9 @@ def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_coun
 
     reference_text, _ = _clip(result.reference_range_text, LIMITS["reference_range_text"])
     snippet, _ = _clip(result.source_text, LIMITS["snippet"])
+    # Characters OCR could not recognise appear as U+FFFD (the replacement character): a person must check them.
+    if any("�" in (text or "") for text in (name, value_text, unit, reference_text)):
+        findings.append("unreadable_characters")
     return ValidatedResult(
         name=name,
         value_text=value_text,

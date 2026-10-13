@@ -21,6 +21,7 @@ DOCUMENT_CATEGORIES = (
 DATE_PRECISIONS = ("day", "month", "year", "unknown")
 MEDIA_TYPES = ("application/pdf", "image/jpeg", "image/png")
 PROCESSING_STATUSES = ("pending", "running", "completed", "completed_with_warnings", "failed", "cancelled")
+COPY_TYPES = ("digital", "scanned")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -33,6 +34,7 @@ class Document(TimestampMixin, Base):
         CheckConstraint(_in("category", DOCUMENT_CATEGORIES), name="ck_documents_category"),
         CheckConstraint(_in("media_type", MEDIA_TYPES), name="ck_documents_media_type"),
         CheckConstraint(_in("processing_status", PROCESSING_STATUSES), name="ck_documents_processing_status"),
+        CheckConstraint(f"copy_type IS NULL OR {_in('copy_type', COPY_TYPES)}", name="ck_documents_copy_type"),
         CheckConstraint(
             f"document_date_precision IS NULL OR {_in('document_date_precision', DATE_PRECISIONS)}",
             name="ck_documents_date_precision",
@@ -62,4 +64,7 @@ class Document(TimestampMixin, Base):
     document_date: Mapped[date | None] = mapped_column(Date)
     document_date_precision: Mapped[str | None] = mapped_column(String(10))
     processing_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    # The user's answer: a digital PDF (text inside) or a scanned copy (read with OCR). Photos are scanned.
+    # Null for documents uploaded before the question existed: detected from the file.
+    copy_type: Mapped[str | None] = mapped_column(String(10))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

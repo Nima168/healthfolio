@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { toFormErrors } from '../auth/formErrors'
+import type { CopyType } from './documentsApi'
 import {
   extractionApi,
   FAILURE_MESSAGES,
   type ConsultationSummary,
   type DischargeSummary,
   type DocumentExtraction,
+  type ExtractionJob,
   type FollowUpLine,
   type ImagingSummary,
   type KeyResult,
@@ -15,10 +17,11 @@ import {
   type LabSummary,
   type MedicationLine,
   type PrescriptionSummary,
+  type ReadingMethod,
   type SummaryLine,
   type TestReportSummary,
 } from './extractionApi'
-import { formatDayMonthYear, NOT_MENTIONED, todayIso } from './format'
+import { COPY_TYPE_LABELS, formatDayMonthYear, NOT_MENTIONED, todayIso } from './format'
 
 const TITLES = {
   lab_report: 'Extracted lab results',
@@ -408,6 +411,69 @@ function isEmptyPrescription(summary: PrescriptionSummary): boolean {
   return summary.medications.length === 0 && summary.follow_ups.length === 0
 }
 
+// ---------- how it was read, and reading it again ----------
+
+const METHOD_NOTES: Record<ReadingMethod, string> = {
+  digital: 'Read from the text inside the PDF.',
+  ocr: 'Read with OCR (text recognition) from the scanned copy',
+  'ocr+vision': 'Read with OCR (text recognition); pages it could not read clearly were read by the AI from the image',
+  vision: 'Read by the AI from the page images, because OCR could not read them clearly.',
+}
+
+function ReadingNote({ job, copyType }: { job: ExtractionJob; copyType: CopyType | null }) {
+  if (!job.reading_method) return null
+  const confidence = job.ocr_confidence != null ? ` (average confidence ${job.ocr_confidence}%)` : ''
+  const ocrPart = job.reading_method === 'ocr' || job.reading_method === 'ocr+vision'
+  return (
+    <p className="reading-note">
+      {METHOD_NOTES[job.reading_method]}
+      {ocrPart && `${confidence}.`}
+      {copyType === 'digital' && job.reading_method !== 'digital' && ' This PDF had no text inside, so it was read as a scanned copy.'}
+      {ocrPart && ' OCR can misread characters, so check the values against the original.'}
+    </p>
+  )
+}
+
+function RefreshAnalysis({
+  isPdf,
+  copyType,
+  requesting,
+  onRefresh,
+}: {
+  isPdf: boolean
+  copyType: CopyType | null
+  requesting: boolean
+  onRefresh: (copyType: CopyType | null) => void
+}) {
+  const [readAs, setReadAs] = useState<CopyType | ''>(copyType ?? '')
+  return (
+    <div className="read-again">
+      {isPdf && (
+        <label className="read-as">
+          Read as
+          <select value={readAs} onChange={(e) => setReadAs(e.target.value as CopyType | '')}>
+            {!copyType && <option value="">Detect automatically</option>}
+            <option value="digital">{COPY_TYPE_LABELS.digital}</option>
+            <option value="scanned">{COPY_TYPE_LABELS.scanned}</option>
+          </select>
+        </label>
+      )}
+      <button
+        type="button"
+        className="button button-small"
+        onClick={() => onRefresh(readAs || null)}
+        disabled={requesting}
+      >
+        {requesting ? 'Starting…' : 'Refresh analysis'}
+      </button>
+      <span className="form-hint">
+        AI output can vary from run to run. If something looks missing or wrong, refresh the analysis once for a better
+        result. This replaces the results above; follow-ups you already added are kept.
+      </span>
+    </div>
+  )
+}
+
 // ---------- section ----------
 
 export function ExtractedResults({
@@ -455,10 +521,10 @@ export function ExtractedResults({
     }
   }, [load, pollKey])
 
-  async function requestExtraction() {
+  async function requestExtraction(copyType?: CopyType | null) {
     setRequesting(true)
     try {
-      const next = await extractionApi.request(documentId)
+      const next = await extractionApi.request(documentId, copyType)
       setData(next)
       if (next.job) onStatusChange?.(next.job.status)
       setPollKey((key) => key + 1)
@@ -488,13 +554,8 @@ export function ExtractedResults({
     </button>
   )
 
-  // Reading varies from run to run, so an extraction that found nothing can be tried again.
-  const emptyResult = (message: string) => (
-    <div>
-      <p>{message}</p>
-      {data?.extraction_enabled && extractButton('Try again')}
-    </div>
-  )
+  // Reading varies from run to run, so an extraction that found nothing can be refreshed (below).
+  const emptyResult = (message: string) => <p>{message}</p>
 
   const addFollowUps: AddFollowUps = {
     reminders: data?.prescription?.reminders ?? 'none',
@@ -504,7 +565,6 @@ export function ExtractedResults({
   }
 
   let body
-  let showReadAgain = false
   if (!data) {
     body = loadError ? null : <p role="status">Loading extracted results…</p>
   } else if (!job) {
@@ -537,28 +597,22 @@ export function ExtractedResults({
             ? 'Extraction was cancelled.'
             : (FAILURE_MESSAGES[job.error_category ?? ''] ?? 'The results could not be extracted.')}
         </p>
-        {extractButton('Try again')}
       </div>
     )
   } else if (data.document_kind === 'prescription' && data.prescription && !isEmptyPrescription(data.prescription)) {
     body = <PrescriptionSummaryText summary={data.prescription} add={addFollowUps} />
-    showReadAgain = true
   } else if (data.document_kind === 'prescription') {
     body = emptyResult('No medicines or follow-ups were found in this prescription.')
   } else if (data.document_kind === 'discharge_summary' && data.discharge) {
     body = <DischargeSummaryText summary={data.discharge} add={{ ...addFollowUps, reminders: data.discharge.reminders }} />
-    showReadAgain = true
   } else if (data.document_kind === 'consultation_note' && data.consultation) {
     body = (
       <ConsultationSummaryText summary={data.consultation} add={{ ...addFollowUps, reminders: data.consultation.reminders }} />
     )
-    showReadAgain = true
   } else if (data.document_kind === 'imaging_report' && data.imaging) {
     body = <ImagingSummaryText summary={data.imaging} />
-    showReadAgain = true
   } else if (data.document_kind === 'test_report' && data.test_report) {
     body = <TestReportSummaryText summary={data.test_report} />
-    showReadAgain = true
   } else if (data.document_kind === 'other') {
     body = emptyResult(
       'This document does not look like a medical report the app can read yet, so nothing was extracted.',
@@ -567,7 +621,6 @@ export function ExtractedResults({
     body = emptyResult('No lab results were found in this document.')
   } else {
     body = data.summary ? <LabSummaryText summary={data.summary} /> : null
-    showReadAgain = true
   }
 
   return (
@@ -579,21 +632,14 @@ export function ExtractedResults({
         </p>
       )}
       {body}
-      {showReadAgain && data?.extraction_enabled && (
-        <p className="read-again">
-          <button
-            type="button"
-            className="button button-small button-secondary"
-            onClick={() => void requestExtraction()}
-            disabled={requesting}
-          >
-            {requesting ? 'Starting…' : 'Read again'}
-          </button>
-          <span className="form-hint">
-            Something missing? AI reading can vary, so the document can be read again. This replaces the summary;
-            follow-ups you already added are kept.
-          </span>
-        </p>
+      {job && !ACTIVE.includes(job.status) && <ReadingNote job={job} copyType={data?.copy_type ?? null} />}
+      {job && !ACTIVE.includes(job.status) && data?.extraction_enabled && (
+        <RefreshAnalysis
+          isPdf={data.media_type === 'application/pdf'}
+          copyType={data.copy_type}
+          requesting={requesting}
+          onRefresh={(copyType) => void requestExtraction(copyType)}
+        />
       )}
     </section>
   )

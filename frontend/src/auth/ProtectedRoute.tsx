@@ -15,6 +15,8 @@ export function ProtectedRoute() {
     )
   }
   if (status === 'anonymous') {
+    // The home address introduces the app; other pages go straight to login and come back afterwards.
+    if (location.pathname === '/') return <Navigate to="/welcome" replace />
     const next = encodeURIComponent(location.pathname + location.search)
     return <Navigate to={`/login?next=${next}`} replace />
   }

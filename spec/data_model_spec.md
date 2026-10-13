@@ -134,6 +134,7 @@ Email bodies are not stored.
 | provider_name | Nullable (hospital, lab, clinic, clinician) |
 | document_date, document_date_precision | |
 | processing_status | Job lifecycle (Section 5.2). New uploads start as `pending`. |
+| copy_type | Nullable: `digital` (text copied from the PDF) or `scanned` (read with OCR). Photos are always `scanned`; null for PDFs uploaded before the question existed (detected from the file). A PDF's value can be changed by "Refresh analysis". |
 | search_vector | `tsvector` over category, provider, and extracted text (added with the search feature) |
 | created_at, updated_at, deleted_at | |
 
@@ -149,6 +150,8 @@ Email bodies are not stored.
 | attempts | |
 | error_category | Nullable |
 | model_version, prompt_version | `DL_AI_spec.md` Section 15 |
+| reading_method | How the text was obtained: `digital`, `ocr`, `ocr+vision` (some pages read from the image), `vision` |
+| ocr_confidence | Average Tesseract confidence over the OCR pages (0–100); null when no page was read by OCR |
 | report_date_text | The report or prescription date exactly as printed |
 | document_kind | `lab_report`, `prescription`, `other`: what the document was read as |
 | document_date, prescriber_name | From a prescription, for its summary |
@@ -251,4 +254,5 @@ Schema changes are made through Alembic migrations (`backend_spec.md` Section 11
 | medications.kind | Built (2026-10-13): prescription, over_the_counter, supplement |
 | vital_readings | Built (2026-10-13, migration 0014): `measured_on`, `measured_time`, `systolic`, `diastolic`, `heart_rate`, `context`; at least one measurement, blood pressure as a pair |
 | ai_summaries | Built (2026-10-13, migration 0015): `scope`, `document_id` (document scope), `content` (checked sections), `source_refs`, `general_knowledge_sections`, plus `insights` (rule-based gaps), `dropped_count`, `fingerprint` (records-changed check), token counts. Deleted with the document they used |
+| exports, deletion_requests | Not built by decision (2026-10-13): exports are generated on request and streamed, never stored; account deletion is immediate (password + typed confirmation) and recorded as an `account.deleted` audit event. Record and document deletion use each feature's own endpoints |
 | All others | Specified, not yet built |

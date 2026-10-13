@@ -95,3 +95,13 @@ class TokenResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(max_length=PASSWORD_MAX_LENGTH * 4)
+    new_password: str = Field(max_length=PASSWORD_MAX_LENGTH * 4)  # policy checked with the user's email
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str = Field(max_length=PASSWORD_MAX_LENGTH * 4)
+    confirmation: str = Field(max_length=20)

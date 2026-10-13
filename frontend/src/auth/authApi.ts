@@ -31,6 +31,10 @@ export const authApi = {
   resetPassword: (token: string, newPassword: string) =>
     apiPost<void>('/auth/password/reset', { token, new_password: newPassword }, anonymous),
   me: () => apiGet<User>('/users/me'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiPost<void>('/auth/password/change', { current_password: currentPassword, new_password: newPassword }),
+  deleteAccount: (password: string, confirmation: string) =>
+    apiPost<void>('/auth/account/delete', { password, confirmation }),
 }
 
 export const PASSWORD_MIN_LENGTH = 12

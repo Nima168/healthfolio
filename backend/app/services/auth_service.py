@@ -242,7 +242,7 @@ def send_password_reset_email(
     """Runs after the response is sent (BackgroundTasks), with its own database session."""
     link = f"{settings.frontend_base_url.rstrip('/')}/reset-password#token={raw_token}"
     body = (
-        "We received a request to reset the password for your Health Records account.\n\n"
+        "We received a request to reset the password for your Healthfolio account.\n\n"
         f"Reset your password using this link (valid for {settings.password_reset_minutes} minutes):\n"
         f"{link}\n\n"
         "If you did not ask for this, you can ignore this email; your password will not change.\n"
@@ -253,7 +253,7 @@ def send_password_reset_email(
             EmailDelivery(user_id=user_id, template="password_reset", provider=sender.provider, attempts=1)
         )
         try:
-            delivery.provider_message_id = sender.send(email, "Reset your Health Records password", body)
+            delivery.provider_message_id = sender.send(email, "Reset your Healthfolio password", body)
             delivery.status = "sent"
         except EmailSendError as exc:
             delivery.status = "failed"

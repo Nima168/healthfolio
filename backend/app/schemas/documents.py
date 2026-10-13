@@ -10,6 +10,7 @@ Category = Literal[
     "lab_report", "prescription", "discharge_summary", "consultation_note", "imaging_report", "other", "unknown"
 ]
 DatePrecision = Literal["day", "month", "year", "unknown"]
+CopyType = Literal["digital", "scanned"]
 
 
 def empty_to_none(value: object) -> object:
@@ -63,6 +64,7 @@ class DocumentResponse(BaseModel):
     document_date: date | None
     document_date_precision: DatePrecision | None
     provider_name: str | None
+    copy_type: CopyType | None  # null: uploaded before the question existed
     processing_status: str
     created_at: datetime
     updated_at: datetime

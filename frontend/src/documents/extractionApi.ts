@@ -1,6 +1,6 @@
 /** Extracted results: lab summary and prescription summary (api_contract_spec.md Sections 6.2, 6.3). */
 import { apiGet, apiPost } from '../api/client'
-import type { DatePrecision } from './documentsApi'
+import type { CopyType, DatePrecision } from './documentsApi'
 
 export type JobStatus = 'pending' | 'running' | 'completed' | 'completed_with_warnings' | 'failed' | 'cancelled'
 
@@ -165,9 +165,24 @@ export type DocumentKind =
   | 'test_report'
   | 'other'
 
+/** How the text was obtained: the PDF's own text, OCR, OCR with some pages read from the image, or only images. */
+export type ReadingMethod = 'digital' | 'ocr' | 'ocr+vision' | 'vision'
+
+export interface ExtractionJob {
+  status: JobStatus
+  attempts: number
+  error_category: string | null
+  updated_at: string
+  reading_method?: ReadingMethod | null
+  /** Average OCR confidence over the pages read with OCR, 0–100. */
+  ocr_confidence?: number | null
+}
+
 export interface DocumentExtraction {
   extraction_enabled: boolean
-  job: { status: JobStatus; attempts: number; error_category: string | null; updated_at: string } | null
+  media_type: string
+  copy_type: CopyType | null
+  job: ExtractionJob | null
   /** What the document was read as; null until extraction completes. */
   document_kind: DocumentKind | null
   items: Observation[]
@@ -183,7 +198,9 @@ const documentPath = (id: string) => `/documents/${encodeURIComponent(id)}`
 
 export const extractionApi = {
   get: (documentId: string) => apiGet<DocumentExtraction>(`${documentPath(documentId)}/observations`),
-  request: (documentId: string) => apiPost<DocumentExtraction>(`${documentPath(documentId)}/extract`),
+  /** Read (again); a PDF can be switched to the other copy type. */
+  request: (documentId: string, copyType?: CopyType | null) =>
+    apiPost<DocumentExtraction>(`${documentPath(documentId)}/extract`, copyType ? { copy_type: copyType } : undefined),
   /** "Add as reminders": track the prescription's follow-ups on the Checkups and Follow-ups page. */
   addFollowUps: (documentId: string) => apiPost<DocumentExtraction>(`${documentPath(documentId)}/follow-ups`),
 }

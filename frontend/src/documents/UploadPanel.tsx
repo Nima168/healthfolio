@@ -5,11 +5,13 @@ import { ApiError } from '../api/client'
 import { toFormErrors, type FormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
 import { checkFile } from './checkFile'
+import { CopyTypeField } from './CopyTypeField'
 import {
   ACCEPT_ATTRIBUTE,
   documentsApi,
   MAX_UPLOAD_MB,
   TITLE_MAX_LENGTH,
+  type CopyType,
   type DocumentMetadata,
   type MedicalDocument,
 } from './documentsApi'
@@ -17,9 +19,10 @@ import { formatBytes } from './format'
 import { EMPTY_METADATA, type MetadataValues } from './metadata'
 import { MetadataFields } from './MetadataFields'
 
-function toMetadata(title: string, values: MetadataValues): DocumentMetadata {
+function toMetadata(title: string, values: MetadataValues, copyType: CopyType | ''): DocumentMetadata {
   return {
     title: title.trim(),
+    copy_type: copyType || null,
     category: values.category || null,
     document_date: values.document_date || null,
     document_date_precision: values.document_date ? values.document_date_precision || 'day' : null,
@@ -32,6 +35,7 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [metadata, setMetadata] = useState<MetadataValues>(EMPTY_METADATA)
+  const [copyType, setCopyType] = useState<CopyType | ''>('')
   const [progress, setProgress] = useState<number | null>(null)
   const [errors, setErrors] = useState<FormErrors>({ fields: {} })
   const [duplicateId, setDuplicateId] = useState<string | null>(null)
@@ -50,6 +54,9 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
       return
     }
     setFile(selected)
+    // A photo is always a scanned copy; a PDF needs the user's answer.
+    if (selected.type.startsWith('image/')) setCopyType('scanned')
+    else if (file?.type.startsWith('image/')) setCopyType('')
   }
 
   function handleDrop(event: DragEvent) {
@@ -67,6 +74,7 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
     if (!metadata.category) missing.fields.category = 'Choose the document type.'
     if (!metadata.document_date) missing.fields.document_date = 'Enter the date on the document.'
     if (!metadata.provider_name.trim()) missing.fields.provider_name = 'Enter the hospital, lab, or clinic.'
+    if (!copyType) missing.fields.copy_type = 'Choose whether this is a digital PDF or a scanned copy.'
     if (!file || Object.keys(missing.fields).length > 0) {
       setErrors(missing)
       setSuccess(null)
@@ -77,11 +85,14 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
     setErrors({ fields: {} })
     setDuplicateId(null)
     try {
-      const document = await documentsApi.upload(file, toMetadata(title, metadata), { onProgress: setProgress })
+      const document = await documentsApi.upload(file, toMetadata(title, metadata, copyType), {
+        onProgress: setProgress,
+      })
       setSuccess(`Uploaded “${document.title}”.`)
       setFile(null)
       setTitle('')
       setMetadata(EMPTY_METADATA)
+      setCopyType('')
       if (inputRef.current) inputRef.current.value = ''
       onUploaded(document)
     } catch (error) {
@@ -162,6 +173,16 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
           }}
           errors={errors.fields}
           required
+        />
+
+        <CopyTypeField
+          value={copyType}
+          onChange={(next) => {
+            setCopyType(next)
+            if (errors.fields.copy_type) setErrors((current) => ({ ...current, fields: { ...current.fields, copy_type: '' } }))
+          }}
+          isPhoto={Boolean(file?.type.startsWith('image/'))}
+          error={errors.fields.copy_type || undefined}
         />
 
         <div aria-live="polite">

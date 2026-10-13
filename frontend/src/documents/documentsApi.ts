@@ -15,6 +15,9 @@ export type Category = (typeof CATEGORIES)[number]
 export const DATE_PRECISIONS = ['day', 'month', 'year', 'unknown'] as const
 export type DatePrecision = (typeof DATE_PRECISIONS)[number]
 
+/** A digital PDF (its text is copied) or a scanned copy or photo (read with OCR). */
+export type CopyType = 'digital' | 'scanned'
+
 export interface MedicalDocument {
   id: string
   title: string
@@ -25,6 +28,8 @@ export interface MedicalDocument {
   document_date: string | null
   document_date_precision: DatePrecision | null
   provider_name: string | null
+  /** Null for documents uploaded before the question existed. */
+  copy_type: CopyType | null
   processing_status: string
   created_at: string
   updated_at: string
@@ -59,6 +64,7 @@ export interface DocumentMetadata {
   document_date?: string | null
   document_date_precision?: DatePrecision | null
   provider_name?: string | null
+  copy_type?: CopyType | null
 }
 
 export const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']

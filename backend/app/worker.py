@@ -12,6 +12,7 @@ import time
 from collections.abc import Callable
 
 from app.ai.extractor import GroqExtractor, make_client
+from app.ai.reading import Ocr, make_ocr
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.db.session import get_session_factory
@@ -23,9 +24,10 @@ logger = logging.getLogger("app.worker")
 
 
 class Worker:
-    def __init__(self, settings: Settings, extractor: GroqExtractor) -> None:
+    def __init__(self, settings: Settings, extractor: GroqExtractor, ocr: Ocr | None = None) -> None:
         self.settings = settings
         self.extractor = extractor
+        self.ocr = ocr
         self.storage = get_document_storage(settings)
         self.stopping = False
 
@@ -36,7 +38,7 @@ class Worker:
             job = jobs.claim_next(session)
             if job is None:
                 return False
-            ExtractionRunner(session, self.settings, self.storage, self.extractor).run(job)
+            ExtractionRunner(session, self.settings, self.storage, self.extractor, self.ocr).run(job)
             return True
         finally:
             session.close()
@@ -75,7 +77,10 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("GROQ_API_KEY is not set; the worker cannot call the AI provider")
         return 2
 
-    worker = Worker(settings, GroqExtractor(make_client(settings), settings))
+    ocr = make_ocr(settings.tesseract_cmd)
+    if ocr is None:
+        logger.warning("tesseract OCR not found; scanned pages will be read by the AI from their images")
+    worker = Worker(settings, GroqExtractor(make_client(settings), settings), ocr)
 
     def stop(*_: object) -> None:
         logger.info("worker stopping after the current job")
@@ -84,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
 
-    logger.info("worker started", extra={"model": settings.ai_model, "once": args.once})
+    logger.info("worker started", extra={"model": settings.ai_model, "once": args.once, "ocr": ocr is not None})
     processed = worker.run(once=args.once)
     logger.info("worker stopped", extra={"jobs_processed": processed})
     return 0

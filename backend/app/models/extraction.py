@@ -14,6 +14,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     Text,
     Uuid,
@@ -75,6 +76,9 @@ class ProcessingJob(TimestampMixin, Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}", nullable=False)
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)
+    # How the text was obtained: digital (PDF text), ocr, ocr+vision (some pages read as images), or vision.
+    reading_method: Mapped[str | None] = mapped_column(String(20))
+    ocr_confidence: Mapped[int | None] = mapped_column(SmallInteger)  # average over OCR pages, 0–100
     run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

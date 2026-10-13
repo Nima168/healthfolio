@@ -119,6 +119,10 @@ function BmiIndicator({ bmi, category, hasBirthDate }: { bmi: number | null; cat
           <span className="bmi-marker" style={{ left: `${position}%` }} />
         </div>
       )}
+      <p className="field-note">
+        <strong>Note:</strong> This BMI indicator is for adults (18 years and over). Children and teenagers are assessed
+        with age- and sex-specific growth charts, so ask a doctor instead.
+      </p>
       <p className="form-hint">
         Calculated from your saved height and weight{hasBirthDate ? '' : '; adult categories'}. BMI does not account for
         muscle, body shape, or pregnancy.

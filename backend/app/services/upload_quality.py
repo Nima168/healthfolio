@@ -13,10 +13,11 @@ import pypdfium2 as pdfium
 from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 from pypdf import PdfReader
 
-from app.ai.reading import MIN_TEXT_CHARS_PER_PAGE, RENDER_DPI
+from app.ai.reading import MIN_TEXT_CHARS_PER_PAGE
 
 logger = logging.getLogger(__name__)
 
+RENDER_DPI = 150  # scanned pages are measured at this resolution; the limits below were set at it
 MIN_SHORT_SIDE = 600  # pixels: smaller photos cannot show printed text clearly
 MIN_SHARPNESS = 100  # variance of the Laplacian (edge detail) at MEASURE_EDGE
 MIN_CONTRAST = 8  # standard deviation of brightness: below this the page is blank or washed out

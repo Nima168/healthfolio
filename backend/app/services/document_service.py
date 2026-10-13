@@ -37,6 +37,7 @@ class UploadMetadata:
     document_date: object = None  # datetime.date | None
     document_date_precision: str | None = None
     provider_name: str | None = None
+    copy_type: str | None = None  # "digital" or "scanned"; photos are always scanned
 
 
 def _not_found() -> ApiError:
@@ -98,6 +99,7 @@ class DocumentService:
             provider_name=metadata.provider_name,
             document_date=document_date,
             document_date_precision=precision,
+            copy_type="scanned" if media_type != "application/pdf" else metadata.copy_type,
         )
         document.storage_key = storage_key(user_id, document.id)
 

@@ -177,7 +177,7 @@ All require a Bearer access token. Another user's document returns `404` on ever
 
 | Method | Path | Request | Success | Errors |
 |---|---|---|---|---|
-| POST | `/documents` | `multipart/form-data`: `file` and `title` (both required); optional `category`, `document_date` (`YYYY-MM-DD`), `document_date_precision`, `provider_name` | `201` document | `409 DUPLICATE_DOCUMENT`, `413`, `415`, `422`, `429` |
+| POST | `/documents` | `multipart/form-data`: `file` and `title` (both required); optional `category`, `document_date` (`YYYY-MM-DD`), `document_date_precision`, `provider_name`, `copy_type` (`digital` or `scanned`; the app asks for it, and a photo is always `scanned`; detected from the file when absent) | `201` document | `409 DUPLICATE_DOCUMENT`, `413`, `415`, `422`, `429` |
 | GET | `/documents` | Query: `limit` (1–50, default 20), `cursor`, optional `category`, `date_from` and `date_to` (`YYYY-MM-DD`, on the report's own date; undated documents are left out when either is set), `provider` (matched ignoring case and extra spaces, never by similar spelling), `provider_missing=true` (documents with no hospital or clinic). Filters combine. | `200` page of documents, newest first | `422` (also when `date_to` is before `date_from`) |
 | GET | `/documents/providers` | — | `200` `{ items: [{name, document_count}], without_provider }`: the user's hospital and clinic names (case and spacing variants counted together, shown with the most used spelling), A to Z | — |
 | GET | `/documents/{id}` | — | `200` document | `404` |
@@ -198,6 +198,7 @@ All require a Bearer access token. Another user's document returns `404` on ever
   "document_date": "2026-03-14",
   "document_date_precision": "day",
   "provider_name": "City Diagnostics",
+  "copy_type": "digital",
   "processing_status": "pending",
   "created_at": "2026-10-11T09:00:00Z",
   "updated_at": "2026-10-11T09:00:00Z"
@@ -230,9 +231,9 @@ All require a Bearer access token. Another user's document returns `404` on ever
 | Method | Path | Request | Success | Errors |
 |---|---|---|---|---|
 | GET | `/documents/{id}/observations` | — | `200` extraction state | `404` |
-| POST | `/documents/{id}/extract` | — | `202` extraction state | `404`, `409 EXTRACTION_IN_PROGRESS` |
+| POST | `/documents/{id}/extract` | Optional JSON `{"copy_type": "digital" \| "scanned"}`: read a PDF as the other kind of copy (ignored for photos) | `202` extraction state | `404`, `409 EXTRACTION_IN_PROGRESS` |
 
-**Extraction state:** `{ "extraction_enabled": bool, "job": {status, attempts, error_category, updated_at} | null, "items": [observation, ...], "summary": lab summary | null }`. `job` is null for documents uploaded before extraction existed; `POST /extract` queues one. `POST /extract` is also how a failed or cancelled extraction is retried, and how a completed one is read again ("Read again", decision 2026-10-12: AI reading varies between runs). It is refused only while a job is pending/running. A new reading replaces the previous one: its rows are withdrawn (soft-deleted; follow-up suggestions not yet added are superseded) and only the latest reading is shown; follow-ups already added are kept and are never added twice.
+**Extraction state:** `{ "extraction_enabled": bool, "media_type": str, "copy_type": "digital" | "scanned" | null, "job": {status, attempts, error_category, updated_at, reading_method, ocr_confidence} | null, "items": [observation, ...], "summary": lab summary | null }`. `job` is null for documents uploaded before extraction existed; `POST /extract` queues one. `POST /extract` is also how a failed or cancelled extraction is retried, and how a completed one is read again ("Refresh analysis", decision 2026-10-12, renamed 2026-10-14: AI reading varies between runs; offered after every finished reading, including empty and failed ones). It is refused only while a job is pending/running. A new reading replaces the previous one: its rows are withdrawn (soft-deleted; follow-up suggestions not yet added are superseded) and only the latest reading is shown; follow-ups already added are kept and are never added twice.
 
 **Observation:** `id, name, value_text, value_numeric, unit, reference_range_text, reference_low, reference_high, observed_at, observed_at_precision, page, source_snippet, confidence, needs_review, validation_findings, notes`. Numbers are exact decimal strings (e.g. `"13.8"`), never floats. `value_text` is always the value as written; `value_numeric` is set only when it contains exactly one number.
 
@@ -426,6 +427,24 @@ Decision 2026-10-13 (`backend/app/services/summary_service.py`, `summary_facts.p
 - **Checking** (code): a sentence is kept only if it cites existing facts and every number (digits or number words) and month it states appears in the cited facts; at most 10 per section. An explanation is kept only if its term appears in a cited fact and it contains no numbers. Dropped items are counted and the user is told. A summary with nothing left fails.
 - **Stored** in `ai_summaries` with sources, explanations, rule-based insights, `fingerprint` of the facts, `model_version`, `prompt_version`, and token counts. `stale` = the facts changed since. Deleting a document deletes its summary and every whole-history summary. Logs carry counts and timings only.
 - **Client:** "AI-generated" badge; "AI interpretation" label on interpretation sentences; numbered citations to a Sources list (record, date, document, and whether the user checked it); general information in a separate box with the doctor's-advice note; rule-based "Things to check" labelled as not from the AI; "not medical advice".
+
+### 6.13 Account and Privacy Settings
+
+Decision 2026-10-13 (`backend/app/services/export_service.py`, `health_pdf.py`, `account_service.py`).
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/account/export/pdf` | PDF health summary (`application/pdf`) |
+| GET | `/account/export/json` | All records, one JSON file |
+| GET | `/account/export/csv` | ZIP, one CSV per record type (UTF-8 with BOM; nested values as JSON text) |
+| GET | `/account/export/documents` | ZIP of every original file, named `date title.ext` |
+| POST | `/auth/password/change` | `{current_password, new_password}` → `204`; CSRF header required |
+| POST | `/auth/account/delete` | `{password, confirmation: "DELETE"}` → `204`, refresh cookie cleared; CSRF header required |
+
+- **Exports** are built on request and streamed with `Content-Disposition: attachment` and `Cache-Control: private, no-store`; nothing is stored on the server (the `exports` table is not used). Live records only: soft-deleted rows and records from deleted documents are left out. Never exported: `user_id`, storage paths, password hash, queue keys, summary fingerprints. 30 exports per user per hour; each is audited with its format only.
+- **PDF health summary** (fixed rules, no AI): personal data, allergies, profile conditions, medicines marked as taking, scheduled follow-ups (overdue marked), results outside the range printed on their report (by report), latest 10 vital readings, hospital stays, surgeries, family history, and the document list. Missing values read "Not mentioned"; a footer on every page says values read from documents may contain errors and that it is not medical advice. Built-in PDF fonts: Latin-1 only (common symbols are spelled out, other characters show as "?").
+- **Change password** checks the current password and the password policy, refuses the current password, and signs out every other session (the session in the request's refresh cookie stays). The two account endpoints live under `/auth` so the refresh cookie is sent.
+- **Account deletion** is immediate and permanent: wrong password or confirmation → `422`, nothing changes. Stored files are removed first (a storage failure → `503`, nothing else changes), then every row the user owns (documents, jobs, results, medicines and their history, conditions, suggestions, follow-ups, alerts and their events, profile values and history, records, vitals, AI summaries, tokens, email deliveries) and the user. Audit events stay for their 90-day retention with `user_id` cleared, plus one `account.deleted` event without personal data. Database backups are not changed and expire within 30 days; the client says so and never claims they are erased. The email address can be registered again.
 
 ## 7. Asynchronous Processing and AI APIs
 

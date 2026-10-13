@@ -116,12 +116,16 @@ class ObservationService:
             )
         return DocumentExtractionResponse(
             extraction_enabled=self.settings.extraction_enabled,
+            media_type=document.media_type,
+            copy_type=document.copy_type,
             job=(
                 ExtractionJobResponse(
                     status=job.status,
                     attempts=job.attempts,
                     error_category=job.error_category,
                     updated_at=job.updated_at,
+                    reading_method=job.reading_method,
+                    ocr_confidence=job.ocr_confidence,
                 )
                 if job
                 else None
@@ -138,21 +142,31 @@ class ObservationService:
 
     # ---------- actions ----------
 
-    def request_extraction(self, user_id: uuid.UUID, document_id: uuid.UUID) -> DocumentExtractionResponse:
-        """Queue a (new) reading of a document: the first, a retry after a failure, or "Read again".
+    def request_extraction(
+        self, user_id: uuid.UUID, document_id: uuid.UUID, copy_type: str | None = None
+    ) -> DocumentExtractionResponse:
+        """Queue a (new) reading of a document: the first, a retry after a failure, or "Refresh analysis".
 
         AI reading varies from run to run, so a completed reading may be replaced. The earlier reading's
         rows are withdrawn; follow-ups the user already added are kept (data_model_spec.md Section 5.6).
+        A PDF can be read again as the other kind of copy; a photo is always a scanned copy.
         """
         document = self._document(user_id, document_id)
         job = jobs.latest_job(self.session, document.id)
         if job is not None and job.status in ACTIVE_JOB_STATUSES:
             raise ApiError(409, "EXTRACTION_IN_PROGRESS", "This document is already being processed.")
+        if copy_type is not None and document.media_type == "application/pdf":
+            document.copy_type = copy_type
         if job is not None:
             self._withdraw_readings(document.id)
 
         jobs.enqueue_extraction(self.session, document, retry=job is not None)
-        self.audit.record("ai.extraction_requested", "success", user_id, {"document_id": str(document.id)})
+        self.audit.record(
+            "ai.extraction_requested",
+            "success",
+            user_id,
+            {"document_id": str(document.id), "copy_type": document.copy_type},
+        )
         self.session.commit()
         return self.for_document(user_id, document_id)
 

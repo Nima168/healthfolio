@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     groq_api_key: SecretStr | None = None
     ai_model: str = "qwen/qwen3.8-27b"
     extraction_max_attempts: int = Field(default=3, gt=0)
+    # OCR for scanned copies: Tesseract's path when it is not on PATH or in its usual Windows folder.
+    tesseract_cmd: str | None = None
+    # A scanned page read with less average confidence than this goes to the AI as an image instead.
+    ocr_min_confidence: int = Field(default=85, ge=0, le=100)
     worker_poll_seconds: float = Field(default=2.0, gt=0)
 
     # Email: "file" writes messages to dev_mail_dir (development/test only); "ses" for deployment.

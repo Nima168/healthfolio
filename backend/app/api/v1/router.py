@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    account,
     alerts,
     auth,
     dashboard,
@@ -32,3 +33,4 @@ api_router.include_router(vitals.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(search.router)
 api_router.include_router(summaries.router)
+api_router.include_router(account.router)

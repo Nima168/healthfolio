@@ -203,6 +203,7 @@ describe('Health profile', () => {
     const bmi = await screen.findByRole('group', { name: 'BMI' })
     expect(bmi).toHaveTextContent('27.3')
     expect(within(bmi).getByText('Overweight (25.0 to 29.9)')).toBeInTheDocument()
+    expect(within(bmi).getByText(/This BMI indicator is for adults \(18 years and over\)/)).toBeInTheDocument()
     const history = screen.getByRole('region', { name: 'Medical history' })
     expect(within(history).getByText('Sampleville General')).toBeInTheDocument()
     expect(within(history).getByText(/10-Aug-2026 → 13-Aug-2026/)).toBeInTheDocument()

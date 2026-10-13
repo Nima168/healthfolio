@@ -61,6 +61,24 @@ def scanned_pdf(page_count: int = 1) -> bytes:
     return _pdf([b"" for _ in range(page_count)])
 
 
+def printed_scan() -> bytes:
+    """A synthetic scanned page: printed text drawn on an image, inside a PDF with no text layer."""
+    import pymupdf
+    from PIL import Image, ImageDraw, ImageFont
+
+    image = Image.new("RGB", (1700, 600), "white")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default(size=44)
+    for row, line in enumerate(["Synthetic Lab Report", "Haemoglobin    13.8    g/dL", "Platelets    250    10^3/uL"]):
+        draw.text((80, 80 + row * 150), line, fill="black", font=font)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    pdf = pymupdf.open()
+    page = pdf.new_page(width=850, height=300)
+    page.insert_image(page.rect, stream=buffer.getvalue())
+    return pdf.tobytes()
+
+
 SYNTHETIC_REPORT_LINES = [
     "City Diagnostics - Synthetic Test Report (not real patient data)",
     "Collected: 2026-03-14",

@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from app.api.deps import CurrentUser, DbDep, SettingsDep
-from app.schemas.observations import DocumentExtractionResponse
+from app.schemas.observations import DocumentExtractionResponse, ExtractionRequest
 from app.services.observation_service import ObservationService
 
 router = APIRouter(tags=["observations"])
@@ -25,8 +25,11 @@ def document_observations(document_id: uuid.UUID, user: CurrentUser, service: Se
 
 
 @router.post("/documents/{document_id}/extract", status_code=status.HTTP_202_ACCEPTED)
-def request_extraction(document_id: uuid.UUID, user: CurrentUser, service: ServiceDep) -> DocumentExtractionResponse:
-    return service.request_extraction(user.id, document_id)
+def request_extraction(
+    document_id: uuid.UUID, user: CurrentUser, service: ServiceDep, body: ExtractionRequest | None = None
+) -> DocumentExtractionResponse:
+    """Read the document (again). The optional body switches a PDF between digital and scanned reading."""
+    return service.request_extraction(user.id, document_id, body.copy_type if body else None)
 
 
 @router.post("/documents/{document_id}/follow-ups", status_code=status.HTTP_201_CREATED)

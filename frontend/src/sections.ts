@@ -15,7 +15,7 @@ export const SECTIONS: Section[] = [
   { path: '/summaries', label: 'AI Summaries and Insights', description: 'Plain-language summaries of your records, with sources.', available: true },
   { path: '/alerts', label: 'Alerts', description: 'Safety alerts from validated rules, to review and acknowledge.', available: true },
   { path: '/profile', label: 'Health Profile', description: 'Your conditions, allergies, and other health details.', available: true },
-  { path: '/settings', label: 'Account and Privacy Settings', description: 'Account, export, and deletion options.', available: false },
+  { path: '/settings', label: 'Account and Privacy Settings', description: 'Account, export, and deletion options.', available: true },
 ]
 
 export const STATUS_SECTION: Section = {

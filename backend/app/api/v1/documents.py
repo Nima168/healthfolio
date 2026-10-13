@@ -15,6 +15,7 @@ from app.core.rate_limit import check_user_rate_limit
 from app.repositories.documents import DocumentFilters
 from app.schemas.documents import (
     Category,
+    CopyType,
     DatePrecision,
     DocumentPage,
     DocumentResponse,
@@ -50,6 +51,7 @@ FormCategory = Annotated[Category | None, BeforeValidator(empty_to_none), Form()
 FormDate = Annotated[date | None, BeforeValidator(empty_to_none), Form()]
 FormPrecision = Annotated[DatePrecision | None, BeforeValidator(empty_to_none), Form()]
 FormProvider = Annotated[ProviderName, Form()]
+FormCopyType = Annotated[CopyType | None, BeforeValidator(empty_to_none), Form()]
 
 
 def _content_disposition(disposition: str, filename: str) -> str:
@@ -70,13 +72,15 @@ def upload_document(
     document_date: FormDate = None,
     document_date_precision: FormPrecision = None,
     provider_name: FormProvider = None,
+    # Digital PDF or scanned copy: decides between reading the PDF's text and OCR. Detected when absent.
+    copy_type: FormCopyType = None,
 ) -> DocumentResponse:
     try:
         title = check_title(title or "")
     except ValueError as exc:
         raise ApiError(422, details=[{"field": "title", "issue": str(exc)}]) from None
     check_user_rate_limit("upload", user.id, settings.upload_rate_limit_per_hour, 3600)
-    metadata = UploadMetadata(title, category, document_date, document_date_precision, provider_name)
+    metadata = UploadMetadata(title, category, document_date, document_date_precision, provider_name, copy_type)
     document = service.upload(user.id, file.file, file.filename, metadata)
     return DocumentResponse.model_validate(document)
 

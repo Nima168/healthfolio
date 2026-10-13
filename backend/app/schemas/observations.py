@@ -46,6 +46,17 @@ class ExtractionJobResponse(BaseModel):
     attempts: int
     error_category: str | None
     updated_at: datetime
+    # How the text was obtained: digital, ocr, ocr+vision, or vision; null until the file is read.
+    reading_method: str | None = None
+    ocr_confidence: int | None = None  # average over OCR pages, 0–100
+
+
+class ExtractionRequest(BaseModel):
+    """Optional body of "Refresh analysis": read the document again as this kind of copy."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    copy_type: Literal["digital", "scanned"] | None = None
 
 
 class SummaryLineResponse(BaseModel):
@@ -213,6 +224,8 @@ class DiagnosticTestSummaryResponse(BaseModel):
 
 class DocumentExtractionResponse(BaseModel):
     extraction_enabled: bool
+    media_type: str
+    copy_type: Literal["digital", "scanned"] | None  # the user's answer; null for older uploads
     job: ExtractionJobResponse | None
     # What the document was read as; null until extraction completes.
     document_kind: (

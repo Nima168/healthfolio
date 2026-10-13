@@ -83,7 +83,7 @@ def test_prescription_summary(client, asha, db, settings):
     assert summary["reminders"] == "available"
 
     [job] = db.scalars(select(ProcessingJob)).all()
-    assert (job.document_kind, job.prompt_version) == ("prescription", "prescription-v3-groq")
+    assert (job.document_kind, job.prompt_version) == ("prescription", "prescription-v4-ocr")
     # Never inferred as currently taken from a document.
     assert {m.status for m in db.scalars(select(Medication))} == {"unknown"}
 
@@ -135,8 +135,8 @@ def test_untyped_documents_are_classified_first(client, asha, db, settings):
     assert len(fake.requests) == 5  # nothing extracted after "other"
 
     versions = {job.document_kind: job.prompt_version for job in db.scalars(select(ProcessingJob))}
-    assert versions["prescription"] == "classify-v3-groq+prescription-v3-groq"
-    assert versions["other"] == "classify-v3-groq"
+    assert versions["prescription"] == "classify-v4-ocr+prescription-v4-ocr"
+    assert versions["other"] == "classify-v4-ocr"
 
 
 def test_lab_reports_still_use_the_lab_summary(client, asha, settings):

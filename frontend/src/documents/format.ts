@@ -1,4 +1,4 @@
-import type { Category, DatePrecision, MedicalDocument } from './documentsApi'
+import type { Category, CopyType, DatePrecision, MedicalDocument } from './documentsApi'
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   lab_report: 'Lab report',
@@ -65,4 +65,10 @@ export function formatDayMonthYear(value: string): string {
 export function todayIso(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+/** The upload question: digital PDF (text copied) or scanned copy (read with OCR). */
+export const COPY_TYPE_LABELS: Record<CopyType, string> = {
+  digital: 'Digital PDF',
+  scanned: 'Scanned copy or photo',
 }

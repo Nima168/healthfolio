@@ -1,19 +1,19 @@
-/* Design-system tokens: white + clinical blue palette, DM Serif Display / Neuton / JetBrains Mono. */
+/* Design-system tokens: calm blue and teal on cool white, DM Serif Display / Neuton / JetBrains Mono. */
 :root {
-  --color-bg: #f8f8f8;
+  --color-bg: #f3f6fb;
   --color-surface: #ffffff;
-  --color-text: #1f1f1f;
-  --color-text-muted: #5c5c5c;
-  --color-border: #e5e2e2;
-  --color-accent: #1d5fae;
-  --color-accent-dark: #164a88;
+  --color-text: #0f1b2d;
+  --color-text-muted: #56627a;
+  --color-border: #e2e8f1;
+  --color-accent: #2563eb;
+  --color-accent-dark: #1d4ed8;
 
-  --color-olive: #164a88;
-  --color-dusty-blue: #a9bdd1;
+  --color-olive: #0d9488;
+  --color-dusty-blue: #93b4ec;
   --color-peach: #f4c7c3;
-  --color-sky: #e3eaf2;
-  --color-mint: #eaf1fb; /* light blue tint: active menu item, hovers, tags */
-  --color-lilac: #f1f4f8;
+  --color-sky: #e0f2fe;
+  --color-mint: #eaf1ff; /* light blue tint: hovers, tags, highlights */
+  --color-lilac: #f1f5fb;
 
   /* Status colours always appear together with a text label, never alone. */
   --color-ok-bg: #e7f3e9;
@@ -23,13 +23,18 @@
   --color-pending-bg: var(--color-sky);
   --color-pending-text: #3f5770;
 
+  --color-teal: #0d9488;
+  --gradient-accent: linear-gradient(135deg, #2563eb 0%, #0e9f9a 100%);
+  --gradient-sidebar: linear-gradient(180deg, #0b1d38 0%, #10305a 100%);
+  --shadow-lift: 0 2px 4px rgba(15, 27, 45, 0.05), 0 16px 36px rgba(15, 27, 45, 0.1);
+
   --font-heading: 'DM Serif Display', Georgia, serif;
   --font-body: 'Neuton', Georgia, serif;
   --font-mono: 'JetBrains Mono', Menlo, monospace;
 
   --radius-sm: 6px;
   --radius-md: 12px;
-  --radius-lg: 18px;
-  --shadow-soft: 0 1px 3px rgba(31, 31, 31, 0.06), 0 4px 16px rgba(31, 31, 31, 0.04);
-  --focus-ring: 0 0 0 3px rgba(29, 95, 174, 0.4);
+  --radius-lg: 20px;
+  --shadow-soft: 0 1px 2px rgba(15, 27, 45, 0.04), 0 8px 24px rgba(15, 27, 45, 0.06);
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
 }

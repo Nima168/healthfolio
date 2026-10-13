@@ -16,6 +16,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, displayName?: string) => Promise<void>
   logout: () => Promise<void>
+  /** Forget the session here without calling the server (the account was deleted). */
+  endSession: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -75,8 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession])
 
   const value = useMemo(
-    () => ({ status, user, login, register, logout }),
-    [status, user, login, register, logout],
+    () => ({ status, user, login, register, logout, endSession: clearSession }),
+    [status, user, login, register, logout, clearSession],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

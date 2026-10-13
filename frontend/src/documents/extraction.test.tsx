@@ -24,6 +24,7 @@ const DOCUMENT: MedicalDocument = {
   document_date: null,
   document_date_precision: null,
   provider_name: null,
+  copy_type: 'digital',
   processing_status: 'completed_with_warnings',
   created_at: '2026-10-11T09:00:00Z',
   updated_at: '2026-10-11T09:00:00Z',
@@ -54,6 +55,8 @@ function observation(overrides: Partial<Observation> = {}): Observation {
 function extraction(overrides: Partial<DocumentExtraction> = {}): DocumentExtraction {
   return {
     extraction_enabled: true,
+    media_type: 'application/pdf',
+    copy_type: 'digital',
     job: { status: 'completed_with_warnings', attempts: 1, error_category: null, updated_at: '2026-10-11T09:01:00Z' },
     document_kind: 'lab_report',
     prescription: null,
@@ -234,7 +237,7 @@ describe('Extracted lab results', () => {
     renderAt('/documents/doc-1')
 
     expect(await screen.findByText(/This image is too large to process/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh analysis' }))
 
     expect(await screen.findByText(/Queued for reading…/)).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith('/extract') && init?.method === 'POST')).toBe(true)
@@ -379,7 +382,7 @@ describe('Prescription summary', () => {
     renderAt('/documents/doc-1')
 
     expect(await screen.findByText('No medicines or follow-ups were found in this prescription.')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh analysis' }))
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/documents/doc-1/extract'))).toBe(true)
   })
@@ -507,11 +510,78 @@ describe('Discharge summary', () => {
     )
     renderAt('/documents/doc-1')
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Read again' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Refresh analysis' }))
 
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/documents/doc-1/extract'))).toBe(true),
     )
+  })
+
+  it('says how the document was read', async () => {
+    setup(
+      extraction({
+        copy_type: 'scanned',
+        job: {
+          status: 'completed',
+          attempts: 1,
+          error_category: null,
+          updated_at: '',
+          reading_method: 'ocr',
+          ocr_confidence: 89,
+        },
+      }),
+    )
+    renderAt('/documents/doc-1')
+
+    expect(
+      await screen.findByText(
+        'Read with OCR (text recognition) from the scanned copy (average confidence 89%). OCR can misread characters, so check the values against the original.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('notes when a PDF chosen as digital had no text inside', async () => {
+    setup(
+      extraction({
+        job: { status: 'completed', attempts: 1, error_category: null, updated_at: '', reading_method: 'vision' },
+      }),
+    )
+    renderAt('/documents/doc-1')
+
+    expect(await screen.findByText(/This PDF had no text inside, so it was read as a scanned copy\./)).toBeInTheDocument()
+  })
+
+  it('can refresh the analysis as the other kind of copy', async () => {
+    const fetchMock = setup(extraction(), {
+      'POST /documents/doc-1/extract': () =>
+        jsonResponse(202, extraction({ job: { status: 'pending', attempts: 0, error_category: null, updated_at: '' }, items: [] })),
+    })
+    renderAt('/documents/doc-1')
+
+    expect(await screen.findByText(/refresh the analysis once for a better result/)).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Read as'), 'scanned')
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh analysis' }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/documents/doc-1/extract'))
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ copy_type: 'scanned' })
+    })
+  })
+
+  it('offers Refresh analysis after a reading that found nothing', async () => {
+    setup(extraction({ job: { status: 'completed', attempts: 1, error_category: null, updated_at: '' }, items: [], summary: null }))
+    renderAt('/documents/doc-1')
+
+    expect(await screen.findByText('No lab results were found in this document.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Refresh analysis' })).toBeInTheDocument()
+  })
+
+  it('does not offer Read as for a photo', async () => {
+    setup(extraction({ media_type: 'image/jpeg', copy_type: 'scanned' }))
+    renderAt('/documents/doc-1')
+
+    expect(await screen.findByRole('button', { name: 'Refresh analysis' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Read as')).not.toBeInTheDocument()
   })
 })
 

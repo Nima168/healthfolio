@@ -17,12 +17,13 @@ describe('AppShell', () => {
     expect(within(nav).getByRole('link', { name: 'System Status' })).toBeInTheDocument()
   })
 
-  it('marks planned sections as coming soon', async () => {
+  it('has every planned section built: none is marked coming soon', async () => {
     stubFetch(LOGGED_IN)
-    renderAt('/settings')
+    renderAt('/documents')
+    const nav = await screen.findByRole('navigation', { name: 'Main' })
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Account and Privacy Settings' })).toBeInTheDocument()
-    expect(screen.getByText(/planned and not available yet/i)).toBeInTheDocument()
+    expect(SECTIONS.every((section) => section.available)).toBe(true)
+    expect(within(nav).queryByText('Soon')).not.toBeInTheDocument()
   })
 
   it('highlights the current section', async () => {
@@ -54,7 +55,8 @@ describe('AppShell', () => {
     expect(await screen.findByText('asha@example.com')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Log out' }))
 
-    expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Healthfolio' })).toBeInTheDocument() // the Welcome page
+    expect(screen.getAllByRole('link', { name: 'Log in' })[0]).toHaveAttribute('href', '/login')
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/auth/logout'))).toBe(true)
   })
 })

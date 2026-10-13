@@ -24,6 +24,7 @@ function makeDocument(overrides: Partial<MedicalDocument> = {}): MedicalDocument
     document_date: '2026-03-01',
     document_date_precision: 'month',
     provider_name: 'City Diagnostics',
+    copy_type: 'digital',
     processing_status: 'pending',
     created_at: '2026-10-11T09:00:00Z',
     updated_at: '2026-10-11T09:00:00Z',
@@ -37,10 +38,11 @@ const page = (items: MedicalDocument[], nextCursor: string | null = null) =>
 const pdfFile = (name = 'new-report.pdf') => new File(['%PDF-1.4 synthetic'], name, { type: 'application/pdf' })
 
 /** Upload details are all required. */
-async function fillDetails(category = 'lab_report') {
+async function fillDetails(category = 'lab_report', copyType: RegExp = /Digital PDF/) {
   await userEvent.selectOptions(screen.getByLabelText('Document type (required)'), category)
   fireEvent.change(screen.getByLabelText('Document date (required)'), { target: { value: '2026-03-14' } })
   await userEvent.type(screen.getByLabelText('Hospital, lab, or clinic (required)'), 'City Diagnostics')
+  await userEvent.click(screen.getByRole('radio', { name: copyType }))
 }
 
 describe('Documents page', () => {
@@ -103,7 +105,24 @@ describe('Documents page', () => {
     expect(screen.getByText('Enter the date on the document.')).toBeInTheDocument()
     expect(screen.getByText('Enter the hospital, lab, or clinic.')).toBeInTheDocument()
     expect(screen.getByLabelText('Hospital, lab, or clinic (required)')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText('Choose whether this is a digital PDF or a scanned copy.')).toBeInTheDocument()
     expect(requests).toHaveLength(0)
+  })
+
+  it('asks whether a PDF is digital or scanned, and treats a photo as scanned', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
+    renderAt('/documents')
+    const digital = await screen.findByRole('radio', { name: /Digital PDF/ })
+    const scanned = screen.getByRole('radio', { name: /Scanned copy or photo/ })
+
+    await userEvent.upload(screen.getByLabelText('Choose a file'), pdfFile())
+    expect([digital, scanned].map((radio) => (radio as HTMLInputElement).checked)).toEqual([false, false])
+
+    const photo = new File(['photo'], 'report.jpg', { type: 'image/jpeg' })
+    await userEvent.upload(screen.getByLabelText('Choose a different file'), photo)
+    expect(scanned).toBeChecked()
+    expect(digital).toBeDisabled()
+    expect(screen.getByText('Photos are always read as scanned copies.')).toBeInTheDocument()
   })
 
   it('requires a name even when a file is chosen', async () => {
@@ -151,6 +170,7 @@ describe('Documents page', () => {
     expect(request.body.get('category')).toBe('prescription')
     expect(request.body.get('document_date')).toBe('2026-03-14')
     expect(request.body.get('provider_name')).toBe('City Diagnostics')
+    expect(request.body.get('copy_type')).toBe('digital')
   })
 
   it('rejects unsupported and oversized files before uploading', async () => {

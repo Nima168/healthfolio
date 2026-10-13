@@ -64,7 +64,7 @@ export function LoginPage() {
       <p className="auth-links">
         <Link to="/forgot-password">Forgot your password?</Link>
         <span>
-          New here? <Link to="/register">Create an account</Link>
+          New here? <Link to="/register">Create an account</Link> or <Link to="/welcome">see what Healthfolio does</Link>
         </span>
       </p>
     </>

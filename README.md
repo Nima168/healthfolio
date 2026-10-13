@@ -1,8 +1,20 @@
-# Multimodal AI Healthcare Decision-Support System
+# Healthfolio
+
+**Your medical history, organised and explained.** A multimodal AI healthcare support system.
 
 A personal health-records platform that stores medical documents, extracts and organizes their information, tracks medications and follow-ups, and provides cautious, source-backed AI summaries. It offers informational decision support only and does not replace professional medical care.
 
 > **Status:** user accounts, medical document storage, and AI extraction of lab results (with a review screen) are in place. Extraction is not yet validated against an accuracy evaluation and must only be used with synthetic data. The other health-record features are being built step by step against the specifications below.
+
+## Screenshots
+
+Screens from a demo account with fictional sample reports.
+
+| Upload (digital or scanned) | Check what was read |
+|---|---|
+| ![Upload form](frontend/public/welcome/upload.webp) | ![Original beside extracted results](frontend/public/welcome/document.webp) |
+| **Dashboard** | **AI summary with sources** |
+| ![Dashboard](frontend/public/welcome/dashboard.webp) | ![AI summary](frontend/public/welcome/summary.webp) |
 
 ## Tech Stack
 
@@ -11,7 +23,9 @@ A personal health-records platform that stores medical documents, extracts and o
 | Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Alembic |
 | Database | PostgreSQL 16 (Docker Compose for local development) |
 | Frontend | React, Vite, TypeScript, React Router |
-| AI | Qwen3.8-27B on Groq (official Groq SDK); pypdf (typed-PDF text), pypdfium2 + Pillow (scan/photo images) |
+| Text reading | PyMuPDF (digital-PDF text), Tesseract OCR via pytesseract (scanned copies and photos), Pillow (image clean-up) |
+| AI | Qwen3.8-27B on Groq (official Groq SDK): organises the text into structured fields; reads page images only when OCR cannot |
+| Exports | fpdf2 (PDF health summary), standard-library CSV, JSON, and ZIP |
 | Background jobs | PostgreSQL job queue + worker process |
 | Testing | pytest (backend), Vitest + Testing Library (frontend) |
 | Tooling | uv (Python), npm, ruff, oxlint |
@@ -47,6 +61,7 @@ A personal health-records platform that stores medical documents, extracts and o
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (running)
 - [uv](https://docs.astral.sh/uv/) — installs Python 3.12 for the backend automatically
 - Node.js 20+ and npm
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) 5, for scanned copies (on Windows: `winget install --id UB-Mannheim.TesseractOCR`). Without it, scanned pages are read by the AI from their images.
 
 ## Setup and Run
 
@@ -96,19 +111,23 @@ cd backend
 uv run python -m app.worker          # keeps running; add --once to process the queue and exit
 ```
 
-Every upload queues a job. The worker reads typed PDFs from their text layer and turns scans/photos into page images for the model's vision (3 per request), then saves the results. The document page shows a plain-text summary: values above and below the reference range printed in the report, normal values, and invalid records (no range, not a single number, or unclear; shown as written, not judged). Range checks are done by fixed rules in code, never by the AI.
+Every upload queues a job. When uploading, you say whether the file is a **digital PDF** or a **scanned copy** (photos are always scanned). The worker gets the text first: digital PDFs with **PyMuPDF**, scanned copies with **Tesseract OCR** (300 DPI, cleaned up, table rows kept together). The AI then organises that text into structured fields. A page OCR cannot read confidently (below 85% average confidence) is sent to the AI as an image instead, so a poor scan is not silently misread. Each document shows how it was read and the OCR confidence, and values with unreadable characters are marked for review. The document page shows a plain-text summary: values above and below the reference range printed in the report, normal values, and invalid records (no range, not a single number, or unclear; shown as written, not judged). Range checks are done by fixed rules in code, never by the AI.
 
 Consultation notes (symptoms, observations, assessment, plan, follow-ups), written imaging reports (findings, impression, and the report's own uncertainty statements; scan images are not read yet), and other test reports such as ECGs (measurements against their printed ranges, machine and physician interpretations kept apart) get their own summaries too, all copied exactly as written.
 
 Uploads are checked before saving: blurry, too dark, blank, or very small photos and scanned pages are sent back with a request for a clearer copy (typed PDFs are always clear). Discharge summaries must be **one page** (the page with the diagnosis and discharge medicines), due to AI reading limits. Values a report does not state are never guessed and are shown as **"Not mentioned"**.
 
-Discharge summaries show the hospital, the stay (with the number of days), diagnoses exactly as written, key results (last value outside the printed range, with first → last, or text results), discharge medicines, follow-ups, and when to return to the emergency department. If a summary looks incomplete, **Read again** replaces it with a new reading.
+Discharge summaries show the hospital, the stay (with the number of days), diagnoses exactly as written, key results (last value outside the printed range, with first → last, or text results), discharge medicines, follow-ups, and when to return to the emergency department. AI output can vary from run to run, so every document offers **Refresh analysis** after reading (also after an empty or failed reading). It replaces the results with a new reading, and a PDF can be read again as the other kind of copy (digital or scanned).
 
 The **Health Profile** brings together your body measurements (height, weight, and calculated BMI with its adult category), medical history (conditions, past surgeries, hospitalizations, including stays read from discharge summaries), vital signs as dated readings (blood pressure and heart rate, the latest shown with its date and every reading on the Timeline, never labelled high or low), active medications (prescription, over-the-counter, and supplements), allergies with their type and reaction (shown first), and family medical history, with a history of every change to your details. Diagnoses read from your discharge summaries appear as suggestions that join your profile only when you accept or correct them; nothing is replaced without you.
+
+A public **Welcome page** (`/welcome`, shown at the home address when signed out) introduces what Healthfolio does, how it works, and how to access it, with buttons to log in or create an account. A **See it in action** section walks through each step with screenshots (taken from a demo account with fictional sample reports); a click opens one full size.
 
 The **Dashboard** gives a one-page overview: open and urgent alerts, items to review, overdue and upcoming follow-ups, recent documents and their reading status, profile completeness with allergies, BMI, and the latest vital signs, and recent activity, each linking to its page.
 
 **AI Summaries and Insights** writes a plain-language summary of your whole history, or of one document, only when you ask. The AI works from your already-extracted records, given as numbered facts, and must cite them; code then removes any sentence whose numbers, months, or sources do not match. Each statement links to its source, AI interpretations and general medical information are labelled separately (with a reminder to ask your doctor), gaps such as unconfirmed medicines or overdue follow-ups are found by fixed rules, and the page says when your records changed since the summary. Your name, email, and date of birth are never sent.
+
+**Account and Privacy Settings** shows your account, lets you change your password (other devices are signed out), and exports your data: a readable PDF health summary built by fixed rules, all records as JSON or as CSV files, and a ZIP of your original documents, each prepared on request and never stored on the server. Deleting your account needs your password and the word DELETE; it removes your files and every record at once, keeps only an anonymous security log for 90 days, and explains that backups expire within 30 days.
 
 **Alerts** come from fixed, documented rules, never from AI. The first rule flags a result outside the range printed on its own report, as an item to review with a doctor, not a diagnosis. Each alert explains why it was raised, what to keep in mind, what to do next, and links to its source. Alerts can be acknowledged and resolved, and keep their history. The page always shows emergency guidance and states that having no alerts does not mean you are healthy.
 
@@ -158,6 +177,8 @@ Backend settings come from environment variables (`backend/.env` in development)
 | `GROQ_API_KEY` | Your Groq API key (secret; never committed) | — |
 | `AI_MODEL` | Model used for extraction | `qwen/qwen3.8-27b` |
 | `EXTRACTION_MAX_ATTEMPTS` | Retries for temporary AI failures | `3` |
+| `TESSERACT_CMD` | Path to `tesseract` when it is not on `PATH` or in `C:\Program Files\Tesseract-OCR` | auto-detected |
+| `OCR_MIN_CONFIDENCE` | Scanned pages read with less average OCR confidence go to the AI as images | `85` |
 
 Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 
@@ -187,6 +208,9 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 | POST | `/api/v1/search` | Search your records (query in the body, never in the URL) |
 | GET, POST | `/api/v1/summaries/history` | Read or write the AI summary of your whole history |
 | GET, POST | `/api/v1/documents/{id}/summary` | Read or write the AI summary of one document |
+| GET | `/api/v1/account/export/{pdf,json,csv,documents}` | Download your data |
+| POST | `/api/v1/auth/password/change` | Change your password |
+| POST | `/api/v1/auth/account/delete` | Delete your account and all its data |
 | POST | `/api/v1/profile/suggestions/{id}` | Accept, correct, or reject a suggested diagnosis |
 | GET | `/api/v1/documents/{id}` | Document details |
 | GET | `/api/v1/documents/{id}/file` | The original file (inline, or `?download=true`) |
@@ -243,4 +267,8 @@ The system is defined by these specs: `goal_spec.md` (product scope), `backend_s
 
 ## Future Improvements
 
-An accuracy evaluation set for AI extraction and summaries, reminder delivery, account export and deletion, trends across dates, and Health Q&A — delivered incrementally as their data model and API contracts are defined.
+An accuracy evaluation set for AI extraction and summaries, reminder delivery, Unicode fonts in the PDF export, trends across dates, and Health Q&A — delivered incrementally as their data model and API contracts are defined.
+
+## License notes
+
+PyMuPDF is licensed under AGPL-3.0: suitable for this open project; a closed-source commercial deployment would need its commercial licence or a permissive alternative (for example pypdf). Tesseract OCR is Apache-2.0.
