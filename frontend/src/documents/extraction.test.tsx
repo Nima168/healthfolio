@@ -152,12 +152,12 @@ describe('Extracted lab results', () => {
     }
   })
 
-  it('writes "Not available" when the report date was not captured', async () => {
+  it('writes "Not mentioned" when the report has no date', async () => {
     const base = extraction()
     setup({ ...base, summary: { ...base.summary!, report_date: null } })
     renderAt('/documents/doc-1')
 
-    expect(await screen.findByText('Report Date: Not available')).toBeInTheDocument()
+    expect(await screen.findByText('Report Date: Not mentioned')).toBeInTheDocument()
   })
 
   it('leaves out Invalid Records when there are none', async () => {
@@ -277,7 +277,7 @@ describe('Prescription summary', () => {
       'Medications',
       '- Atorvastatin 10 mg: once daily at night, 90 days',
       '- Metformin 500 mg: once daily after dinner, 90 days',
-      '- Ferrous ascorbate + folic acid: once daily after lunch, 60 days',
+      '- Ferrous ascorbate + folic acid: strength not mentioned, once daily after lunch, 60 days',
       '- Vitamin D3 60,000 IU: once weekly, 8 weeks',
       'Upcoming Follow-Ups',
       '- 04-Nov-2026: Kidney function test + doctor visit',
@@ -312,12 +312,12 @@ describe('Prescription summary', () => {
     renderAt('/documents/doc-1')
 
     const section = await screen.findByRole('region', { name: 'Prescription summary' })
-    expect(await within(section).findByText('PRESCRIPTION SUMMARY — Date not available')).toBeInTheDocument()
+    expect(await within(section).findByText('PRESCRIPTION SUMMARY — Date not mentioned')).toBeInTheDocument()
     const metformin = within(section).getByText('Metformin 500 mg').closest('li') as HTMLElement
     expect(metformin).toHaveTextContent('Metformin 500 mg: once daily after dinner, 90 days (unclear – check original)')
     expect(within(metformin).getByText(/unclear/)).toHaveAttribute('title', reason)
-    expect(within(section).getByText('Date not clear').closest('li')).toHaveTextContent(
-      'Date not clear: Eye checkup (unclear – check original)',
+    expect(within(section).getByText('Date not mentioned').closest('li')).toHaveTextContent(
+      'Date not mentioned: Eye checkup (unclear – check original)',
     )
     expect(within(section).getByText('04-Nov-2026').closest('li')).toHaveTextContent('(date has passed)')
     expect(within(section).getByText('07-Dec-2026').closest('li')).not.toHaveTextContent('(date has passed)')
@@ -451,7 +451,7 @@ describe('Discharge summary', () => {
       'Key Results',
       '- Serum Creatinine: 1.92 → 1.31 mg/dL (ref 0.70 – 1.30) — still high',
       '- C-Reactive Protein: 18.4 → 6.2 mg/L (ref < 5.0) — still high, last tested 12-Aug',
-      '- Stool culture: No enteric pathogens isolated',
+      '- Stool culture: No enteric pathogens isolated (ref not mentioned)',
       'Discharge Medications',
       '- Pantoprazole tablet 40 mg: 1 tablet once daily, Before breakfast, 5 days',
       'Upcoming Follow-Ups',
@@ -618,7 +618,7 @@ describe('Consultation, imaging, and other test reports', () => {
       'Date: 24-Sep-2026 11:12',
       'Reported Measurements',
       '- PR 158 ms (120–200)',
-      '- QT 382 ms (no range given)',
+      '- QT 382 ms (reference not mentioned)',
       '- QTc 468 ms (< 450, men) — high',
       'Interpretation',
       '- Machine: Normal sinus rhythm. Normal ECG.',

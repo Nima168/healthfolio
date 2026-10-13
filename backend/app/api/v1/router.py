@@ -10,6 +10,7 @@ from app.api.v1 import (
     medications,
     observations,
     profile,
+    search,
     timeline,
     users,
     vitals,
@@ -28,3 +29,4 @@ api_router.include_router(alerts.router)
 api_router.include_router(profile.router)
 api_router.include_router(vitals.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(search.router)

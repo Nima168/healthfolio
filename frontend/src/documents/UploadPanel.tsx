@@ -64,7 +64,10 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
     const missing: FormErrors = { fields: {} }
     if (!file) missing.general = 'Choose a file to upload.'
     if (!title.trim()) missing.fields.title = 'Enter a name for this document.'
-    if (!file || missing.fields.title) {
+    if (!metadata.category) missing.fields.category = 'Choose the document type.'
+    if (!metadata.document_date) missing.fields.document_date = 'Enter the date on the document.'
+    if (!metadata.provider_name.trim()) missing.fields.provider_name = 'Enter the hospital, lab, or clinic.'
+    if (!file || Object.keys(missing.fields).length > 0) {
       setErrors(missing)
       setSuccess(null)
       return
@@ -87,7 +90,9 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
       } else if (error instanceof ApiError && error.status === 415) {
         setErrors({ general: 'This file is not a PDF, JPEG, or PNG, even if its name says so.', fields: {} })
       } else {
-        setErrors(toFormErrors(error))
+        // An unclear photo or scan, or a discharge summary with more than one page: ask for another file.
+        const found = toFormErrors(error)
+        setErrors(found.fields.file ? { general: found.fields.file, fields: {} } : found)
       }
     } finally {
       setProgress(null)
@@ -129,7 +134,7 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
               disabled={uploading}
             />
           </label>
-          <p className="form-hint">PDF, JPEG, or PNG · up to {MAX_UPLOAD_MB} MB · scanned reports are fine</p>
+          <p className="form-hint">PDF, JPEG, or PNG · up to {MAX_UPLOAD_MB} MB · scans and photos must be clear and readable</p>
         </div>
 
         <FormField
@@ -145,12 +150,19 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
           error={errors.fields.title || undefined}
         />
 
-        {file && (
-          <details className="optional-details">
-            <summary>Add details (optional)</summary>
-            <MetadataFields values={metadata} onChange={setMetadata} errors={errors.fields} />
-          </details>
-        )}
+        <MetadataFields
+          values={metadata}
+          onChange={(next) => {
+            setMetadata(next)
+            // Clear a field's message once it is filled in.
+            const cleared = Object.fromEntries(
+              Object.entries(errors.fields).filter(([key]) => !(key in next) || !next[key as keyof MetadataValues]),
+            )
+            if (Object.keys(cleared).length !== Object.keys(errors.fields).length) setErrors({ ...errors, fields: cleared })
+          }}
+          errors={errors.fields}
+          required
+        />
 
         <div aria-live="polite">
           {uploading && (

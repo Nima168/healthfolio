@@ -6,7 +6,7 @@ import { FormField } from '../components/FormField'
 import { HelperNote } from '../components/HelperNote'
 import { TrashIcon } from '../components/icons'
 import { SelectField } from '../components/SelectField'
-import { formatDayMonthYear, formatTimestamp } from '../documents/format'
+import { formatDayMonthYear, formatTimestamp, NOT_MENTIONED } from '../documents/format'
 import {
   medicationsApi,
   type HistoryField,
@@ -322,9 +322,9 @@ function MedicationRow({
           {dates && <p className="document-meta">{dates}</p>}
           {medication.notes && <p className="document-meta">{medication.notes}</p>}
         </th>
-        <td>{medication.dosage_text ?? '—'}</td>
-        <td>{medication.duration_text ?? '—'}</td>
-        <td>{medication.prescriber_name ?? '—'}</td>
+        <td>{medication.dosage_text ?? NOT_MENTIONED}</td>
+        <td>{medication.duration_text ?? NOT_MENTIONED}</td>
+        <td>{medication.prescriber_name ?? NOT_MENTIONED}</td>
         <td>
           <SourceCell medication={medication} />
         </td>
@@ -447,7 +447,7 @@ export function MedicationsPage() {
 
   return (
     <section aria-labelledby="page-title">
-      <h1 id="page-title">Medications and Prescriptions</h1>
+      <h1 id="page-title">Medications</h1>
       <HelperNote>Medicines from your documents and ones you add. Mark what you take; every change is kept.</HelperNote>
       <p className="medication-safety-note">
         This list is a record, not medical advice. Do not start, stop, or change a medicine without your doctor’s advice.

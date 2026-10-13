@@ -215,6 +215,9 @@ All require a Bearer access token. Another user's document returns `404` on ever
 
 - **Type check:** the file type is detected from its content (magic bytes), never from the file name or the browser's declared type. Content that is not PDF, JPEG, or PNG returns `415 UNSUPPORTED_MEDIA_TYPE`. Empty files return `422`.
 - **Size:** requests above the limit are rejected with `413` before the body is read.
+- **Readable quality** (decision 2026-10-13, `backend/app/services/upload_quality.py`): photos and PDF pages without a text layer (scans; first 10 such pages) are measured before saving. Too small (shorter side under 600 px), too dark, blank or washed out, or blurry (edge detail below a limit set against the sample reports) returns `422` with `{"field": "file", "issue": "<which page and what to do>"}`, asking for a clearer copy. Typed text is not measured. Files that cannot be opened are accepted and reported by reading.
+- **Discharge summaries are one page** (decision 2026-10-13, AI reading limits): an upload typed `discharge_summary` with more than one page returns `422` (`field: file`). A document classified as a discharge summary, or retyped as one, with more than one page fails reading with `discharge_too_many_pages`.
+- **Missing values:** nothing is assumed. A value a report does not state is stored as empty, and the app shows it as "Not mentioned".
 - **Duplicates:** the same file content (SHA-256) already uploaded by the same user and not deleted returns `409 DUPLICATE_DOCUMENT`. The error details include `{"field": "existing_document_id", "issue": "<uuid>"}` so the client can link to it. Other users' files are never compared.
 - **File name:** stored only as a sanitised display name (base name, no control characters, at most 255 characters).
 - **Download headers:** the original `Content-Type`, `Content-Disposition` (`inline` or `attachment` with the sanitised name), `X-Content-Type-Options: nosniff`, and `Cache-Control: private, no-store`.
@@ -491,7 +494,12 @@ Rules:
 - Each result identifies the matching record type, its source document, and the matched field.
 - Free-text queries are not placed in logs (`observability_and_reliability_spec.md` Section 4.2). Because a GET query string can appear in access logs, the endpoint design must keep the query text out of logged URLs (for example, by using a POST search request).
 
-Exact parameter names and response schema: not yet defined.
+Implemented 2026-10-13 (`backend/app/services/search_service.py`): `POST /api/v1/search` with body `{query?, document_type?, date_from?, date_to?, condition?, provider?, limit (1–50, default 20), cursor?}`; at least one criterion is required (`422` otherwise, and when `date_to` is before `date_from`). Response `{items: [{record_type, id, title, date, matched_field, snippet, source_document_id, source_document_title, link}], total, next_cursor}`, newest first.
+
+- Records searched: documents (name, hospital or clinic, file name), the text of read reports (consultation sections, imaging findings and impression, test interpretations, discharge facility and warning signs), lab results, medicines, diagnoses as written and profile conditions, follow-ups, allergies, surgeries, hospitalizations, and family history.
+- Free text: every word must appear in the record (any field, ignoring case); partial words match. `matched_field` names the field and `snippet` shows the matching text.
+- `document_type` matches the upload type or the type the document was read as (e.g. `test_report`); `provider` matches the document's hospital or clinic; `condition` keeps records from documents with a matching diagnosis, plus matching profile conditions; dates apply to each record's own date (undated records are left out).
+- Searched in memory over the user's records; there is no `search_vector` index yet. The query is sent in the body, never logged or stored, and validation errors do not echo it.
 
 ## 10. API Security and Privacy
 

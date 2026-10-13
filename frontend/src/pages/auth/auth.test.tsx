@@ -51,7 +51,7 @@ describe('LoginPage', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'a long enough passphrase')
     await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
-    expect(await screen.findByRole('heading', { name: 'Medications and Prescriptions' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Medications' })).toBeInTheDocument()
     const loginCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/auth/login'))
     expect(bodyOf(loginCall?.[1])).toEqual({ email: 'asha@example.com', password: 'a long enough passphrase' })
   })

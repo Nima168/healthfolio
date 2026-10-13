@@ -613,11 +613,11 @@ export function ProfilePage() {
             {profile.document_stays.map((stay) => (
               <li key={stay.source_document_id}>
                 <span>
-                  <strong>{stay.facility_name ?? 'Hospital stay'}</strong>
+                  <strong>{stay.facility_name ?? 'Hospital not mentioned'}</strong>
                   {(stay.admitted_on || stay.discharged_on) && (
                     <span className="mono">
                       {' '}
-                      · {stay.admitted_on ? formatDayMonthYear(stay.admitted_on) : '?'} → {stay.discharged_on ? formatDayMonthYear(stay.discharged_on) : '?'}
+                      · {stay.admitted_on ? formatDayMonthYear(stay.admitted_on) : 'not mentioned'} → {stay.discharged_on ? formatDayMonthYear(stay.discharged_on) : 'not mentioned'}
                     </span>
                   )}
                   {stay.diagnoses.length > 0 && <span className="document-meta"> · {stay.diagnoses.join('; ')}</span>}

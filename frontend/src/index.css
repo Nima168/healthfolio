@@ -240,7 +240,7 @@ button {
   cursor: pointer;
 }
 .button:hover {
-  background: #4b5a3b;
+  background: var(--color-accent-dark);
 }
 .button:disabled {
   opacity: 0.6;
@@ -389,13 +389,8 @@ button {
 .file-picker:focus-within {
   box-shadow: var(--focus-ring);
 }
-.optional-details {
+.upload-panel .metadata-grid {
   margin-bottom: 16px;
-}
-.optional-details summary {
-  cursor: pointer;
-  color: var(--color-accent);
-  margin-bottom: 12px;
 }
 .metadata-grid {
   display: grid;
@@ -565,10 +560,10 @@ button {
   flex-wrap: wrap;
 }
 .button-danger {
-  background: var(--color-problem-text);
+  background: #7a1712;
 }
 .button-danger:hover {
-  background: #6f3222;
+  background: #5c110d;
 }
 .danger-zone h2 {
   color: var(--color-problem-text);
@@ -1293,20 +1288,20 @@ button {
   background: var(--color-dusty-blue);
 }
 .bmi-healthy {
-  background: #b9c99a;
+  background: #a8d5b0;
 }
 .bmi-overweight {
   background: var(--color-peach);
 }
 .bmi-obesity_1 {
-  background: #dd9f86;
+  background: #e8908a;
 }
 .bmi-obesity_2 {
-  background: #c9785f;
+  background: #c9483f;
   color: var(--color-surface);
 }
 .bmi-obesity_3 {
-  background: var(--color-problem-text);
+  background: #8c1d18;
   color: var(--color-surface);
 }
 .bmi-empty {
@@ -1464,5 +1459,57 @@ button {
 }
 .dashboard-start {
   margin-bottom: 20px;
+}
+
+/* ---------- record search ---------- */
+.search-panel {
+  margin-bottom: 20px;
+}
+.search-panel h2 {
+  margin-top: 0;
+}
+.search-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 12px;
+}
+.search-row .form-field {
+  flex: 1 1 320px;
+}
+.search-row .button {
+  margin-bottom: 16px;
+}
+.search-more summary {
+  cursor: pointer;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+.search-results {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.search-count {
+  margin: 0 0 8px;
+}
+.search-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.search-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.search-list p {
+  margin: 4px 0 0;
+}
+.search-snippet mark {
+  background: #ffe9a8;
+  color: inherit;
+  font-weight: 700;
+  padding: 0 2px;
+  border-radius: 3px;
 }
 

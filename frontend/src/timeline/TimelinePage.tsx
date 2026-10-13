@@ -13,6 +13,7 @@ import {
   type TimelineFilters,
   type Trust,
 } from './timelineApi'
+import { SearchPanel } from './SearchPanel'
 
 const CATEGORY_LABELS: Record<TimelineCategory, string> = {
   lab_results: 'Lab results',
@@ -107,6 +108,7 @@ export function TimelinePage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searching, setSearching] = useState(false)
 
   const load = useCallback(
     async (cursor: string | null, signal?: AbortSignal) => {
@@ -159,86 +161,93 @@ export function TimelinePage() {
   return (
     <section aria-labelledby="page-title">
       <h1 id="page-title">Health Timeline</h1>
-      <HelperNote>All your records in date order, newest first. Each date stays separate.</HelperNote>
+      <HelperNote>All your records in date order, newest first, and a search across them. Each date stays separate.</HelperNote>
 
-      <div className="card timeline-filters" role="search" aria-label="Filter the timeline">
-        <fieldset className="timeline-categories">
-          <legend>Show</legend>
-          {TIMELINE_CATEGORIES.map((category) => (
-            <label key={category} className="checkbox-label">
-              <input type="checkbox" checked={filters.categories.includes(category)} onChange={() => toggle(category)} />{' '}
-              {CATEGORY_LABELS[category]}
-            </label>
-          ))}
-        </fieldset>
-        <div className="timeline-dates">
-          <FormField label="From" type="date" value={filters.dateFrom} onChange={(e) => change({ dateFrom: e.target.value })} />
-          <FormField
-            label="To"
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => change({ dateTo: e.target.value })}
-            error={datesInOrder ? undefined : 'The end date cannot be before the start date.'}
-          />
-          {filtered && (
-            <button type="button" className="button button-secondary filters-clear" onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}>
-              Clear filters
-            </button>
-          )}
+      <SearchPanel onActiveChange={setSearching} />
+
+      {/* While search results are shown, the timeline steps aside. */}
+      {!searching && (
+        <>
+        <div className="card timeline-filters" role="search" aria-label="Filter the timeline">
+          <fieldset className="timeline-categories">
+            <legend>Show</legend>
+            {TIMELINE_CATEGORIES.map((category) => (
+              <label key={category} className="checkbox-label">
+                <input type="checkbox" checked={filters.categories.includes(category)} onChange={() => toggle(category)} />{' '}
+                {CATEGORY_LABELS[category]}
+              </label>
+            ))}
+          </fieldset>
+          <div className="timeline-dates">
+            <FormField label="From" type="date" value={filters.dateFrom} onChange={(e) => change({ dateFrom: e.target.value })} />
+            <FormField
+              label="To"
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => change({ dateTo: e.target.value })}
+              error={datesInOrder ? undefined : 'The end date cannot be before the start date.'}
+            />
+            {filtered && (
+              <button type="button" className="button button-secondary filters-clear" onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}>
+                Clear filters
+              </button>
+            )}
+          </div>
+          <p className="document-meta filters-note">
+            No boxes ticked shows everything.
+            {(filters.dateFrom || filters.dateTo) && ' Records without a date are not shown while a date filter is set.'}
+          </p>
         </div>
-        <p className="document-meta filters-note">
-          No boxes ticked shows everything.
-          {(filters.dateFrom || filters.dateTo) && ' Records without a date are not shown while a date filter is set.'}
-        </p>
-      </div>
 
-      {error && (
-        <p role="alert" className="form-alert">
-          {error}
-        </p>
-      )}
+        {error && (
+          <p role="alert" className="form-alert">
+            {error}
+          </p>
+        )}
 
-      {!loading && !error && datesInOrder && entries.length === 0 && (
-        <div className="card empty-state">
-          {filtered ? (
-            <p>
-              <strong>Nothing matches these filters.</strong>
-            </p>
-          ) : (
-            <>
+        {!loading && !error && datesInOrder && entries.length === 0 && (
+          <div className="card empty-state">
+            {filtered ? (
               <p>
-                <strong>Your timeline is empty.</strong>
+                <strong>Nothing matches these filters.</strong>
               </p>
-              <p>
-                Upload a report in <Link to="/documents">Medical Documents</Link> and it will appear here once read.
-              </p>
-            </>
-          )}
-        </div>
-      )}
+            ) : (
+              <>
+                <p>
+                  <strong>Your timeline is empty.</strong>
+                </p>
+                <p>
+                  Upload a report in <Link to="/documents">Medical Documents</Link> and it will appear here once read.
+                </p>
+              </>
+            )}
+          </div>
+        )}
 
-      {days.map((day, index) => {
-        const headingId = `timeline-day-${index}`
-        return (
-          <section key={`${day.heading}-${index}`} className="timeline-day" aria-labelledby={headingId}>
-            <h2 id={headingId} className="timeline-date">
-              {day.heading}
-            </h2>
-            <ul className="timeline-list">
-              {day.entries.map((entry) => (
-                <Entry key={entry.id} entry={entry} />
-              ))}
-            </ul>
-          </section>
-        )
-      })}
+        {days.map((day, index) => {
+          const headingId = `timeline-day-${index}`
+          return (
+            <section key={`${day.heading}-${index}`} className="timeline-day" aria-labelledby={headingId}>
+              <h2 id={headingId} className="timeline-date">
+                {day.heading}
+              </h2>
+              <ul className="timeline-list">
+                {day.entries.map((entry) => (
+                  <Entry key={entry.id} entry={entry} />
+                ))}
+              </ul>
+            </section>
+          )
+        })}
 
-      {loading && <p role="status">Loading timeline…</p>}
+        {loading && <p role="status">Loading timeline…</p>}
 
-      {nextCursor && !loading && (
-        <button type="button" className="button button-secondary" onClick={() => void load(nextCursor)}>
-          Load more
-        </button>
+        {nextCursor && !loading && (
+          <button type="button" className="button button-secondary" onClick={() => void load(nextCursor)}>
+            Load more
+          </button>
+        )}
+        </>
       )}
     </section>
   )

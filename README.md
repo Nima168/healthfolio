@@ -100,6 +100,8 @@ Every upload queues a job. The worker reads typed PDFs from their text layer and
 
 Consultation notes (symptoms, observations, assessment, plan, follow-ups), written imaging reports (findings, impression, and the report's own uncertainty statements; scan images are not read yet), and other test reports such as ECGs (measurements against their printed ranges, machine and physician interpretations kept apart) get their own summaries too, all copied exactly as written.
 
+Uploads are checked before saving: blurry, too dark, blank, or very small photos and scanned pages are sent back with a request for a clearer copy (typed PDFs are always clear). Discharge summaries must be **one page** (the page with the diagnosis and discharge medicines), due to AI reading limits. Values a report does not state are never guessed and are shown as **"Not mentioned"**.
+
 Discharge summaries show the hospital, the stay (with the number of days), diagnoses exactly as written, key results (last value outside the printed range, with first → last, or text results), discharge medicines, follow-ups, and when to return to the emergency department. If a summary looks incomplete, **Read again** replaces it with a new reading.
 
 The **Health Profile** brings together your body measurements (height, weight, and calculated BMI with its adult category), medical history (conditions, past surgeries, hospitalizations, including stays read from discharge summaries), vital signs as dated readings (blood pressure and heart rate, the latest shown with its date and every reading on the Timeline, never labelled high or low), active medications (prescription, over-the-counter, and supplements), allergies with their type and reaction (shown first), and family medical history, with a history of every change to your details. Diagnoses read from your discharge summaries appear as suggestions that join your profile only when you accept or correct them; nothing is replaced without you.
@@ -108,11 +110,13 @@ The **Dashboard** gives a one-page overview: open and urgent alerts, items to re
 
 **Alerts** come from fixed, documented rules, never from AI. The first rule flags a result outside the range printed on its own report, as an item to review with a doctor, not a diagnosis. Each alert explains why it was raised, what to keep in mind, what to do next, and links to its source. Alerts can be acknowledged and resolved, and keep their history. The page always shows emergency guidance and states that having no alerts does not mean you are healthy.
 
+**Search** (on the Timeline page) finds any word across your records (tests, medicines, diagnoses, report text, allergies, history), shows which field matched with the words highlighted, and can be narrowed by document type, hospital, condition, and dates. The search text is never put in the page address or logs.
+
 The **Health Timeline** shows all your records in date order: lab results (one entry per report date, results outside the printed range first), imaging and test reports, consultations, hospital stays, prescriptions, medicines, and follow-ups. Each entry says where it came from and whether you confirmed or changed it, and opens its source. Results from different dates are never combined or compared. It can be filtered by category and date.
 
 The **Medical Documents** list can be filtered by type, report date range, and hospital or clinic, and grouped by type, month, or hospital, with a count per group. The choices are kept in the page address, so refreshing keeps them.
 
-The **Medications and Prescriptions** page lists every medicine read from your documents and any you add yourself, grouped as taking now, not confirmed, and stopped. A medicine from a document is never marked as being taken until you confirm it. You can edit details, mark a medicine as taking or stopped, or remove it, and each medicine keeps a full change history. Medicines you changed are kept when a document is read again or deleted.
+The **Medications** page lists every medicine read from your documents and any you add yourself, grouped as taking now, not confirmed, and stopped. A medicine from a document is never marked as being taken until you confirm it. You can edit details, mark a medicine as taking or stopped, or remove it, and each medicine keeps a full change history. Medicines you changed are kept when a document is read again or deleted.
 
 Prescriptions get their own summary: the date and doctor, each medicine with its instructions and duration, upcoming follow-ups grouped by date (dates written as "after 4 weeks" are calculated by code from the prescription date), with anything unclear marked "(unclear – check original)". "Add to Checkups and Follow-ups" saves the follow-ups to the Checkups and Follow-ups page, where each can be marked done or cancelled. If no document type was chosen at upload, the AI first decides whether it is a lab report or a prescription.
 
@@ -177,6 +181,7 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 | PATCH | `/api/v1/profile/values` | Update personal details |
 | GET, POST | `/api/v1/vitals` | Your blood pressure and heart rate readings; add one |
 | GET | `/api/v1/dashboard` | One-page overview for the dashboard |
+| POST | `/api/v1/search` | Search your records (query in the body, never in the URL) |
 | POST | `/api/v1/profile/suggestions/{id}` | Accept, correct, or reject a suggested diagnosis |
 | GET | `/api/v1/documents/{id}` | Document details |
 | GET | `/api/v1/documents/{id}/file` | The original file (inline, or `?download=true`) |

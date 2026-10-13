@@ -198,6 +198,8 @@ export const FAILURE_MESSAGES: Record<string, string> = {
   ai_invalid_output: 'The AI response could not be understood.',
   image_too_large: 'This image is too large to process. Try a smaller photo or a PDF scan.',
   unreadable_image: 'This image could not be opened.',
+  discharge_too_many_pages:
+    'Discharge summaries can be one page only, due to AI reading limits. Please upload just the page with the diagnosis and discharge medicines.',
   too_many_pages: 'This scanned PDF has too many pages to read (the limit is 30).',
   document_too_long: 'This document is too long to read in one pass.',
   unreadable_pdf: 'This PDF could not be opened.',

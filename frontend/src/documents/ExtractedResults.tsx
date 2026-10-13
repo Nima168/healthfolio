@@ -18,7 +18,7 @@ import {
   type SummaryLine,
   type TestReportSummary,
 } from './extractionApi'
-import { formatDayMonthYear, todayIso } from './format'
+import { formatDayMonthYear, NOT_MENTIONED, todayIso } from './format'
 
 const TITLES = {
   lab_report: 'Extracted lab results',
@@ -42,7 +42,7 @@ function ValueLines({ lines, critical = false }: { lines: SummaryLine[]; critica
       {lines.map((line, index) => (
         <li key={`${line.name}-${index}`}>
           {line.name}: {line.value_text}
-          {line.unit && ` ${line.unit}`} (Reference: {line.reference_range_text ?? 'not printed'})
+          {line.unit && ` ${line.unit}`} (Reference: {line.reference_range_text ?? NOT_MENTIONED})
         </li>
       ))}
     </ul>
@@ -61,7 +61,7 @@ function SummaryBlock({ title, children }: { title: string; children: ReactNode 
 function LabSummaryText({ summary }: { summary: LabSummary }) {
   return (
     <div className="lab-summary">
-      <p className="summary-heading">Report Date: {summary.report_date ?? 'Not available'}</p>
+      <p className="summary-heading">Report Date: {summary.report_date ?? NOT_MENTIONED}</p>
       <SummaryBlock title="Values Above Range">
         <ValueLines lines={summary.above} critical />
       </SummaryBlock>
@@ -94,11 +94,16 @@ function UnclearTag({ reason }: { reason: string | null }) {
 /** Medicine name and strength stand out; how and how long follow in plain text. */
 function MedicationText({ line }: { line: MedicationLine }) {
   const name = line.strength && !line.name.endsWith(line.strength) ? `${line.name} ${line.strength}` : line.name
-  const details = [line.instructions, line.duration_text].filter(Boolean).join(', ')
+  const details = [
+    !line.strength && 'strength not mentioned',
+    line.instructions ?? 'how to take not mentioned',
+    line.duration_text ?? 'duration not mentioned',
+  ]
+    .filter(Boolean)
+    .join(', ')
   return (
     <>
-      <strong>{name}</strong>
-      {details && `: ${details}`}
+      <strong>{name}</strong>: {details}
       {line.unclear && <UnclearTag reason={line.reason} />}
     </>
   )
@@ -107,7 +112,7 @@ function MedicationText({ line }: { line: MedicationLine }) {
 function prescriptionHeading(summary: PrescriptionSummary): string {
   const date = summary.prescribed_on
     ? formatDayMonthYear(summary.prescribed_on)
-    : (summary.date_text ?? 'Date not available')
+    : (summary.date_text ?? 'Date not mentioned')
   return `PRESCRIPTION SUMMARY — ${date}${summary.prescriber_name ? ` (${summary.prescriber_name})` : ''}`
 }
 
@@ -116,7 +121,7 @@ function MedicationsBlock({ title, lines }: { title: string; lines: MedicationLi
     <div className="summary-block">
       <p className="summary-heading">{title}</p>
       {lines.length === 0 ? (
-        <p className="summary-none">None</p>
+        <p className="summary-none">{NOT_MENTIONED}</p>
       ) : (
         <ul className="summary-lines">
           {lines.map((line, index) => (
@@ -151,12 +156,12 @@ function FollowUpsBlock({
     <div className="summary-block">
       <p className="summary-heading">{title}</p>
       {lines.length === 0 ? (
-        <p className="summary-none">None</p>
+        <p className="summary-none">{NOT_MENTIONED}</p>
       ) : (
         <ul className="summary-lines">
           {lines.map((line, index) => (
             <li key={`${line.due_date ?? 'undated'}-${index}`}>
-              <strong>{line.due_date ? formatDayMonthYear(line.due_date) : (line.when_text ?? 'Date not clear')}</strong>:{' '}
+              <strong>{line.due_date ? formatDayMonthYear(line.due_date) : (line.when_text ?? 'Date not mentioned')}</strong>:{' '}
               {line.description}
               {!line.due_date && !line.unclear && <span className="summary-past"> (no exact date)</span>}
               {line.due_date && line.due_date < today && <span className="summary-past"> (date has passed)</span>}
@@ -204,12 +209,11 @@ function dayMonth(value: string): string {
   return formatDayMonthYear(value).slice(0, 6)
 }
 
-function stayLine(summary: DischargeSummary): string | null {
+function stayLine(summary: DischargeSummary): string {
   const admitted = summary.admitted_on ? formatDayMonthYear(summary.admitted_on) : summary.admitted_text
   const discharged = summary.discharged_on ? formatDayMonthYear(summary.discharged_on) : summary.discharged_text
-  if (!admitted && !discharged) return null
   const days = summary.stay_days ? ` (${summary.stay_days} ${summary.stay_days === 1 ? 'day' : 'days'})` : ''
-  return `Admitted ${admitted ?? 'date not available'} → Discharged ${discharged ?? 'date not available'}${days}`
+  return `Admitted ${admitted ?? 'date not mentioned'} → Discharged ${discharged ?? 'date not mentioned'}${days}`
 }
 
 function KeyResultText({ result }: { result: KeyResult }) {
@@ -222,7 +226,7 @@ function KeyResultText({ result }: { result: KeyResult }) {
     <>
       <strong>{result.name}</strong>: {values}
       {result.unit && ` ${result.unit}`}
-      {result.reference_range_text && ` (ref ${result.reference_range_text})`}
+      {` (ref ${result.reference_range_text ?? 'not mentioned'})`}
       {notes.length > 0 && <span className="key-result-flag"> — {notes.join(', ')}</span>}
       {result.unclear && <UnclearTag reason="Part of this result was not clearly legible." />}
     </>
@@ -234,7 +238,7 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
     <div className="summary-block">
       <p className="summary-heading">{title}</p>
       {items.length === 0 ? (
-        <p className="summary-none">None</p>
+        <p className="summary-none">{NOT_MENTIONED}</p>
       ) : (
         <ul className="summary-lines">
           {items.map((item, index) => (
@@ -250,13 +254,13 @@ function DischargeSummaryText({ summary, add }: { summary: DischargeSummary; add
   const stay = stayLine(summary)
   return (
     <div className="lab-summary discharge-summary">
-      <p className="summary-title">DISCHARGE SUMMARY{summary.facility_name ? ` — ${summary.facility_name}` : ''}</p>
-      {stay && <p className="summary-stay">{stay}</p>}
+      <p className="summary-title">DISCHARGE SUMMARY — {summary.facility_name ?? 'Hospital not mentioned'}</p>
+      <p className="summary-stay">{stay}</p>
       <ListBlock title="Diagnosis" items={summary.diagnoses} />
       <div className="summary-block">
         <p className="summary-heading">Key Results</p>
         {summary.key_results.length === 0 ? (
-          <p className="summary-none">None</p>
+          <p className="summary-none">{NOT_MENTIONED}</p>
         ) : (
           <ul className="summary-lines">
             {summary.key_results.map((result, index) => (
@@ -322,13 +326,11 @@ function ImagingSummaryText({ summary }: { summary: ImagingSummary }) {
     <div className="lab-summary imaging-summary">
       <p className="summary-title">IMAGING SUMMARY{summary.exam_name ? ` — ${summary.exam_name}` : ''}</p>
       <p className="summary-stay">Source: Written report{source ? ` ${source}` : ''}</p>
-      {examDate && (
-        <p className="summary-stay">
-          Examination Date: {examDate}
-          {reportDate && reportDate !== examDate && ` (reported ${reportDate})`}
-        </p>
-      )}
-      {summary.body_region && <p className="summary-stay">Body Region: {summary.body_region}</p>}
+      <p className="summary-stay">
+        Examination Date: {examDate ?? NOT_MENTIONED}
+        {reportDate && reportDate !== examDate && ` (reported ${reportDate})`}
+      </p>
+      <p className="summary-stay">Body Region: {summary.body_region ?? NOT_MENTIONED}</p>
       <ListBlock title="Findings" items={summary.findings} />
       <ListBlock title="Impression" items={summary.impression} />
       <ListBlock title="Uncertainty" items={summary.uncertainty} />
@@ -350,17 +352,17 @@ function TestReportSummaryText({ summary }: { summary: TestReportSummary }) {
         {type} SUMMARY{summary.test_name ? ` — ${summary.test_name}` : ''}
       </p>
       {source && <p className="summary-stay">Source: {source}</p>}
-      {date && <p className="summary-stay">Date: {date}</p>}
+      <p className="summary-stay">Date: {date ?? NOT_MENTIONED}</p>
       <div className="summary-block">
         <p className="summary-heading">Reported Measurements</p>
         {summary.measurements.length === 0 ? (
-          <p className="summary-none">None</p>
+          <p className="summary-none">{NOT_MENTIONED}</p>
         ) : (
           <ul className="summary-lines">
             {summary.measurements.map((m, index) => (
               <li key={`${m.name}-${index}`}>
                 <strong>{m.name}</strong> {m.value_text}
-                {m.unit && (m.unit === '°' ? m.unit : ` ${m.unit}`)} ({m.reference_range_text ?? 'no range given'})
+                {m.unit && (m.unit === '°' ? m.unit : ` ${m.unit}`)} ({m.reference_range_text ?? 'reference not mentioned'})
                 {m.flag && <span className="key-result-flag"> — {m.flag}</span>}
                 {m.unclear && <UnclearTag reason="This value was not clearly legible." />}
               </li>
@@ -371,7 +373,7 @@ function TestReportSummaryText({ summary }: { summary: TestReportSummary }) {
       <div className="summary-block">
         <p className="summary-heading">Interpretation</p>
         {summary.interpretations.length === 0 ? (
-          <p className="summary-none">None</p>
+          <p className="summary-none">{NOT_MENTIONED}</p>
         ) : (
           <ul className="summary-lines">
             {summary.interpretations.map((item, index) => (

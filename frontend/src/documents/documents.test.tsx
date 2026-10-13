@@ -36,6 +36,13 @@ const page = (items: MedicalDocument[], nextCursor: string | null = null) =>
 
 const pdfFile = (name = 'new-report.pdf') => new File(['%PDF-1.4 synthetic'], name, { type: 'application/pdf' })
 
+/** Upload details are all required. */
+async function fillDetails(category = 'lab_report') {
+  await userEvent.selectOptions(screen.getByLabelText('Document type (required)'), category)
+  fireEvent.change(screen.getByLabelText('Document date (required)'), { target: { value: '2026-03-14' } })
+  await userEvent.type(screen.getByLabelText('Hospital, lab, or clinic (required)'), 'City Diagnostics')
+}
+
 describe('Documents page', () => {
   it('lists documents with their details, showing only as much of the date as is known', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([makeDocument()]) })
@@ -67,19 +74,18 @@ describe('Documents page', () => {
     expect(screen.getByRole('link', { name: /Upload a document/ })).toHaveAttribute('href', '#upload')
   })
 
-  it('notes that only 1-page discharge summaries are supported for now', async () => {
+  it('asks for only one page of a discharge summary, due to AI limits', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
     renderAt('/documents')
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
-    await userEvent.click(screen.getByText('Add details (optional)'))
-    const type = screen.getByLabelText('Document type')
-    expect(screen.queryByText(/1-page discharge summary/)).not.toBeInTheDocument()
+    const type = screen.getByLabelText('Document type (required)')
+    expect(screen.queryByText(/only one page of the discharge summary/)).not.toBeInTheDocument()
 
     await userEvent.selectOptions(type, 'discharge_summary')
 
-    const note = screen.getByText(/Please upload a 1-page discharge summary/)
-    expect(note).toHaveTextContent('more than one page will be supported in a later update')
+    const note = screen.getByText(/Please upload only one page of the discharge summary/)
+    expect(note).toHaveTextContent('due to AI reading limits')
     expect(type).toHaveAttribute('aria-describedby', note.id)
   })
 
@@ -93,6 +99,10 @@ describe('Documents page', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a file to upload.')
     expect(screen.getByText('Enter a name for this document.')).toBeInTheDocument()
     expect(screen.getByLabelText('Name (required)')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText('Choose the document type.')).toBeInTheDocument()
+    expect(screen.getByText('Enter the date on the document.')).toBeInTheDocument()
+    expect(screen.getByText('Enter the hospital, lab, or clinic.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Hospital, lab, or clinic (required)')).toHaveAttribute('aria-invalid', 'true')
     expect(requests).toHaveLength(0)
   })
 
@@ -127,8 +137,7 @@ describe('Documents page', () => {
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
     await userEvent.type(screen.getByLabelText('Name (required)'), '  Thyroid panel ')
-    await userEvent.click(screen.getByText('Add details (optional)'))
-    await userEvent.selectOptions(screen.getByLabelText('Document type'), 'prescription')
+    await fillDetails('prescription')
     await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Uploaded “Thyroid panel”.')
@@ -140,7 +149,8 @@ describe('Documents page', () => {
     expect(request.headers.Authorization).toBe('Bearer access-1')
     expect(request.body.get('title')).toBe('Thyroid panel')
     expect(request.body.get('category')).toBe('prescription')
-    expect(request.body.has('provider_name')).toBe(false) // blank fields are not sent
+    expect(request.body.get('document_date')).toBe('2026-03-14')
+    expect(request.body.get('provider_name')).toBe('City Diagnostics')
   })
 
   it('rejects unsupported and oversized files before uploading', async () => {
@@ -162,6 +172,25 @@ describe('Documents page', () => {
     expect(requests).toHaveLength(0)
   })
 
+  it('asks for a clearer copy when the server finds the photo or scan unclear', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
+    const issue = 'This image looks blurry. Please take a clearer photo in good light, or upload the original PDF.'
+    stubUploads(() => ({
+      status: 422,
+      body: {
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid input.', details: [{ field: 'file', issue }], request_id: 'r1' },
+      },
+    }))
+    renderAt('/documents')
+
+    await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
+    await userEvent.type(screen.getByLabelText('Name (required)'), 'Blood test')
+    await fillDetails()
+    await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(issue)
+  })
+
   it('links to the existing document when the same file was already uploaded', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
     stubUploads(() => ({
@@ -179,6 +208,7 @@ describe('Documents page', () => {
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
     await userEvent.type(screen.getByLabelText('Name (required)'), 'Copy')
+    await fillDetails()
     await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
 
     const link = await screen.findByRole('link', { name: 'View the existing document' })

@@ -44,7 +44,7 @@ The authenticated application should provide the following primary sections:
 1. **Dashboard**
 2. **Health Timeline**
 3. **Medical Documents**
-4. **Medications and Prescriptions**
+4. **Medications**
 5. **Checkups and Follow-ups**
 6. **AI Summaries and Insights**
 7. **Alerts**
@@ -226,7 +226,7 @@ If there is insufficient information, the interface should state that clearly ra
 
 ## 12. Medications, Prescriptions, Checkups, and Follow-ups
 
-### 12.1 Medications and Prescriptions
+### 12.1 Medications
 
 Users must be able to add, edit, and view medication and prescription records, including those derived from authorized documents, and see each record's change history.
 

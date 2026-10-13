@@ -10,23 +10,27 @@ interface Props {
   values: MetadataValues
   onChange: (values: MetadataValues) => void
   errors?: Record<string, string>
+  /** On upload every detail is required; editing later keeps them optional. */
+  required?: boolean
 }
 
 /** Category, document date (with how exact it is), and provider; shared by upload and edit. */
-export function MetadataFields({ values, onChange, errors = {} }: Props) {
+export function MetadataFields({ values, onChange, errors = {}, required = false }: Props) {
   // Today's date for the picker's upper limit, computed once (not on every render).
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
+  const mark = (label: string) => (required ? `${label} (required)` : label)
   const set = <K extends keyof MetadataValues>(key: K, value: MetadataValues[K]) => onChange({ ...values, [key]: value })
 
   return (
     <div className="metadata-grid">
       <div>
         <SelectField
-          label="Document type"
+          label={mark('Document type')}
+          required={required}
           value={values.category}
           onChange={(e) => set('category', e.target.value as Category | '')}
           options={[
-            { value: '', label: 'Not set' },
+            { value: '', label: required ? 'Choose a type' : 'Not set' },
             ...CATEGORIES.filter((c) => c !== 'unknown').map((c) => ({ value: c, label: CATEGORY_LABELS[c] })),
           ]}
           error={errors.category}
@@ -34,13 +38,14 @@ export function MetadataFields({ values, onChange, errors = {} }: Props) {
         />
         {values.category === 'discharge_summary' && (
           <p id="discharge-page-note" className="field-note">
-            <strong>Note:</strong> Please upload a 1-page discharge summary. Discharge summaries with more than one
-            page will be supported in a later update.
+            <strong>Note:</strong> Please upload only one page of the discharge summary (the page with the
+            diagnosis and discharge medicines), due to AI reading limits.
           </p>
         )}
       </div>
       <FormField
-        label="Document date"
+        label={mark('Document date')}
+        required={required}
         type="date"
         value={values.document_date}
         max={today}
@@ -59,7 +64,8 @@ export function MetadataFields({ values, onChange, errors = {} }: Props) {
         error={errors.document_date_precision}
       />
       <FormField
-        label="Hospital, lab, or clinic"
+        label={mark('Hospital, lab, or clinic')}
+        required={required}
         maxLength={200}
         value={values.provider_name}
         onChange={(e) => set('provider_name', e.target.value)}

@@ -5,7 +5,7 @@ import { toFormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
 import { SelectField } from '../components/SelectField'
 import type { Category } from '../documents/documentsApi'
-import { CATEGORY_LABELS, formatDayMonthYear, formatTimestamp } from '../documents/format'
+import { CATEGORY_LABELS, formatDayMonthYear, formatTimestamp, NOT_MENTIONED } from '../documents/format'
 import { alertsApi, type AlertHistoryEvent, type AlertStatus, type SafetyAlert } from './alertsApi'
 import { HelperNote } from '../components/HelperNote'
 
@@ -142,7 +142,7 @@ function AlertRows({
             <span className="document-meta">Deleted document</span>
           )}
         </td>
-        <td className="mono">{alert.report_date ? formatDayMonthYear(alert.report_date) : '—'}</td>
+        <td className="mono">{alert.report_date ? formatDayMonthYear(alert.report_date) : NOT_MENTIONED}</td>
         <td>
           <span className={`alert-severity alert-severity-${alert.severity}`}>{SEVERITY_LABELS[alert.severity]}</span>
         </td>

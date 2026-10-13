@@ -161,6 +161,8 @@ class ExtractionRunner:
                 versions.append(CLASSIFY_PROMPT_VERSION)
                 kind = classified.document_type
             job.document_kind = kind
+            if kind == "discharge_summary" and prepared.page_count > 1:
+                raise ReadingError("discharge_too_many_pages")  # one page only, due to AI reading limits
 
             if kind in TASK_VERSIONS:
                 versions.append(TASK_VERSIONS[kind])

@@ -1,24 +1,25 @@
-/* Design-system tokens: warm ivory + olive palette, DM Serif Display / Neuton / JetBrains Mono. */
+/* Design-system tokens: white + clinical blue palette, DM Serif Display / Neuton / JetBrains Mono. */
 :root {
-  --color-bg: #faf7f2;
-  --color-surface: #fffdf9;
-  --color-text: #2f3128;
-  --color-text-muted: #6a675c;
-  --color-border: #e6dfd4;
-  --color-accent: #5a6848;
+  --color-bg: #f8f8f8;
+  --color-surface: #ffffff;
+  --color-text: #1f1f1f;
+  --color-text-muted: #5c5c5c;
+  --color-border: #e5e2e2;
+  --color-accent: #1d5fae;
+  --color-accent-dark: #164a88;
 
-  --color-olive: #7a8864;
+  --color-olive: #164a88;
   --color-dusty-blue: #a9bdd1;
-  --color-peach: #e5bca9;
+  --color-peach: #f4c7c3;
   --color-sky: #e3eaf2;
-  --color-mint: #e9ecdf;
-  --color-lilac: #f4ebdc;
+  --color-mint: #eaf1fb; /* light blue tint: active menu item, hovers, tags */
+  --color-lilac: #f1f4f8;
 
   /* Status colours always appear together with a text label, never alone. */
-  --color-ok-bg: var(--color-mint);
-  --color-ok-text: #4a5a38;
-  --color-problem-bg: #f6e1d8;
-  --color-problem-text: #8a3f2b;
+  --color-ok-bg: #e7f3e9;
+  --color-ok-text: #2e6b3a;
+  --color-problem-bg: #fdf1dc; /* warnings are amber, so they stand apart from blue buttons */
+  --color-problem-text: #8a4b00;
   --color-pending-bg: var(--color-sky);
   --color-pending-text: #3f5770;
 
@@ -29,6 +30,6 @@
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 18px;
-  --shadow-soft: 0 1px 3px rgba(47, 49, 40, 0.06), 0 4px 16px rgba(47, 49, 40, 0.04);
-  --focus-ring: 0 0 0 3px rgba(90, 104, 72, 0.45);
+  --shadow-soft: 0 1px 3px rgba(31, 31, 31, 0.06), 0 4px 16px rgba(31, 31, 31, 0.04);
+  --focus-ring: 0 0 0 3px rgba(29, 95, 174, 0.4);
 }

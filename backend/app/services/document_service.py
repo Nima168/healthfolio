@@ -22,7 +22,7 @@ from app.models.prescription import Condition, Medication, Suggestion
 from app.repositories.auth import AuditRepository
 from app.repositories.documents import DocumentFilters, DocumentRepository
 from app.schemas.documents import DocumentUpdate, normalise_date
-from app.services import jobs
+from app.services import jobs, upload_quality
 from app.services.alert_service import AlertService
 from app.services.document_validation import SNIFF_BYTES, detect_media_type, sanitise_filename
 from app.services.storage import CHUNK_SIZE, DocumentStorage, StorageError, storage_key
@@ -82,6 +82,8 @@ class DocumentService:
             raise ApiError(415, message="Only PDF, JPEG, and PNG files are supported.")
 
         self._raise_if_duplicate(user_id, sha256)
+        file.seek(0)
+        self._check_readable(file.read(), media_type, metadata.category)
 
         document_date, precision = normalise_date(metadata.document_date, metadata.document_date_precision)
         document = Document(
@@ -121,6 +123,15 @@ class DocumentService:
             self._remove_file_quietly(document.storage_key)
             raise
         return document
+
+    @staticmethod
+    def _check_readable(content: bytes, media_type: str, category: str | None) -> None:
+        """Unclear photos and scans are sent back for a better copy; discharge summaries are one page."""
+        report = upload_quality.check(content, media_type)
+        if report.problem:
+            raise ApiError(422, details=[{"field": "file", "issue": report.message()}])
+        if category == "discharge_summary" and (report.page_count or 0) > 1:
+            raise ApiError(422, details=[{"field": "file", "issue": upload_quality.DISCHARGE_ONE_PAGE}])
 
     def _measure(self, file: BinaryIO) -> tuple[int, str, bytes]:
         digest = hashlib.sha256()
