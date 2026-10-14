@@ -21,12 +21,16 @@ describe('Welcome page', () => {
     expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
   })
 
-  it('says up front that AI accuracy is not rigorously validated, and shows how a document is read', async () => {
+  it('ends by saying AI accuracy is not rigorously validated, and shows how a document is read', async () => {
     stubFetch(LOGGED_OUT)
     renderAt('/welcome')
 
     const hero = await screen.findByRole('region', { name: 'Healthfolio' })
-    const notice = within(hero).getByRole('note', { name: 'AI accuracy has not been rigorously validated.' })
+    expect(within(hero).queryByRole('note')).not.toBeInTheDocument()
+    const notice = screen.getByRole('note', { name: 'AI accuracy has not been rigorously validated.' })
+    // At the end of the page, after the disclaimer.
+    const disclaimer = screen.getByText(/gives information, not medical advice/)
+    expect(disclaimer.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(notice).getByText('AI accuracy has not been rigorously validated.').tagName).toBe('STRONG')
     expect(notice.querySelector('p')).toHaveTextContent(
       'Reading is tested only on fictional sample reports. That is not clinical validation, and the target of 98% ' +

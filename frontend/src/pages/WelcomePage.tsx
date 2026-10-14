@@ -116,7 +116,7 @@ const PRINCIPLES = [
   { title: 'Private by design', text: 'Only you can see your records, and you can export or delete them at any time.' },
 ]
 
-/** Shown before anything else: the AI reading is measured on fictional reports only, not rigorously validated. */
+/** Closes the page: the AI reading is measured on fictional reports only, not rigorously validated. */
 function AccuracyNotice() {
   return (
     <aside className="welcome-notice" role="note" aria-labelledby="accuracy-notice-title">
@@ -179,7 +179,6 @@ export function WelcomePage() {
               </Link>
             )}
           </div>
-          <AccuracyNotice />
         </section>
 
         <section className="welcome-section" aria-labelledby="features-title">
@@ -266,6 +265,7 @@ export function WelcomePage() {
           your local emergency number. This is a prototype: please use sample documents, not real patient records,
           until its privacy review is complete.
         </p>
+        <AccuracyNotice />
       </main>
 
       <footer className="welcome-footer">
