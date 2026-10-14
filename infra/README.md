@@ -4,15 +4,7 @@ Terraform for the AWS deployment (region `ap-south-1`). The live app is at https
 
 For the overall picture (architecture, document pipeline, testing, AI evaluation), see [docs/END_TO_END.md](../docs/END_TO_END.md).
 
-```
-Browser ── HTTPS ── EC2 server (Elastic IP, https://<ip-with-dashes>.sslip.io)
-                     ├── Caddy: HTTPS certificate (Let's Encrypt), website files, /api/* →
-                     └── API + extraction worker (Docker, private network)
-                            ├── RDS PostgreSQL (private; only the server may connect)
-                            ├── S3 (uploaded documents, encrypted; website files are copied from S3)
-                            ├── Secrets Manager / SSM Parameter Store (password, keys, settings)
-                            └── Groq API (AI extraction)
-```
+![Healthfolio on AWS](../docs/architecture/healthfolio-architecture.png)
 
 ## What Terraform creates
 

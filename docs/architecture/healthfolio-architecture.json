@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Healthfolio End-to-End Architecture",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1180,
+      660
+    ]
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "User",
+      "sublabel": "browser",
+      "pos": [
+        40,
+        240
+      ],
+      "size": [
+        140,
+        64
+      ]
+    },
+    {
+      "id": "caddy",
+      "type": "frontend",
+      "label": "Caddy",
+      "sublabel": "HTTPS · React site",
+      "pos": [
+        250,
+        240
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "Let's Encrypt"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI API",
+      "sublabel": "/api/v1 · rules",
+      "pos": [
+        490,
+        240
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Extraction worker",
+      "sublabel": "PyMuPDF · OCR · checks",
+      "pos": [
+        490,
+        410
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "rds",
+      "type": "database",
+      "label": "RDS PostgreSQL",
+      "sublabel": "records · job queue",
+      "pos": [
+        780,
+        240
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "tag": "private"
+    },
+    {
+      "id": "s3docs",
+      "type": "database",
+      "label": "S3 documents",
+      "sublabel": "encrypted uploads",
+      "pos": [
+        780,
+        410
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "groq",
+      "type": "external",
+      "label": "Groq AI",
+      "sublabel": "qwen3.8-27b · JSON",
+      "pos": [
+        490,
+        570
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "site",
+      "type": "cloud",
+      "label": "S3 website",
+      "sublabel": "built React files",
+      "pos": [
+        250,
+        410
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "secrets",
+      "type": "security",
+      "label": "Secrets + SSM",
+      "sublabel": "DB password · keys",
+      "pos": [
+        490,
+        70
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ecr",
+      "type": "cloud",
+      "label": "ECR",
+      "sublabel": "API image",
+      "pos": [
+        780,
+        70
+      ],
+      "size": [
+        180,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "AWS ap-south-1 · Terraform",
+      "wraps": [
+        "caddy",
+        "api",
+        "worker",
+        "rds",
+        "s3docs",
+        "site",
+        "secrets",
+        "ecr"
+      ],
+      "pad": 28
+    },
+    {
+      "kind": "security-group",
+      "label": "EC2 server · Docker",
+      "wraps": [
+        "caddy",
+        "api",
+        "worker"
+      ],
+      "pad": 14
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-caddy",
+      "from": "user",
+      "to": "caddy",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "caddy-api",
+      "from": "caddy",
+      "to": "api",
+      "label": "/api/*",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-rds",
+      "from": "api",
+      "to": "rds",
+      "label": "SQL",
+      "variant": "emphasis"
+    },
+    {
+      "id": "site-caddy",
+      "from": "site",
+      "to": "caddy",
+      "label": "copy at start"
+    },
+    {
+      "id": "worker-rds",
+      "from": "worker",
+      "to": "rds",
+      "label": "jobs · results",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "worker-s3docs",
+      "from": "worker",
+      "to": "s3docs",
+      "label": "read file",
+      "labelDy": 20
+    },
+    {
+      "id": "worker-groq",
+      "from": "worker",
+      "to": "groq",
+      "label": "text → fields",
+      "variant": "dashed",
+      "labelAt": [
+        580,
+        522
+      ]
+    },
+    {
+      "id": "api-secrets",
+      "from": "api",
+      "to": "secrets",
+      "label": "read at start",
+      "variant": "security",
+      "labelAt": [
+        515,
+        187
+      ]
+    },
+    {
+      "id": "ecr-api",
+      "from": "ecr",
+      "to": "api",
+      "label": "pull image",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Request path",
+      "items": [
+        "Caddy serves the site and HTTPS; only ports 80/443 are open",
+        "API checks every request against its owner",
+        "Uploads go to S3; a job is queued in PostgreSQL"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Reading pipeline",
+      "items": [
+        "Text from PyMuPDF or Tesseract OCR",
+        "Groq returns strict JSON; the AI only reads",
+        "Code decides: ranges, unreadable values, dates"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security",
+      "items": [
+        "No access keys: the server uses an IAM role",
+        "Database private, reachable only from the server",
+        "Secrets never in Terraform; email via Amazon SES (off for now)"
+      ]
+    }
+  ]
+}

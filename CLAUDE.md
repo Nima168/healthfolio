@@ -49,6 +49,8 @@ AI summaries (`services/summary_service.py`) work only from already-extracted re
 
 **Frontend** (`frontend/src`): feature folders (`documents`, `timeline`, `profile`, `medications`, …), each with its own API module and tests. `api/client.ts` wraps fetch with the base URL from `config.ts` (`VITE_API_BASE_URL`, required in production builds).
 
+**Architecture diagram:** `docs/architecture/healthfolio-architecture.json` (Archify spec) → `.html` (interactive, via `archify deliver architecture … --quality showcase`) and `.png` (cropped from the 2048×1320 light `visual-check` screenshot, viewer controls hidden), shown in README, `docs/END_TO_END.md`, `infra/README.md`. Update all three when the architecture changes.
+
 **Docs:** `docs/END_TO_END.md` is the end-to-end guide (architecture, pipeline, testing, evaluation results, deployment, operations); keep its numbers and deployment section current.
 
 **Specs** in `spec/` are the source of truth for decisions (e.g. `AI_spec.md` §4.5 records the validation decisions with dates). Update the relevant spec section when changing a decided behaviour.

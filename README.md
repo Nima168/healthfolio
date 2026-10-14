@@ -18,6 +18,20 @@ Screens from a demo account with fictional sample reports.
 | **Dashboard** | **AI summary with sources** |
 | ![Dashboard](frontend/public/welcome/dashboard.webp) | ![AI summary](frontend/public/welcome/summary.webp) |
 
+## Architecture
+
+![Healthfolio end-to-end architecture](docs/architecture/healthfolio-architecture.png)
+
+1. The browser talks only to **Caddy**, over HTTPS. Caddy serves the React site and passes `/api/*` to the **FastAPI API**.
+2. The API stores records and queues reading jobs in **PostgreSQL**, and keeps uploads in **S3**.
+3. The **extraction worker**:
+   - reads each upload (PyMuPDF or Tesseract OCR);
+   - asks **Groq** for structured fields;
+   - applies the validation rules before anything is shown.
+4. Secrets and the API image come from AWS (Secrets Manager / SSM, ECR).
+
+The diagram was made with [Archify](https://github.com/tt-a1i/archify). Its interactive version, with dark mode, zoom and path tracing, is [`docs/architecture/healthfolio-architecture.html`](docs/architecture/healthfolio-architecture.html): download it and open it in a browser. Source: [`healthfolio-architecture.json`](docs/architecture/healthfolio-architecture.json). Full walkthrough: [docs/END_TO_END.md](docs/END_TO_END.md).
+
 ## Tech Stack
 
 | Layer | Technology |

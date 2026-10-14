@@ -16,20 +16,9 @@ From the implementation, through testing and AI evaluation, to deployment on AWS
 
 ## 1. Architecture
 
-```mermaid
-flowchart LR
-    U[Browser<br/>React + Vite] -->|HTTPS| C[Caddy<br/>HTTPS, website files]
-    C -->|/api/*| A[FastAPI API]
-    A --> DB[(PostgreSQL 16)]
-    A --> S3[(Document storage<br/>local disk or S3)]
-    A -->|queue job| DB
-    W[Extraction worker] -->|poll jobs| DB
-    W --> S3
-    W --> R[Reading<br/>PyMuPDF / Tesseract OCR]
-    R --> G[Groq API<br/>qwen/qwen3.8-27b]
-    G --> V[Validation rules<br/>deterministic code]
-    V --> DB
-```
+![Healthfolio end-to-end architecture](architecture/healthfolio-architecture.png)
+
+*Made with [Archify](https://github.com/tt-a1i/archify). The interactive version is [`architecture/healthfolio-architecture.html`](architecture/healthfolio-architecture.html) (download and open it in a browser). Source: [`healthfolio-architecture.json`](architecture/healthfolio-architecture.json).*
 
 | Layer | Technology | Where |
 |---|---|---|
@@ -234,20 +223,7 @@ Use synthetic documents only. The evaluation shows behaviour and failure points;
 
 ## 7. Deployment on AWS
 
-```mermaid
-flowchart LR
-    B[Browser] -->|HTTPS 443| EIP[Elastic IP<br/>ip.sslip.io]
-    subgraph EC2[EC2 t3.small · Amazon Linux 2023]
-        CA[Caddy<br/>Let's Encrypt HTTPS<br/>website files] -->|/api/*| APP[API + worker<br/>Docker image from ECR]
-    end
-    EIP --> CA
-    APP --> RDS[(RDS PostgreSQL<br/>private)]
-    APP --> S3D[(S3: documents<br/>encrypted)]
-    CA -.copy at start.-> S3W[(S3: website)]
-    APP --> SM[Secrets Manager<br/>DB password]
-    APP --> SSM[SSM Parameter Store<br/>Groq key, JWT secret, settings]
-    APP --> GQ[Groq API]
-```
+The architecture diagram in [section 1](#1-architecture) shows the deployed setup.
 
 Region: `ap-south-1`. Everything is defined with Terraform in `infra/`. State is kept in a private, versioned S3 bucket.
 
