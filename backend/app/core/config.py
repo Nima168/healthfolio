@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     # "disabled" sends nothing (a demo deployment without an email service: password reset is unavailable).
     email_backend: Literal["file", "ses", "disabled"] = "file"
     dev_mail_dir: str = ".dev_mail"
+    # Sender for EMAIL_BACKEND=ses: an address (or domain) verified in Amazon SES.
+    email_from: str | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod
@@ -121,6 +123,8 @@ class Settings(BaseSettings):
                 raise ValueError("S3_BUCKET must be set when STORAGE_BACKEND=s3")
             if self.email_backend == "file":
                 raise ValueError("EMAIL_BACKEND=file is for development only")
+        if self.email_backend == "ses" and not self.email_from:
+            raise ValueError("EMAIL_FROM must be set when EMAIL_BACKEND=ses")
         return self
 
     @property

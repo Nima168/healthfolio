@@ -7,7 +7,7 @@ import logging
 import uuid
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.core.config import Settings
 
@@ -63,10 +63,41 @@ class DisabledEmailSender:
         raise EmailSendError("email_disabled")
 
 
+class SesEmailSender:
+    """Amazon SES (v2 API). Credentials come from the server's IAM role, never from code."""
+
+    provider = "ses"
+
+    def __init__(self, sender: str, client: Any = None) -> None:
+        self.sender = sender
+        if client is None:
+            import boto3  # only needed when SES is used
+
+            client = boto3.client("sesv2")
+        self.client = client
+
+    def send(self, to: str, subject: str, body: str) -> str:
+        try:
+            response = self.client.send_email(
+                FromEmailAddress=self.sender,
+                Destination={"ToAddresses": [to]},
+                Content={
+                    "Simple": {
+                        "Subject": {"Data": subject, "Charset": "UTF-8"},
+                        "Body": {"Text": {"Data": body, "Charset": "UTF-8"}},
+                    }
+                },
+            )
+        except Exception as exc:  # botocore raises several unrelated error types
+            # Only the error class is recorded: SES messages can include the recipient address.
+            raise EmailSendError(f"ses_{type(exc).__name__}"[:64]) from exc
+        logger.info("email sent", extra={"provider": self.provider})
+        return str(response["MessageId"])
+
+
 def get_email_sender(settings: Settings) -> EmailSender:
     if settings.email_backend == "file":
         return FileEmailSender(settings.dev_mail_dir)
     if settings.email_backend == "disabled":
         return DisabledEmailSender()
-    # The SES adapter is added at deployment time, when AWS credentials are available.
-    raise NotImplementedError("EMAIL_BACKEND=ses is not implemented yet")
+    return SesEmailSender(settings.email_from or "")  # "ses"

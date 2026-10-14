@@ -101,4 +101,4 @@ Open `<site_url>`.
   - The database has deletion protection and takes a final snapshot.
   - To remove everything, first set `deletion_protection = false` and apply.
   - Then run `terraform destroy`.
-- **Password reset** is unavailable because no email service is configured (`EMAIL_BACKEND=disabled`).
+- **Email (SES):** after the first `terraform apply`, AWS emails `sender_email` a verification link; password-reset emails are sent only after it is clicked. A new account is in the SES *sandbox*: mail reaches only verified addresses until you request production access (SES console → Account dashboard → Request production access). With a Gmail sender, some messages may land in spam; a sender on your own domain fixes that.

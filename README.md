@@ -4,7 +4,9 @@
 
 A personal health-records platform that stores medical documents, extracts and organizes their information, tracks medications and follow-ups, and provides cautious, source-backed AI summaries. It offers informational decision support only and does not replace professional medical care.
 
-> **Status:** user accounts, medical document storage, and AI extraction of lab results (with a review screen) are in place. Extraction is not yet validated against an accuracy evaluation and must only be used with synthetic data. The other health-record features are being built step by step against the specifications below.
+**Live demo:** https://65-0-63-32.sslip.io (use synthetic documents only; uploaded text is sent to the AI provider).
+
+> **Status:** all the features below are in place and deployed on AWS. AI extraction is measured with a built-in accuracy evaluation on fictional reports, but it is not clinically validated: use synthetic data only.
 
 ## Screenshots
 
@@ -169,7 +171,8 @@ Backend settings come from environment variables (`backend/.env` in development)
 | `FRONTEND_BASE_URL` | Used to build password-reset links | `http://localhost:5173` |
 | `LOGIN_MAX_FAILURES` / `LOCKOUT_MINUTES` | Account lockout after repeated failed logins | `5` / `15` |
 | `PASSWORD_RESET_MINUTES` | Reset-link lifetime | `30` |
-| `EMAIL_BACKEND` / `DEV_MAIL_DIR` | `file` writes emails to a local folder in development; `disabled` sends nothing (password reset unavailable) | `file` / `.dev_mail` |
+| `EMAIL_BACKEND` / `DEV_MAIL_DIR` | `file` writes emails to a local folder in development; `ses` sends through Amazon SES; `disabled` sends nothing (password reset unavailable) | `file` / `.dev_mail` |
+| `EMAIL_FROM` | Sender for `ses`, an address verified in SES (e.g. `Healthfolio <you@example.com>`) | — |
 | `DOCUMENT_STORAGE_DIR` | Where uploaded documents are stored in development (git-ignored) | `storage/documents` |
 | `STORAGE_BACKEND` / `S3_BUCKET` | `local` disk, or `s3` with a private, encrypted bucket | `local` / — |
 | `UPLOAD_RATE_LIMIT_PER_HOUR` | Uploads allowed per user per hour | `30` |
@@ -282,7 +285,9 @@ Healthfolio runs on AWS (region `ap-south-1`). The infrastructure is defined wit
 - **Database:** Amazon RDS for PostgreSQL, private, reachable only from the server. Its password is kept in AWS Secrets Manager.
 - **Files:** uploaded documents go to a private, encrypted S3 bucket (`STORAGE_BACKEND=s3`), accessed through the server's IAM role (no access keys). The built website is also kept in S3.
 
-No email service is configured (`EMAIL_BACKEND=disabled`), so password reset is unavailable on the deployed app. See `infra/README.md` for the deployment steps.
+- **Email:** password-reset emails are sent through Amazon SES from a verified sender address.
+
+See `infra/README.md` for the deployment steps.
 
 ## Specifications
 

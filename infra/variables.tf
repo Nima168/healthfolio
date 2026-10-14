@@ -28,6 +28,11 @@ variable "budget_limit_usd" {
   default     = 20
 }
 
+variable "sender_email" {
+  description = "Address password-reset emails are sent from; verified in SES (set in terraform.tfvars)."
+  type        = string
+}
+
 variable "alert_email" {
   description = "Where budget alerts are sent (set in terraform.tfvars, which is not committed)."
   type        = string

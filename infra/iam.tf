@@ -49,6 +49,12 @@ resource "aws_iam_role_policy" "app" {
         Resource = aws_db_instance.db.master_user_secret[0].secret_arn
       },
       {
+        Sid      = "SendEmail"
+        Effect   = "Allow"
+        Action   = "ses:SendEmail"
+        Resource = "arn:aws:ses:${var.region}:${local.account_id}:identity/*"
+      },
+      {
         Sid      = "AppSettings"
         Effect   = "Allow"
         Action   = ["ssm:GetParameter", "ssm:GetParameters"]

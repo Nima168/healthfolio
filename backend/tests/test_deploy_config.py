@@ -97,3 +97,47 @@ def test_s3_needs_a_bucket_in_production():
             email_backend="disabled",
             storage_backend="s3",
         )
+
+
+# ---------- Amazon SES email (fake client, no AWS) ----------
+
+
+class FakeSes:
+    def __init__(self, error: Exception | None = None) -> None:
+        self.sent: list[dict] = []
+        self.error = error
+
+    def send_email(self, **request):
+        if self.error:
+            raise self.error
+        self.sent.append(request)
+        return {"MessageId": "msg-1"}
+
+
+def test_ses_sends_plain_text_from_the_verified_sender():
+    from app.services.email import SesEmailSender
+
+    fake = FakeSes()
+    message_id = SesEmailSender("Healthfolio <sender@example.com>", client=fake).send(
+        "user@example.com", "Reset your password", "Open this link"
+    )
+
+    assert message_id == "msg-1"
+    [request] = fake.sent
+    assert request["FromEmailAddress"] == "Healthfolio <sender@example.com>"
+    assert request["Destination"] == {"ToAddresses": ["user@example.com"]}
+    assert request["Content"]["Simple"]["Body"]["Text"]["Data"] == "Open this link"
+
+
+def test_ses_failures_are_recorded_without_the_provider_message():
+    from app.services.email import SesEmailSender
+
+    sender = SesEmailSender("sender@example.com", client=FakeSes(RuntimeError("user@example.com not verified")))
+    with pytest.raises(EmailSendError) as failure:
+        sender.send("user@example.com", "s", "b")
+    assert str(failure.value) == "ses_RuntimeError"
+
+
+def test_ses_needs_a_sender():
+    with pytest.raises(ValueError, match="EMAIL_FROM"):
+        settings(email_backend="ses")
