@@ -33,7 +33,7 @@ Screens from a demo account with fictional sample reports.
    - applies the validation rules before anything is shown.
 4. Secrets and the API image come from AWS (Secrets Manager / SSM, ECR).
 
-The diagram was made with [Archify](https://github.com/tt-a1i/archify). Its interactive version, with dark mode, zoom and path tracing, is [`docs/architecture/healthfolio-architecture.html`](docs/architecture/healthfolio-architecture.html): download it and open it in a browser. Source: [`healthfolio-architecture.json`](docs/architecture/healthfolio-architecture.json). Full walkthrough: [docs/END_TO_END.md](docs/END_TO_END.md).
+Diagram source: [`docs/architecture/healthfolio-architecture.json`](docs/architecture/healthfolio-architecture.json). Full walkthrough: [docs/END_TO_END.md](docs/END_TO_END.md).
 
 ## How a Document Is Read
 
@@ -42,7 +42,7 @@ The diagram was made with [Archify](https://github.com/tt-a1i/archify). Its inte
 
 ![How a document is read: upload, queue, get text, Groq AI, check rules, summary](docs/architecture/extraction-pipeline.png)
 
-**The AI only reads; fixed rules in code decide what you see.** Interactive version: [`docs/architecture/extraction-pipeline.html`](docs/architecture/extraction-pipeline.html) (download and open it in a browser).
+**The AI only reads; fixed rules in code decide what you see.**
 
 | Step | What happens |
 |---|---|

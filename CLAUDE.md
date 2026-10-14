@@ -49,7 +49,7 @@ AI summaries (`services/summary_service.py`) work only from already-extracted re
 
 **Frontend** (`frontend/src`): feature folders (`documents`, `timeline`, `profile`, `medications`, …), each with its own API module and tests. `api/client.ts` wraps fetch with the base URL from `config.ts` (`VITE_API_BASE_URL`, required in production builds).
 
-**Architecture diagram:** `docs/architecture/healthfolio-architecture.json` (Archify spec) → `.html` (interactive, via `archify deliver architecture … --quality showcase`) and `.png` (cropped from the 2048×1320 light `visual-check` screenshot, viewer controls hidden), shown in README, `docs/END_TO_END.md`, `infra/README.md`. Update all three when the architecture changes. `docs/architecture/extraction-pipeline.*` (Archify workflow v2, same process) shows how a document is read; it is in the README and `docs/END_TO_END.md`.
+**Diagrams:** `docs/architecture/healthfolio-architecture.png` (system) and `extraction-pipeline.png` (how a document is read), generated from the JSON specs beside them and shown in the README, `docs/END_TO_END.md` and `infra/README.md`. Update them when the architecture changes. Do not name the diagram tool in the repository.
 
 **Docs:** `docs/END_TO_END.md` is the end-to-end guide (architecture, pipeline, testing, evaluation results, deployment, operations); keep its numbers and deployment section current.
 

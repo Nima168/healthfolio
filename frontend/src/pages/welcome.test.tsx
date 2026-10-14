@@ -21,6 +21,24 @@ describe('Welcome page', () => {
     expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
   })
 
+  it('says up front that AI accuracy is not rigorously validated, and shows how a document is read', async () => {
+    stubFetch(LOGGED_OUT)
+    renderAt('/welcome')
+
+    const hero = await screen.findByRole('region', { name: 'Healthfolio' })
+    const notice = within(hero).getByRole('note', { name: 'AI accuracy has not been rigorously validated.' })
+    expect(notice).toHaveTextContent('Rigorous validation is planned for the future')
+    expect(screen.getByText(/has not been rigorously validated; that validation is planned/)).toBeInTheDocument()
+
+    const steps = screen.getByRole('region', { name: 'How it works' })
+    expect(within(steps).getByRole('img', { name: /How a document is read/ })).toHaveAttribute(
+      'src',
+      '/welcome/how-a-document-is-read.webp',
+    )
+    // Password reset by email is switched off, so the page does not promise it.
+    expect(screen.queryByText(/Reset it from the login page/)).not.toBeInTheDocument()
+  })
+
   it('links back from the login page', async () => {
     stubFetch(LOGGED_OUT)
     renderAt('/login')

@@ -116,6 +116,20 @@ const PRINCIPLES = [
   { title: 'Private by design', text: 'Only you can see your records, and you can export or delete them at any time.' },
 ]
 
+/** Shown before anything else: the AI reading is measured on fictional reports only, not rigorously validated. */
+function AccuracyNotice() {
+  return (
+    <aside className="welcome-notice" role="note" aria-labelledby="accuracy-notice-title">
+      <strong id="accuracy-notice-title">AI accuracy has not been rigorously validated.</strong>
+      <p>
+        Reading is tested only on fictional sample reports. That is not clinical validation, and the target of 98%
+        accuracy on key values is not met yet. Rigorous validation is planned for the future. Please use sample
+        documents only, and always check results against the original.
+      </p>
+    </aside>
+  )
+}
+
 /** Public introduction to Healthfolio (no sign-in needed). */
 export function WelcomePage() {
   const { status } = useAuth()
@@ -166,6 +180,7 @@ export function WelcomePage() {
               </Link>
             )}
           </div>
+          <AccuracyNotice />
         </section>
 
         <section className="welcome-section" aria-labelledby="features-title">
@@ -196,6 +211,18 @@ export function WelcomePage() {
               </li>
             ))}
           </ol>
+          <figure className="welcome-pipeline">
+            <a href="/welcome/how-a-document-is-read.webp" target="_blank" rel="noreferrer">
+              <img
+                src="/welcome/how-a-document-is-read.webp"
+                alt="How a document is read: upload, queue the job, get the text (PyMuPDF or OCR), Groq AI structures it, fixed rules check every value, then the summary. Unclear copies are sent back; pages with low OCR confidence go to the AI as images."
+                loading="lazy"
+              />
+            </a>
+            <figcaption>
+              How a document is read. The AI only reads the text; fixed rules in code check every value before you see it.
+            </figcaption>
+          </figure>
         </section>
 
         <ScreenshotTour />
@@ -207,7 +234,8 @@ export function WelcomePage() {
               <strong>In your web browser</strong>, on a computer, tablet or phone. There is nothing to install.
             </li>
             <li>
-              <strong>Sign in with your email and password.</strong> Forgot it? Reset it from the login page by email.
+              <strong>Sign in with your email and password.</strong> Password reset by email is not available yet, so keep
+              your password safe.
             </li>
             <li>
               <strong>Stay signed in safely:</strong> sessions renew in the background, and changing your password
@@ -237,7 +265,8 @@ export function WelcomePage() {
         <p className="welcome-disclaimer">
           Healthfolio gives information, not medical advice, and does not replace your doctor. In an emergency, call
           your local emergency number. This is a prototype: please use sample documents, not real patient records,
-          until its privacy review is complete.
+          until its privacy review is complete. The accuracy of AI reading has not been rigorously validated; that
+          validation is planned for the future.
         </p>
       </main>
 

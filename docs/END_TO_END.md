@@ -23,7 +23,7 @@ From the implementation, through testing and AI evaluation, to deployment on AWS
 
 ![How a document is read](architecture/extraction-pipeline.png)
 
-*Made with [Archify](https://github.com/tt-a1i/archify). The interactive version is [`architecture/healthfolio-architecture.html`](architecture/healthfolio-architecture.html) (download and open it in a browser). Source: [`healthfolio-architecture.json`](architecture/healthfolio-architecture.json).*
+*Diagram sources: [`architecture/`](architecture/).*
 
 | Layer | Technology | Where |
 |---|---|---|

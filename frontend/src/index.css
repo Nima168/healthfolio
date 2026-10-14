@@ -1911,6 +1911,40 @@ section[aria-labelledby='page-title'] > .card + .card {
   padding: 13px 30px;
   text-decoration: none;
 }
+/* Accuracy notice: amber like other warnings, so it is read before signing up. */
+.welcome-notice {
+  margin: 28px auto 0;
+  max-width: 68ch;
+  padding: 14px 18px;
+  border: 1px solid #f0d29a;
+  border-left: 4px solid var(--color-problem-text);
+  border-radius: var(--radius-md);
+  background: var(--color-problem-bg);
+  color: var(--color-problem-text);
+  text-align: left;
+}
+.welcome-notice p {
+  margin: 4px 0 0;
+  color: var(--color-text);
+}
+/* "How a document is read" diagram under the steps. */
+.welcome-pipeline {
+  margin: 28px 0 0;
+  text-align: center;
+}
+.welcome-pipeline img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+.welcome-pipeline figcaption {
+  margin-top: 10px;
+  color: var(--color-text-muted);
+}
 .welcome-section {
   margin-top: 56px;
 }
