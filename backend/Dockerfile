@@ -1,4 +1,4 @@
-# The API and the extraction worker in one container (also used on Render and AWS Lightsail).
+# The API and the extraction worker in one container (run on AWS Lightsail).
 FROM public.ecr.aws/docker/library/python:3.12-slim
 
 # Tesseract reads scanned copies (app/ai/reading.py).
