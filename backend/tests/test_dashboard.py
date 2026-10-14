@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from app.core.config import get_settings
-from tests.ai_fakes import prescription, response
+from tests.ai_fakes import prescription, printed_lines, response
 from tests.test_alerts import LAB
 from tests.test_discharge import discharge, upload_discharge
 from tests.test_extraction_flow import make_user, run_worker, upload_report
@@ -40,7 +40,7 @@ def test_new_account_is_empty_not_healthy(client, asha):
 
 
 def test_overview_of_documents_alerts_and_items_to_review(client, asha):
-    upload_report(client, asha, "lab")
+    upload_report(client, asha, "lab", lines=printed_lines(LAB))
     run_worker(get_settings(), response(LAB))
     prescription_id = upload_prescription(client, asha)
     run_worker(get_settings(), response(prescription()))
@@ -91,7 +91,7 @@ def test_profile_card(client, asha):
 
 
 def test_only_the_users_own_records(client, asha):
-    upload_report(client, asha, "lab")
+    upload_report(client, asha, "lab", lines=printed_lines(LAB))
     run_worker(get_settings(), response(LAB))
     ravi = make_user(client, "ravi@example.com")
 

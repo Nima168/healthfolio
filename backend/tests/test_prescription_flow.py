@@ -101,7 +101,8 @@ def test_unclear_items_are_flagged_where_they_are(client, asha, settings):
             "description": "Kidney function test",
             "unclear": False,
             "reason": None,
-            "when_text": None,
+            "when_text": "after 4 weeks",  # shown as written, with the calculated date labelled as such
+            "calculated": True,
         },
         {
             "due_date": "2026-11-04",
@@ -109,6 +110,7 @@ def test_unclear_items_are_flagged_where_they_are(client, asha, settings):
             "unclear": True,
             "reason": "The follow-up was not clearly legible.",
             "when_text": "after 4 weeks",
+            "calculated": True,
         },
     ]
 
@@ -240,8 +242,12 @@ def test_deleting_the_prescription(client, asha, db, settings):
 
 def test_a_reading_that_found_nothing_can_be_tried_again(client, asha, db, settings):
     document_id = upload_prescription(client, asha)
-    run_worker(settings, response(prescription(medications=[], follow_ups=[], warnings=["not a valid prescription"])))
-    assert extraction(client, asha, document_id)["prescription"]["medications"] == []
+    empty = response(prescription(medications=[], follow_ups=[], warnings=["not a valid prescription"]))
+    _, fake = run_worker(settings, empty)
+    # The document clearly has text, so an empty answer is read twice more, then reported, never shown as "none".
+    assert len(fake.requests) == 3
+    job = extraction(client, asha, document_id)["job"]
+    assert (job["status"], job["error_category"]) == ("failed", "ai_empty_output")
 
     retried = client.post(f"/api/v1/documents/{document_id}/extract", headers=asha)
     assert retried.status_code == 202

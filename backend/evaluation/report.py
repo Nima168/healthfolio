@@ -59,12 +59,13 @@ def _metrics_row(label: str, c: Counts, docs: int) -> str:
         f"<td>{_bar(_ratio(c.wrong_items_flagged, c.wrong_items))}</td>"
         f"<td>{_bar(_ratio(c.groups_correct, c.groups_checked))}</td>"
         f"<td>{_bar(_ratio(c.dates_correct, c.dates_checked))}</td>"
+        f"<td>{_bar(_ratio(c.printed_dates_correct, c.printed_dates_checked))}</td>"
         f"<td>{_bar(_ratio(c.blanks_honest, c.blanks_expected))}</td></tr>"
     )
 
 
 HEAD = """<tr><th>Group</th><th>Docs</th><th>Items found</th><th>Fields right</th><th>Misleading fields</th><th>Not identified</th><th>Items fully right</th>
-<th>Extra (invented) items</th><th>Wrong items flagged</th><th>Grouping right</th><th>Dates right</th>
+<th>Extra (invented) items</th><th>Wrong items flagged</th><th>Grouping right</th><th>Dates right</th><th>Dates as printed</th>
 <th>Blanks left blank</th></tr>"""
 
 

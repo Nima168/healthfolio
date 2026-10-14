@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from difflib import SequenceMatcher
 
+from app.ai.dates import ambiguous
 from app.ai.readability import NOT_IDENTIFIED
 from evaluation.cases import Case
 
@@ -70,6 +71,8 @@ class Counts:
     groups_correct: int = 0
     dates_checked: int = 0
     dates_correct: int = 0
+    printed_dates_checked: int = 0
+    printed_dates_correct: int = 0  # the document's date shown exactly as printed
     blanks_expected: int = 0
     blanks_honest: int = 0
     fields_not_identified: int = 0  # printed but shown as "Not identified": an honest gap
@@ -96,14 +99,29 @@ def _honesty(counts: Counts, checks: dict[str, bool], shown: dict) -> None:
             counts.fields_misleading += 1
 
 
-def _date_check(counts: Counts, label: str, expected: date | None, found: str | None) -> None:
+def _date_check(counts: Counts, label: str, expected: date | None, found: str | None, printed: str = "") -> None:
+    """The calendar date kept for sorting. A printed date whose day and month could be swapped ("03/04/2026")
+    must keep none: the right answer there is no date, never a guess (app/ai/dates.py)."""
     if expected is None:
         return
     counts.dates_checked += 1
-    if found == expected.isoformat():
+    wanted = None if ambiguous(printed) else expected.isoformat()
+    if found == wanted:
         counts.dates_correct += 1
     else:
-        counts.errors.append(f"{label}: expected {expected.isoformat()}, read {found!r}")
+        counts.errors.append(f"{label}: expected {wanted!r}, read {found!r}")
+
+
+def _printed_date_check(counts: Counts, case: Case, got: dict) -> None:
+    """The document's date exactly as printed (readings saved before this check have no date_text)."""
+    if "date_text" not in got or not case.date_text:
+        return
+    counts.printed_dates_checked += 1
+    found = " ".join((got["date_text"] or "").split())
+    if found == " ".join(case.date_text.split()):
+        counts.printed_dates_correct += 1
+    else:
+        counts.errors.append(f"date as printed: expected {case.date_text!r}, shown {got['date_text']!r}")
 
 
 def _labs(counts: Counts, case: Case, found: list[dict], *, groups: bool) -> None:
@@ -188,10 +206,13 @@ def _follow_ups(counts: Counts, case: Case, found: list[dict]) -> None:
     counts.items_expected += len(case.follow_ups)
     for e in case.follow_ups:
         counts.dates_checked += 1
-        if e.due and e.due.isoformat() in due_dates:
+        # Counted from an ambiguous document date: the honest answer is no due date.
+        relative = e.timing.startswith("after")
+        wanted = None if relative and ambiguous(case.date_text) else e.due.isoformat() if e.due else None
+        if (e.due or wanted is None) and wanted in due_dates:
             counts.items_found += 1
             counts.dates_correct += 1
-            due_dates.remove(e.due.isoformat())
+            due_dates.remove(wanted)
         else:
             counts.errors.append(f"follow-up {e.description!r} {e.timing}: expected due {e.due}, read {due_dates}")
     counts.items_extra += len(due_dates)
@@ -220,22 +241,23 @@ def score(case: Case, result: dict) -> Counts:
         return counts
     if case.kind == "lab_report":
         _labs(counts, case, got["labs"], groups=True)
-        _date_check(counts, "report date", case.doc_date, got.get("date"))
+        _date_check(counts, "report date", case.doc_date, got.get("date"), case.date_text)
     elif case.kind == "prescription":
         _medicines(counts, case, got["medicines"])
         _follow_ups(counts, case, got["follow_ups"])
-        _date_check(counts, "prescription date", case.doc_date, got.get("date"))
+        _date_check(counts, "prescription date", case.doc_date, got.get("date"), case.date_text)
     elif case.kind == "discharge_summary":
         _texts(counts, "diagnosis", case.diagnoses, got["diagnoses"])
         _labs(counts, case, got["labs"], groups=False)
         _medicines(counts, case, got["medicines"])
         _follow_ups(counts, case, got["follow_ups"])
-        _date_check(counts, "discharge date", case.doc_date, got.get("date"))
+        _date_check(counts, "discharge date", case.doc_date, got.get("date"), case.date_text)
         _date_check(counts, "admission date", case.admitted, got.get("admitted"))
     else:
         for key, expected in case.lists.items():
             _texts(counts, key, expected, got["lists"].get(key, []))
-        _date_check(counts, "document date", case.doc_date, got.get("date"))
+        _date_check(counts, "document date", case.doc_date, got.get("date"), case.date_text)
+    _printed_date_check(counts, case, got)
     return counts
 
 

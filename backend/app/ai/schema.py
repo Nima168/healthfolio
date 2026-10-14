@@ -31,6 +31,7 @@ _RESULT_PROPERTIES: dict[str, dict] = {
     "reference_low": _nullable({"type": "number"}),
     "reference_high": _nullable({"type": "number"}),
     "result_date": _nullable({"type": "string", "description": "YYYY-MM-DD, only if written for this result."}),
+    "result_date_text": _nullable({"type": "string", "description": "That result date exactly as printed."}),
     "result_date_precision": _nullable({"type": "string", "enum": ["day", "month", "year"]}),
     "page": _nullable({"type": "integer", "description": "1-based page where the result appears."}),
     "source_text": {"type": "string", "description": "The exact line or table row the result was read from."},
@@ -74,6 +75,7 @@ class ExtractedResult(BaseModel):
     reference_low: float | None
     reference_high: float | None
     result_date: str | None
+    result_date_text: str | None = None
     result_date_precision: Literal["day", "month", "year"] | None
     page: int | None
     source_text: str

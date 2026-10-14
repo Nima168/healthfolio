@@ -10,6 +10,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
+from app.ai.dates import document_date
 from app.ai.discharge_validation import validate_discharge
 from app.ai.extractor import (
     CONSULTATION_PROMPT_VERSION,
@@ -23,6 +24,7 @@ from app.ai.extractor import (
 from app.ai.prescription_validation import validate_prescription
 from app.ai.reading import Ocr, ReadingError, prepare
 from app.ai.report_validation import validate_consultation, validate_imaging
+from app.ai.source_check import SourceText
 from app.ai.validation import validate_payload
 from app.core.config import Settings
 from app.services import upload_quality
@@ -100,19 +102,27 @@ def _follow_ups(follow_ups) -> list[dict]:
 def _extract(extractor: GroqExtractor, kind: str, prepared) -> tuple[dict, Any]:
     if kind == "lab_report":
         outcome = extractor.extract(prepared)
-        results = validate_payload(outcome.payload, prepared.page_count, date.today())
-        return {"labs": _lab_items(results), "date": outcome.payload.report_date}, outcome
+        results = validate_payload(outcome.payload, prepared.page_count, date.today(), SourceText.of(prepared))
+        payload = outcome.payload
+        return {
+            "labs": _lab_items(results),
+            "date": document_date(payload.report_date, payload.report_date_text),
+            "date_text": payload.report_date_text,
+        }, outcome
     if kind == "prescription":
         outcome = extractor.extract_prescription(prepared)
-        header, medicines, follow_ups = validate_prescription(outcome.payload, prepared.page_count)
+        header, medicines, follow_ups = validate_prescription(
+            outcome.payload, prepared.page_count, SourceText.of(prepared)
+        )
         return {
             "date": header.prescribed_on,
+            "date_text": header.date_text,
             "medicines": _medicines(medicines),
             "follow_ups": _follow_ups(follow_ups),
         }, outcome
     if kind == "discharge_summary":
         outcome = extractor.extract_discharge(prepared)
-        v = validate_discharge(outcome.payload, prepared.page_count)
+        v = validate_discharge(outcome.payload, prepared.page_count, SourceText.of(prepared))
         labs = [
             {
                 "name": r.name,
@@ -121,14 +131,15 @@ def _extract(extractor: GroqExtractor, kind: str, prepared) -> tuple[dict, Any]:
                 "range": r.reference_range_text,
                 "date": r.observed_at,
                 "confidence": r.confidence,
-                "needs_review": r.confidence != "high",
-                "findings": [],
+                "needs_review": r.needs_review,
+                "findings": r.findings,
                 "group": None,
             }
             for r in v.results
         ]
         return {
             "date": v.header.discharged_on,
+            "date_text": v.header.discharged_text,
             "admitted": v.header.admitted_on,
             "diagnoses": v.diagnoses,
             "labs": labs,
@@ -139,11 +150,11 @@ def _extract(extractor: GroqExtractor, kind: str, prepared) -> tuple[dict, Any]:
         outcome = extractor.extract_report(prepared, kind)
         details, follow_ups = validate_consultation(outcome.payload, prepared.page_count)
         lists = {key: list(details.get(key) or []) for key in ("symptoms", "assessment", "plan")}
-        return {"date": details.get("visit_date"), "lists": lists}, outcome
+        return {"date": details.get("visit_date"), "date_text": details.get("visit_text"), "lists": lists}, outcome
     outcome = extractor.extract_report(prepared, kind)
     details = validate_imaging(outcome.payload)
     lists = {key: list(details.get(key) or []) for key in ("findings", "impression")}
-    return {"date": details.get("exam_date"), "lists": lists}, outcome
+    return {"date": details.get("exam_date"), "date_text": details.get("exam_text"), "lists": lists}, outcome
 
 
 def run_document(

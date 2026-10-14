@@ -104,7 +104,9 @@ def discharge(**overrides):
         ("12-Aug", date(2026, 8, 12)),
         ("12 Aug", date(2026, 8, 12)),
         ("12-Aug-2026", date(2026, 8, 12)),
-        ("12/08/2026", date(2026, 8, 12)),
+        ("25/08/2026", date(2026, 8, 25)),  # only one reading: 25 cannot be a month
+        ("12/08/2026", None),  # 12 August or 8 December: never guessed
+        ("12/08", None),
         ("03-Jan", date(2027, 1, 3)),  # wraps past December into the next year
         ("10-Aug (admission)", None),  # not a plain date: left unknown, never guessed
         (None, None),
@@ -144,8 +146,19 @@ def asha(client, db, storage_dir):
     return make_user(client, "asha@example.com")
 
 
-def upload_discharge(client, headers, category="discharge_summary"):
-    return upload_report(client, headers, "d", category=category, lines=["DISCHARGE SUMMARY", "Synthetic"])
+def printed_lines(content: dict) -> list[str]:
+    """The summary as a typed PDF prints it: one line per result and per medicine."""
+    rows = [
+        [r["test_name"], r["value_text"], r["unit"], r["reference_range_text"], r["result_date_text"]]
+        for r in content["results"]
+    ]
+    rows += [[m["name"], m["strength"], m["instructions"]] for m in content["medications"]]
+    return ["DISCHARGE SUMMARY", "Synthetic"] + [" ".join(part for part in row if part) for row in rows]
+
+
+def upload_discharge(client, headers, category="discharge_summary", content=None):
+    lines = printed_lines(content or discharge())
+    return upload_report(client, headers, "d", category=category, lines=lines)
 
 
 @pytest.mark.integration

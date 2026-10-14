@@ -78,7 +78,13 @@ def test_worker_extracts_results(client, asha, db, settings):
     results = [
         result(),
         result(test_name="HbA1c", value_text="6.1", value_numeric=6.1, unit="%", confidence="medium"),
-        result(test_name="Vitamin B12", value_text="<150", value_numeric=None, unit="pg/mL"),
+        result(
+            test_name="Vitamin B12",
+            value_text="<150",
+            value_numeric=None,
+            unit="pg/mL",
+            reference_range_text="200 - 900",
+        ),
     ]
 
     processed, fake = run_worker(settings, response(payload(results)))
@@ -105,7 +111,7 @@ def test_worker_extracts_results(client, asha, db, settings):
     [job] = all_jobs(db)
     assert (job.model_version, job.prompt_version, job.input_tokens, job.output_tokens) == (
         "qwen/qwen3.8-27b",
-        "lab-results-v5-readability",
+        "lab-results-v6-dates",
         1200,
         340,
     )

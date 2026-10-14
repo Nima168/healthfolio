@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.models.alerts import Alert
-from tests.ai_fakes import payload, response, result
+from tests.ai_fakes import payload, printed_lines, response, result
 from tests.test_discharge import discharge, upload_discharge
 from tests.test_extraction_flow import extraction, make_user, run_worker, upload_report
 from tests.test_reports import ecg, upload
@@ -54,7 +54,7 @@ def alerts(client, headers):
 
 
 def read_lab(client, headers, reply=LAB, label="lab"):
-    document_id = upload_report(client, headers, label)
+    document_id = upload_report(client, headers, label, lines=printed_lines(reply))
     run_worker(get_settings(), response(reply))
     return document_id
 

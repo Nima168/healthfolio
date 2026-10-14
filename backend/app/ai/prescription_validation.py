@@ -10,8 +10,10 @@ import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from app.ai.dates import ambiguous, document_date
 from app.ai.readability import NOT_IDENTIFIED, garbled_text
 from app.ai.schema import ExtractedFollowUp, ExtractedMedication, PrescriptionPayload
+from app.ai.source_check import SourceText, check_all
 
 LIMITS = {"name": 200, "strength": 100, "instructions": 300, "duration": 100, "description": 300, "date_text": 200}
 MAX_RELATIVE = {"days": 730, "weeks": 104, "months": 24}  # beyond two years is treated as unclear
@@ -20,11 +22,17 @@ UNCLEAR_MEDICATION = "The name, strength, or instructions were not clearly legib
 NO_INSTRUCTIONS = "How to take it is not written or unclear."
 DUPLICATE_MEDICATION = "This medicine appears more than once."
 NOT_IDENTIFIED_MEDICATION = "Some details could not be read ({parts}): shown as Not identified. Check the original."
+STRENGTH_NOT_MATCHED = "The strength could not be found on this medicine's line. Check the original."
 UNCLEAR_FOLLOW_UP = "The follow-up was not clearly legible."
 NO_TIMING = "No follow-up date or timing is written."
 UNREADABLE_DATE = "The follow-up date could not be read."
 NO_BASE_DATE = "The prescription or discharge date is missing, so the follow-up date cannot be calculated."
 BEFORE_PRESCRIPTION = "The follow-up date is before the prescription or discharge date."
+AMBIGUOUS_DATE = "The date could mean two different days (day and month can be swapped). Check the original."
+AMBIGUOUS_BASE = (
+    "The document date could mean two different days (day and month can be swapped), "
+    "so the follow-up date was not calculated. Check the original."
+)
 
 
 @dataclass
@@ -32,6 +40,7 @@ class PrescriptionHeader:
     prescribed_on: date | None
     date_text: str | None
     prescriber_name: str | None
+    date_ambiguous: bool = False  # a printed date whose day and month could be swapped: no calendar date kept
 
 
 @dataclass
@@ -73,6 +82,12 @@ def _iso_date(value: str | None) -> date | None:
         return None
 
 
+def header_date(value: str | None, printed: str | None) -> tuple[date | None, bool]:
+    """The document's calendar date (None if ambiguous, app/ai/dates.py) and whether it was ambiguous."""
+    parsed = document_date(value, printed)
+    return parsed, parsed is None and _iso_date(value) is not None and ambiguous(printed)
+
+
 def add_months(start: date, months: int) -> date:
     """Calendar months; the day is kept, or moved back to the last day of a shorter month."""
     year, month = divmod(start.month - 1 + months, 12)
@@ -93,7 +108,9 @@ def _page(page: int | None, page_count: int | None) -> int | None:
     return page if page is not None and page >= 1 and (page_count is None or page <= page_count) else None
 
 
-def _medication(item: ExtractedMedication, page_count: int | None, seen: set[tuple[str, str]]) -> ValidatedMedication:
+def _medication(
+    item: ExtractedMedication, page_count: int | None, seen: set[tuple[str, str]], located: str | None = None
+) -> ValidatedMedication:
     name = _clean(item.name, LIMITS["name"]) or "Unnamed medicine"
     strength = _clean(item.strength, LIMITS["strength"])
     instructions = _clean(item.instructions, LIMITS["instructions"])
@@ -105,6 +122,10 @@ def _medication(item: ExtractedMedication, page_count: int | None, seen: set[tup
         for part, text in (("strength", strength), ("instructions", instructions), ("duration", duration))
         if part in item.unreadable or garbled_text(text)
     ]
+    # Checked against the line it was printed on (app/ai/source_check.py): another medicine's strength
+    # is not this one's.
+    if located == "value_in_other_row" and "strength" not in unreadable:
+        unreadable.insert(0, "strength")
     strength = NOT_IDENTIFIED if "strength" in unreadable else strength
     instructions = NOT_IDENTIFIED if "instructions" in unreadable else instructions
     duration = NOT_IDENTIFIED if "duration" in unreadable else duration
@@ -114,6 +135,8 @@ def _medication(item: ExtractedMedication, page_count: int | None, seen: set[tup
         reason = NOT_IDENTIFIED_MEDICATION.format(parts=", ".join(unreadable))
     elif item.confidence != "high" or name == "Unnamed medicine":
         reason = UNCLEAR_MEDICATION
+    elif located == "value_not_matched":
+        reason = STRENGTH_NOT_MATCHED
     elif instructions is None:
         reason = NO_INSTRUCTIONS
     key = (name.casefold(), (strength or "").casefold())
@@ -137,14 +160,15 @@ def _medication(item: ExtractedMedication, page_count: int | None, seen: set[tup
 def _follow_up(item: ExtractedFollowUp, header: PrescriptionHeader, page_count: int | None) -> ValidatedFollowUp:
     due, basis, reason = None, None, None
     if item.date:
-        due = _iso_date(item.date)
+        due = document_date(item.date, item.date_text)
         basis = "written" if due else None
-        reason = None if due else UNREADABLE_DATE
+        if due is None:
+            reason = AMBIGUOUS_DATE if _iso_date(item.date) else UNREADABLE_DATE
     elif item.relative_amount is not None and item.relative_unit is not None:
         if not 0 < item.relative_amount <= MAX_RELATIVE[item.relative_unit]:
             reason = UNCLEAR_FOLLOW_UP
         elif header.prescribed_on is None:
-            reason = NO_BASE_DATE
+            reason = AMBIGUOUS_BASE if header.date_ambiguous else NO_BASE_DATE
         else:
             due = calculate_due_date(header.prescribed_on, item.relative_amount, item.relative_unit)
             basis = "calculated"
@@ -172,16 +196,38 @@ def _follow_up(item: ExtractedFollowUp, header: PrescriptionHeader, page_count: 
     )
 
 
+def strengths_located(medications: list[ExtractedMedication], source: SourceText | None) -> list[str | None]:
+    """Each medicine's strength checked against its own line; medicines without a strength are not checked."""
+    if source is None:
+        return [None] * len(medications)
+    with_strength = [i for i, m in enumerate(medications) if (m.strength or "").strip() and (m.name or "").strip()]
+    outcomes = check_all(
+        source,
+        [(medications[i].name.strip(), medications[i].strength.strip(), medications[i].page) for i in with_strength],
+    )
+    located: list[str | None] = [None] * len(medications)
+    for i, outcome in zip(with_strength, outcomes, strict=True):
+        # Only a strength off its own line counts; handwriting read from an image is flagged by confidence.
+        located[i] = outcome if outcome in ("value_in_other_row", "value_not_matched") else None
+    return located
+
+
 def validate_prescription(
-    payload: PrescriptionPayload, page_count: int | None
+    payload: PrescriptionPayload, page_count: int | None, source: SourceText | None = None
 ) -> tuple[PrescriptionHeader, list[ValidatedMedication], list[ValidatedFollowUp]]:
+    date_text = _clean(payload.prescription_date_text, 100)
+    prescribed_on, date_ambiguous = header_date(payload.prescription_date, date_text)
     header = PrescriptionHeader(
-        prescribed_on=_iso_date(payload.prescription_date),
-        date_text=_clean(payload.prescription_date_text, 100),
+        prescribed_on=prescribed_on,
+        date_text=date_text,
         prescriber_name=_clean(payload.prescriber_name, 200),
+        date_ambiguous=date_ambiguous,
     )
     seen: set[tuple[str, str]] = set()
-    medications = [_medication(item, page_count, seen) for item in payload.medications]
+    medications = [
+        _medication(item, page_count, seen, where)
+        for item, where in zip(payload.medications, strengths_located(payload.medications, source), strict=True)
+    ]
     follow_ups: list[ValidatedFollowUp] = []
     seen_follow_ups: set[tuple[str, object]] = set()
     for item in payload.follow_ups:

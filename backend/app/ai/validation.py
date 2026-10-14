@@ -9,8 +9,10 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
+from app.ai.dates import ambiguous
 from app.ai.readability import NOT_IDENTIFIED, REPLACEMENT_CHARACTER, check_result, not_a_result
 from app.ai.schema import ExtractedResult, ExtractionPayload
+from app.ai.source_check import SourceText, check_all, near
 
 _NUMBER = re.compile(r"[-+]?\d+(?:,\d{3})*(?:[.,]\d+)?")
 _THOUSANDS = re.compile(r"[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?")
@@ -57,6 +59,12 @@ REVIEW_FINDINGS = {
     "value_not_identified",
     "unit_not_identified",
     "range_not_identified",
+    # Checked against the document text (app/ai/source_check.py).
+    "read_from_image",
+    "name_not_matched",
+    "value_not_matched",
+    "unit_not_matched",
+    "range_not_matched",
 }
 
 
@@ -107,7 +115,14 @@ def _parse_date(value: str | None, precision: str | None, today: date, findings:
     return parsed, precision
 
 
-def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_count: int | None, today: date):
+def _validate_one(
+    result: ExtractedResult,
+    payload: ExtractionPayload,
+    page_count: int | None,
+    today: date,
+    source: SourceText | None = None,
+    located: str | None = None,
+):
     findings: list[str] = []
 
     name, _ = _clip(result.test_name, LIMITS["name"])
@@ -127,6 +142,17 @@ def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_coun
     )
     findings.extend(f"{part}_not_identified" for part in not_identified)
 
+    # Checked against the line it was printed on: a value from another test's row is not this test's value.
+    if located == "value_in_other_row" and value_text != NOT_IDENTIFIED:
+        value_text = NOT_IDENTIFIED
+        findings.extend(["value_not_identified", "value_in_other_row"])
+    elif located and located != "value_in_other_row":
+        findings.append(located)
+    if source is not None and located is None:
+        for part, text in (("unit", unit), ("range", reference_text)):
+            if text and text != NOT_IDENTIFIED and not near(source, name, text, result.page):
+                findings.append(f"{part}_not_matched")
+
     # Our own parse of the written value wins; a disagreement with the model is flagged.
     numeric = None if value_text == NOT_IDENTIFIED else parse_number(value_text)
     model_numeric = _decimal(result.value_numeric)
@@ -142,11 +168,18 @@ def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_coun
     if low is not None and high is not None and low > high:
         findings.append("invalid_reference_range")
 
-    observed_at, precision = _parse_date(result.result_date, result.result_date_precision, today, findings)
+    if ambiguous(result.result_date_text):  # e.g. "03/04": day and month could be swapped (app/ai/dates.py)
+        findings.append("ambiguous_date")
+        observed_at, precision = None, None
+    else:
+        observed_at, precision = _parse_date(result.result_date, result.result_date_precision, today, findings)
     if observed_at is None and not result.result_date and payload.report_date:
-        observed_at, precision = _parse_date(payload.report_date, payload.report_date_precision, today, findings)
-        if observed_at is not None:
-            findings.append("date_from_report")
+        if ambiguous(payload.report_date_text):
+            findings.append("ambiguous_date")  # e.g. "02/09/26": no calendar date is guessed (app/ai/dates.py)
+        else:
+            observed_at, precision = _parse_date(payload.report_date, payload.report_date_precision, today, findings)
+            if observed_at is not None:
+                findings.append("date_from_report")
 
     page = result.page
     if page is not None and (page < 1 or (page_count is not None and page > page_count)):
@@ -174,8 +207,23 @@ def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_coun
     )
 
 
-def validate_payload(payload: ExtractionPayload, page_count: int | None, today: date) -> list[ValidatedResult]:
-    validated = [item for item in (_validate_one(r, payload, page_count, today) for r in payload.lab_results) if item]
+def validate_payload(
+    payload: ExtractionPayload, page_count: int | None, today: date, source: SourceText | None = None
+) -> list[ValidatedResult]:
+    """`source` is the document text the results were read from; without it nothing is cross-checked."""
+    located: list[str | None] = [None] * len(payload.lab_results)
+    if source is not None:
+        located = check_all(
+            source, [((r.test_name or "").strip(), (r.value_text or "").strip(), r.page) for r in payload.lab_results]
+        )
+    validated = [
+        item
+        for item in (
+            _validate_one(r, payload, page_count, today, source, where)
+            for r, where in zip(payload.lab_results, located, strict=True)
+        )
+        if item
+    ]
 
     seen: dict[tuple, ValidatedResult] = {}
     for item in validated:

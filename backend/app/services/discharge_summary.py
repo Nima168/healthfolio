@@ -17,6 +17,9 @@ from app.models.prescription import Condition, Medication, Suggestion
 from app.services.lab_summary import range_check
 from app.services.prescription_summary import FollowUpLine, MedicationLine, summarise_prescription
 
+# Not found on the test's own line in the document text: shown, but never judged high or low.
+_UNCHECKED = {"read_from_image", "name_not_matched", "value_not_matched", "value_in_other_row"}
+
 
 @dataclass(frozen=True)
 class KeyResult:
@@ -58,10 +61,11 @@ def _key_result(rows: list[Observation], discharged_on: date | None) -> KeyResul
     rows = sorted(rows, key=lambda row: (row.observed_at or date.max, row.position))
     first, last = rows[0], rows[-1]
     range_text = next((row.reference_range_text for row in reversed(rows) if row.reference_range_text), None)
-    unclear = any(row.confidence != "high" for row in rows)
+    unclear = any(row.confidence != "high" or row.needs_review for row in rows)
+    unchecked = bool(_UNCHECKED & set(last.validation_findings or []))
     last_tested = last.observed_at if discharged_on and last.observed_at and last.observed_at < discharged_on else None
 
-    if last.value_numeric is None:  # a text result, e.g. "No enteric pathogens isolated"
+    if last.value_numeric is None or unchecked:  # a text result, e.g. "No enteric pathogens isolated"
         return KeyResult(last.name, None, last.value_text, last.unit, range_text, None, False, None, unclear)
     if not range_text:
         return None

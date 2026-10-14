@@ -14,6 +14,7 @@ in the user message; the system prompt states that text inside it is never an in
 import base64
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -43,7 +44,7 @@ from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "lab-results-v5-readability"
+PROMPT_VERSION = "lab-results-v6-dates"
 MAX_OUTPUT_TOKENS = 16000  # model maximum is 16,384
 IMAGES_PER_REQUEST = 3
 CLASSIFY_TEXT_CHARS = 8000  # the start of a typed document is enough to tell its type
@@ -85,7 +86,8 @@ calculate, convert units, or fill in anything that is not written.
 such as "<" or ">". value_text is only the result itself: never include the unit or the reference \
 range in it. Put the number in value_numeric only when value_text contains exactly one number.
 - Use null for anything that is not written or not legible. Never guess a missing value, unit, or date.
-- Give a result_date only if a date is written for that result; otherwise leave it null and give \
+- Give a result_date only if a date is written for that result, with the same date exactly as \
+printed in result_date_text; otherwise leave both null and give \
 the report's collection or report date in report_date if one is written. Also copy that \
 same date exactly as printed into report_date_text.
 - page is the page number the result appears on, as labelled in the input.
@@ -470,6 +472,38 @@ def build_requests(document: PreparedDocument, settings: Settings, task: Task = 
     ]
 
 
+# The lists that hold what was read, per task; an answer with all of them empty read nothing.
+_ITEM_FIELDS = {
+    "lab_results": ("lab_results",),
+    "prescription": ("medications", "follow_ups"),
+    "discharge_summary": ("diagnoses", "results", "medications", "follow_ups"),
+    "consultation_note": ("symptoms", "observations", "assessment", "plan", "follow_ups"),
+    "imaging_report": ("findings", "impression"),
+    "test_report": ("measurements", "interpretations"),
+}
+# Less text than this (headers only, a blank form) may truly hold nothing to read.
+MIN_CONTENT_CHARS = 200
+EMPTY_RETRIES = 2  # extra reads after an empty answer (one was not always enough in the evaluation)
+
+
+def _empty(payload: Any, task: Task) -> bool:
+    fields = _ITEM_FIELDS.get(task.schema_name)
+    if not fields:
+        return False  # e.g. classification always answers
+    if task.schema_name == "imaging_report" and not payload.is_written_report:
+        return False  # scan images without a written report: nothing to read is the right answer
+    return not any(getattr(payload, name) for name in fields)
+
+
+def _has_content(request: dict[str, Any]) -> bool:
+    content = request["messages"][1]["content"]
+    if isinstance(content, list):
+        return any(part.get("type") == "image_url" for part in content)
+    # Only the document's own text counts, not the page tags or the instruction after it.
+    document = re.sub(r"<[^>]*>", "", content.split("</document>", 1)[0])
+    return len("".join(document.split())) >= MIN_CONTENT_CHARS
+
+
 def make_client(settings: Settings) -> groq.Groq:
     if settings.groq_api_key is None:
         raise ExtractionError("ai_not_configured", transient=False)
@@ -526,11 +560,27 @@ class GroqExtractor:
     def _run(self, document: PreparedDocument, task: Task) -> _Usage:
         usage = _Usage(model=self.settings.ai_model)
         for request in build_requests(document, self.settings, task):
-            payload, usage.model, used_in, used_out = self._call(request, task)
-            usage.input_tokens += used_in
-            usage.output_tokens += used_out
+            payload = self._read(request, task, usage)
+            # The model sometimes answers with nothing although the page clearly has content; that answer
+            # is not trusted. Up to two more tries, then a clear failure the user can retry ("Refresh analysis").
+            if _empty(payload, task) and _has_content(request):
+                for _ in range(EMPTY_RETRIES):
+                    logger.info(
+                        "ai returned nothing for a page with content; reading again", extra={"task": task.schema_name}
+                    )
+                    payload = self._read(request, task, usage)
+                    if not _empty(payload, task):
+                        break
+                else:
+                    raise ExtractionError("ai_empty_output", transient=False)
             usage.payloads.append(payload)
         return usage
+
+    def _read(self, request: dict[str, Any], task: Task, usage: _Usage) -> Any:
+        payload, usage.model, used_in, used_out = self._call(request, task)
+        usage.input_tokens += used_in
+        usage.output_tokens += used_out
+        return payload
 
     def extract(self, document: PreparedDocument) -> ExtractionOutcome:
         """Lab results from every page, merged across image batches."""

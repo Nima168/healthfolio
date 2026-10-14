@@ -293,9 +293,9 @@ const PRESCRIPTION: PrescriptionSummary = {
     { name: 'Vitamin D3', strength: '60,000 IU', instructions: 'once weekly', duration_text: '8 weeks', unclear: false, reason: null },
   ],
   follow_ups: [
-    { due_date: '2026-11-04', description: 'Kidney function test + doctor visit', unclear: false, reason: null, when_text: null },
-    { due_date: '2026-12-07', description: 'CBC', unclear: false, reason: null, when_text: null },
-    { due_date: '2027-01-05', description: 'HbA1c + lipid profile', unclear: false, reason: null, when_text: null },
+    { due_date: '2026-11-04', description: 'Kidney function test + doctor visit', unclear: false, reason: null, when_text: 'after 4 weeks', calculated: true },
+    { due_date: '2026-12-07', description: 'CBC', unclear: false, reason: null, when_text: 'on 07-Dec-2026', calculated: false },
+    { due_date: '2027-01-05', description: 'HbA1c + lipid profile', unclear: false, reason: null, when_text: 'after 3 months', calculated: true },
   ],
   reminders: 'available',
 }
@@ -331,13 +331,14 @@ describe('Prescription summary', () => {
       '- Ferrous ascorbate + folic acid: strength not mentioned, once daily after lunch, 60 days',
       '- Vitamin D3 60,000 IU: once weekly, 8 weeks',
       'Upcoming Follow-Ups',
-      '- 04-Nov-2026: Kidney function test + doctor visit',
-      '- 07-Dec-2026: CBC',
-      '- 05-Jan-2027: HbA1c + lipid profile',
+      // The timing exactly as written; a date the app worked out is labelled as calculated.
+      '- after 4 weeks (due 04-Nov-2026, calculated): Kidney function test + doctor visit',
+      '- on 07-Dec-2026: CBC',
+      '- after 3 months (due 05-Jan-2027, calculated): HbA1c + lipid profile',
     ])
     // Important points stand out: medicine with strength, and follow-up dates.
     expect(within(section).getByText('Atorvastatin 10 mg').tagName).toBe('STRONG')
-    expect(within(section).getByText('04-Nov-2026').tagName).toBe('STRONG')
+    expect(within(section).getByText('after 4 weeks').tagName).toBe('STRONG')
     expect(within(section).getByRole('button', { name: 'Add to Checkups and Follow-ups' })).toBeInTheDocument()
     expect(within(section).queryByText(/Needs Review/)).not.toBeInTheDocument()
     expect(within(section).queryByText(/Add as reminders/)).not.toBeInTheDocument()
@@ -355,7 +356,7 @@ describe('Prescription summary', () => {
         medications: [{ ...PRESCRIPTION.medications[1], unclear: true, reason }],
         follow_ups: [
           ...PRESCRIPTION.follow_ups.slice(0, 2),
-          { due_date: null, description: 'Eye checkup', unclear: true, reason: 'No follow-up date or timing is written.', when_text: null },
+          { due_date: null, description: 'Eye checkup', unclear: true, reason: 'No follow-up date or timing is written.', when_text: null, calculated: false },
         ],
         reminders: 'none',
       }),
@@ -370,8 +371,8 @@ describe('Prescription summary', () => {
     expect(within(section).getByText('Date not mentioned').closest('li')).toHaveTextContent(
       'Date not mentioned: Eye checkup (unclear – check original)',
     )
-    expect(within(section).getByText('04-Nov-2026').closest('li')).toHaveTextContent('(date has passed)')
-    expect(within(section).getByText('07-Dec-2026').closest('li')).not.toHaveTextContent('(date has passed)')
+    expect(within(section).getByText('after 4 weeks').closest('li')).toHaveTextContent('(date has passed)')
+    expect(within(section).getByText('on 07-Dec-2026').closest('li')).not.toHaveTextContent('(date has passed)')
     expect(within(section).queryByRole('button', { name: 'Add to Checkups and Follow-ups' })).not.toBeInTheDocument()
   })
 
@@ -468,7 +469,7 @@ const DISCHARGE: DischargeSummary = {
   medications: [
     { name: 'Pantoprazole tablet', strength: '40 mg', instructions: '1 tablet once daily, Before breakfast', duration_text: '5 days', unclear: false, reason: null },
   ],
-  follow_ups: [{ due_date: '2026-08-20', description: 'Review with Dr. Sample Consultant', unclear: false, reason: null, when_text: null }],
+  follow_ups: [{ due_date: '2026-08-20', description: 'Review with Dr. Sample Consultant', unclear: false, reason: null, when_text: 'after 1 week', calculated: true }],
   reminders: 'available',
   warning_signs: ['Return to the emergency department if vomiting persists or blood appears in stools.'],
 }
@@ -495,7 +496,7 @@ describe('Discharge summary', () => {
 
     expect(lines).toEqual([
       'DISCHARGE SUMMARY — Sampleville General Hospital',
-      'Admitted 10-Aug-2026 → Discharged 13-Aug-2026 (4 days)',
+      'Admitted 10-Aug-2026 21:40 → Discharged 13-Aug-2026 11:00 (4 days)', // exactly as printed
       'Diagnosis',
       '- Acute gastroenteritis with moderate dehydration',
       '- Hypokalemia and mild hyponatremia, corrected',
@@ -506,7 +507,7 @@ describe('Discharge summary', () => {
       'Discharge Medications',
       '- Pantoprazole tablet 40 mg: 1 tablet once daily, Before breakfast, 5 days',
       'Upcoming Follow-Ups',
-      '- 20-Aug-2026: Review with Dr. Sample Consultant',
+      '- after 1 week (due 20-Aug-2026, calculated): Review with Dr. Sample Consultant',
       'Return to Emergency If',
       '- Return to the emergency department if vomiting persists or blood appears in stools.',
     ])
@@ -627,9 +628,9 @@ const CONSULTATION: ConsultationSummary = {
   assessment: ['Mildly reduced kidney function; CKD not yet confirmed'],
   plan: ['Avoid NSAIDs; paracetamol if needed'],
   follow_ups: [
-    { due_date: '2026-11-10', description: 'Urine ACR', unclear: false, reason: null, when_text: null },
-    { due_date: '2026-11-12', description: 'Nephrology review with reports', unclear: false, reason: null, when_text: null },
-    { due_date: null, description: 'Repeat creatinine and eGFR', unclear: false, reason: null, when_text: 'Mid-January 2027' },
+    { due_date: '2026-11-10', description: 'Urine ACR', unclear: false, reason: null, when_text: null, calculated: false },
+    { due_date: '2026-11-12', description: 'Nephrology review with reports', unclear: false, reason: null, when_text: null, calculated: false },
+    { due_date: null, description: 'Repeat creatinine and eGFR', unclear: false, reason: null, when_text: 'Mid-January 2027', calculated: false },
   ],
   reminders: 'available',
 }

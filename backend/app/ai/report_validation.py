@@ -8,7 +8,7 @@ use the prescription rules with relative timings counted from the consultation d
 import re
 from typing import Any
 
-from app.ai.prescription_validation import PrescriptionHeader, ValidatedFollowUp, _clean, _follow_up, _iso_date
+from app.ai.prescription_validation import PrescriptionHeader, ValidatedFollowUp, _clean, _follow_up, header_date
 from app.ai.schema import ConsultationPayload, ImagingPayload, OtherReportPayload
 from app.ai.validation import parse_number
 
@@ -31,17 +31,20 @@ def _texts(items: list[str], limit: int = 500) -> list[str]:
     return kept
 
 
-def _iso(value: str | None) -> str | None:
-    parsed = _iso_date(value)
+def _iso(value: str | None, printed: str | None) -> str | None:
+    """The calendar date as YYYY-MM-DD, or None when missing or ambiguous as printed (app/ai/dates.py)."""
+    parsed = header_date(value, printed)[0]
     return parsed.isoformat() if parsed else None
 
 
 def validate_consultation(
     payload: ConsultationPayload, page_count: int | None
 ) -> tuple[dict[str, Any], list[ValidatedFollowUp]]:
+    visit_text = _clean(payload.visit_date_text, 100)
+    visit_on, visit_ambiguous = header_date(payload.visit_date, visit_text)
     details = {
-        "visit_date": _iso(payload.visit_date),
-        "visit_text": _clean(payload.visit_date_text, 100),
+        "visit_date": visit_on.isoformat() if visit_on else None,
+        "visit_text": visit_text,
         "clinician_name": _clean(payload.clinician_name, 200),
         "symptoms": _texts(payload.symptoms),
         "observations": _texts(payload.observations),
@@ -49,7 +52,7 @@ def validate_consultation(
         "plan": _texts(payload.plan),
     }
     # "After 4 weeks" counts from the consultation date.
-    base = PrescriptionHeader(_iso_date(payload.visit_date), details["visit_text"], prescriber_name=None)
+    base = PrescriptionHeader(visit_on, visit_text, None, visit_ambiguous)
     follow_ups: list[ValidatedFollowUp] = []
     seen: set[tuple[str, object]] = set()
     for item in payload.follow_ups:
@@ -68,9 +71,9 @@ def validate_imaging(payload: ImagingPayload) -> dict[str, Any]:
         "exam_name": _clean(payload.exam_name, 200),
         "report_id": _clean(payload.report_id, 100),
         "facility_name": _clean(payload.facility_name, 200),
-        "exam_date": _iso(payload.exam_date),
+        "exam_date": _iso(payload.exam_date, payload.exam_date_text),
         "exam_text": _clean(payload.exam_date_text, 100),
-        "report_date": _iso(payload.report_date),
+        "report_date": _iso(payload.report_date, payload.report_date_text),
         "report_text": _clean(payload.report_date_text, 100),
         "body_region": _clean(payload.body_region, 200),
         "findings": _texts(payload.findings) if written else [],
@@ -106,7 +109,7 @@ def validate_test_report(payload: OtherReportPayload) -> dict[str, Any]:
         "report_id": _clean(payload.report_id, 100),
         "facility_name": _clean(payload.facility_name, 200),
         "report_form": payload.report_form,
-        "test_date": _iso(payload.test_date),
+        "test_date": _iso(payload.test_date, payload.test_date_text),
         "test_text": _clean(payload.test_date_text, 100),
         "measurements": measurements,
         "interpretations": interpretations,

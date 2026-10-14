@@ -66,6 +66,7 @@ class SummaryLineResponse(BaseModel):
     value_text: str
     unit: str | None
     reference_range_text: str | None
+    note: str | None = None  # e.g. unusually far outside the range: check the original
 
 
 class InvalidLineResponse(SummaryLineResponse):
@@ -102,7 +103,8 @@ class FollowUpLineResponse(BaseModel):
     description: str
     unclear: bool
     reason: str | None
-    when_text: str | None  # timing as written; shown when there is no exact date
+    when_text: str | None  # timing exactly as written; shown instead of a reformatted date
+    calculated: bool  # due_date was counted from the document date ("after 4 weeks"), not printed
 
 
 class PrescriptionSummaryResponse(BaseModel):

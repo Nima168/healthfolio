@@ -45,7 +45,9 @@ def _lab_reply(case, **changes):
             )
             | changes.get(item.name, {})
         )
-    return response(payload(rows + changes.get("extra", []), report_date=case.doc_date.isoformat()))
+    return response(
+        payload(rows + changes.get("extra", []), report_date=case.doc_date.isoformat(), report_date_text=case.date_text)
+    )
 
 
 # ---------- generated documents ----------
@@ -84,7 +86,21 @@ def test_a_perfect_lab_reading_scores_full_marks(settings):
     assert counts.groups_correct == counts.groups_checked, counts.errors
     assert counts.blanks_honest == counts.blanks_expected == 3
     assert counts.dates_correct == 1
+    assert counts.printed_dates_correct == counts.printed_dates_checked == 1
     assert counts.errors == []
+
+
+def test_dates_are_scored_as_printed_and_never_guessed(settings):
+    case = CASES["lab04"]
+    printed = "03/04/2026"  # 3 April or 4 March: no calendar date is the right answer
+    ambiguous_case = type(case)(**{**vars(case), "date_text": printed})
+    reading = {"extracted": {"labs": [], "date": None, "date_text": printed}}
+
+    counts = score(ambiguous_case, reading)
+    assert (counts.dates_correct, counts.printed_dates_correct) == (1, 1)
+
+    guessed = score(ambiguous_case, {"extracted": {"labs": [], "date": "2026-04-03", "date_text": "2026-04-03"}})
+    assert (guessed.dates_correct, guessed.printed_dates_correct) == (0, 0)
 
 
 def test_wrong_and_invented_values_are_counted(settings):
@@ -99,7 +115,8 @@ def test_wrong_and_invented_values_are_counted(settings):
 
     assert counts.items_extra == 1
     assert counts.wrong_items == 1
-    assert counts.wrong_items_flagged == 0  # high confidence and a consistent number: nothing to flag
+    # High confidence and a consistent number, but 999 is not on the test's line in the document.
+    assert counts.wrong_items_flagged == 1
     assert any("Imaginary Marker" in e for e in counts.errors)
 
 

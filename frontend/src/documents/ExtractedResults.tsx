@@ -65,6 +65,7 @@ function ValueLines({ lines, critical = false }: { lines: SummaryLine[]; critica
             )}{' '}
             (Reference: {line.reference_range_text ? <Part text={line.reference_range_text} /> : NOT_MENTIONED})
             {unreadable && <span className="unclear-tag"> – check the original</span>}
+            {!unreadable && line.note && <span className="unclear-tag"> – {line.note}</span>}
           </li>
         )
       })}
@@ -132,10 +133,26 @@ function MedicationText({ line }: { line: MedicationLine }) {
   )
 }
 
+/** A date from the document exactly as printed; the stored calendar date only if no printed form was kept. */
+function printedDate(printed: string | null, iso: string | null): string | null {
+  return printed ?? (iso ? formatDayMonthYear(iso) : null)
+}
+
+/** "after 4 weeks (due 02-Sep-2026, calculated)": the timing as written, then any date the app worked out. */
+function FollowUpWhen({ line }: { line: FollowUpLine }) {
+  const written = line.when_text ?? (line.due_date && !line.calculated ? formatDayMonthYear(line.due_date) : null)
+  return (
+    <>
+      <strong>{written ?? 'Date not mentioned'}</strong>
+      {line.calculated && line.due_date && (
+        <span className="summary-past"> (due {formatDayMonthYear(line.due_date)}, calculated)</span>
+      )}
+    </>
+  )
+}
+
 function prescriptionHeading(summary: PrescriptionSummary): string {
-  const date = summary.prescribed_on
-    ? formatDayMonthYear(summary.prescribed_on)
-    : (summary.date_text ?? 'Date not mentioned')
+  const date = printedDate(summary.date_text, summary.prescribed_on) ?? 'Date not mentioned'
   return `PRESCRIPTION SUMMARY — ${date}${summary.prescriber_name ? ` (${summary.prescriber_name})` : ''}`
 }
 
@@ -184,7 +201,7 @@ function FollowUpsBlock({
         <ul className="summary-lines">
           {lines.map((line, index) => (
             <li key={`${line.due_date ?? 'undated'}-${index}`}>
-              <strong>{line.due_date ? formatDayMonthYear(line.due_date) : (line.when_text ?? 'Date not mentioned')}</strong>:{' '}
+              <FollowUpWhen line={line} />:{' '}
               {line.description}
               {!line.due_date && !line.unclear && <span className="summary-past"> (no exact date)</span>}
               {line.due_date && line.due_date < today && <span className="summary-past"> (date has passed)</span>}
@@ -233,8 +250,8 @@ function dayMonth(value: string): string {
 }
 
 function stayLine(summary: DischargeSummary): string {
-  const admitted = summary.admitted_on ? formatDayMonthYear(summary.admitted_on) : summary.admitted_text
-  const discharged = summary.discharged_on ? formatDayMonthYear(summary.discharged_on) : summary.discharged_text
+  const admitted = printedDate(summary.admitted_text, summary.admitted_on)
+  const discharged = printedDate(summary.discharged_text, summary.discharged_on)
   const days = summary.stay_days ? ` (${summary.stay_days} ${summary.stay_days === 1 ? 'day' : 'days'})` : ''
   return `Admitted ${admitted ?? 'date not mentioned'} → Discharged ${discharged ?? 'date not mentioned'}${days}`
 }
@@ -313,7 +330,7 @@ function DischargeSummaryText({ summary, add }: { summary: DischargeSummary; add
 // ---------- consultation note, imaging report, other test report ----------
 
 function datedHeading(title: string, iso: string | null, printed: string | null, who: string | null): string {
-  const date = iso ? formatDayMonthYear(iso) : printed
+  const date = printedDate(printed, iso)
   const parts = [date, who && `(${who})`].filter(Boolean).join(' ')
   return parts ? `${title} — ${parts}` : title
 }
@@ -343,8 +360,8 @@ function ImagingSummaryText({ summary }: { summary: ImagingSummary }) {
     )
   }
   const source = [summary.report_id, summary.facility_name && `(${summary.facility_name})`].filter(Boolean).join(' ')
-  const examDate = summary.exam_date ? formatDayMonthYear(summary.exam_date) : summary.exam_text
-  const reportDate = summary.report_date ? formatDayMonthYear(summary.report_date) : summary.report_text
+  const examDate = printedDate(summary.exam_text, summary.exam_date)
+  const reportDate = printedDate(summary.report_text, summary.report_date)
   return (
     <div className="lab-summary imaging-summary">
       <p className="summary-title">IMAGING SUMMARY{summary.exam_name ? ` — ${summary.exam_name}` : ''}</p>
@@ -368,7 +385,7 @@ function TestReportSummaryText({ summary }: { summary: TestReportSummary }) {
   const form = summary.report_form !== 'unknown' ? `${summary.report_form} report` : null
   const facility = summary.facility_name && `(${summary.facility_name})`
   const source = [[summary.report_id, facility].filter(Boolean).join(' '), form].filter(Boolean).join(', ')
-  const date = summary.test_text ?? (summary.test_date ? formatDayMonthYear(summary.test_date) : null)
+  const date = printedDate(summary.test_text, summary.test_date)
   return (
     <div className="lab-summary test-report-summary">
       <p className="summary-title">

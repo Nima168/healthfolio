@@ -28,6 +28,7 @@ from app.ai.extractor import (
 from app.ai.prescription_validation import ValidatedFollowUp, ValidatedMedication, validate_prescription
 from app.ai.reading import Ocr, PreparedDocument, ReadingError, prepare
 from app.ai.report_validation import validate_consultation, validate_imaging, validate_test_report
+from app.ai.source_check import SourceText
 from app.ai.validation import ValidatedResult, validate_payload
 from app.core.config import Settings
 from app.models.document import Document
@@ -269,7 +270,9 @@ class ExtractionRunner:
         job.report_date_text = printed_date[:100] or None
 
         jobs.heartbeat(self.session, job, "validating")
-        results = validate_payload(outcome.payload, prepared.page_count, datetime.now(UTC).date())
+        results = validate_payload(
+            outcome.payload, prepared.page_count, datetime.now(UTC).date(), SourceText.of(prepared)
+        )
 
         self._live_document(job)  # deleted while we were waiting for the model?
         for position, item in enumerate(results):
@@ -320,7 +323,7 @@ class ExtractionRunner:
     def _discharge(self, job: ProcessingJob, prepared: PreparedDocument) -> dict:
         outcome = self.extractor.extract_discharge(prepared)
         self._add_usage(job, outcome.model, outcome.input_tokens, outcome.output_tokens)
-        validated = validate_discharge(outcome.payload, prepared.page_count)
+        validated = validate_discharge(outcome.payload, prepared.page_count, SourceText.of(prepared))
         header = validated.header
         job.document_date = header.discharged_on
         job.report_date_text = header.discharged_text
@@ -366,7 +369,7 @@ class ExtractionRunner:
                     origin="document_extracted",
                     confidence=result.confidence,
                     needs_review=result.needs_review,
-                    validation_findings=[f"{part}_not_identified" for part in result.not_identified],
+                    validation_findings=result.findings,
                 )
             )
         self._add_medications(job, validated.medications)
@@ -406,7 +409,9 @@ class ExtractionRunner:
     def _prescription(self, job: ProcessingJob, prepared: PreparedDocument) -> dict:
         outcome = self.extractor.extract_prescription(prepared)
         self._add_usage(job, outcome.model, outcome.input_tokens, outcome.output_tokens)
-        header, medications, follow_ups = validate_prescription(outcome.payload, prepared.page_count)
+        header, medications, follow_ups = validate_prescription(
+            outcome.payload, prepared.page_count, SourceText.of(prepared)
+        )
         job.report_date_text = header.date_text
         job.document_date = header.prescribed_on
         job.prescriber_name = header.prescriber_name

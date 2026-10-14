@@ -215,7 +215,7 @@ def test_unclear_items_stay_in_their_section_flagged():
     ]
     # Dated lines in date order (an unclear one is never merged into a clear one); undated last.
     assert [(f.due_date, f.description, f.unclear, f.reason, f.when_text) for f in summary.follow_ups] == [
-        (date(2026, 11, 4), "Kidney function test", False, None, None),
+        (date(2026, 11, 4), "Kidney function test", False, None, "after 4 weeks"),  # timing as written
         (date(2026, 11, 4), "X-ray", True, UNCLEAR_FOLLOW_UP, "after 4 weeks"),
         (None, "Eye checkup", True, NO_TIMING, None),
         (None, "Repeat creatinine", False, None, "Mid-January 2027"),  # approximate: shown, never added

@@ -199,8 +199,8 @@ def test_consultation_note(client, asha):
     assert (summary["visit_date"], summary["clinician_name"]) == ("2026-10-15", "Dr. Sample Nephrologist")
     assert summary["symptoms"][1] == "No swelling, no change in urine"
     assert [(f["due_date"], f["description"], f["when_text"]) for f in summary["follow_ups"]] == [
-        ("2026-11-10", "Urine ACR", None),
-        ("2026-11-12", "Nephrology review with reports", None),
+        ("2026-11-10", "Urine ACR", "by 10-Nov-2026"),  # timing exactly as printed
+        ("2026-11-12", "Nephrology review with reports", "12-Nov-2026"),
         (None, "Repeat creatinine and eGFR", "Mid-January 2027"),
     ]
     assert summary["reminders"] == "available"

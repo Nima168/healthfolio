@@ -91,6 +91,12 @@ SYNTHETIC_REPORT_LINES = [
 ]
 
 
+def printed_lines(reading: dict[str, Any]) -> list[str]:
+    """A lab report printing exactly what a fake reading reports: one line per result, as a typed PDF gives it."""
+    rows = [[r["test_name"], r["value_text"], r["unit"], r["reference_range_text"]] for r in reading["lab_results"]]
+    return ["Synthetic Lab Report (not real patient data)"] + [" ".join(part for part in row if part) for row in rows]
+
+
 SYNTHETIC_PRESCRIPTION_LINES = [
     "Sample Clinic - Synthetic Prescription (not real patient data)",
     "Dr. Sample Physician          Date: 07-Oct-2026",

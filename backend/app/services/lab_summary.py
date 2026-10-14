@@ -26,7 +26,18 @@ _UNCLEAR = {
     "missing_unit": "The unit is missing or unclear.",
     "invalid_reference_range": "The reference range looks reversed.",
     "value_truncated": "The value was too long to read completely.",
+    # Checked against the document text (app/ai/source_check.py).
+    "read_from_image": "Read from the page image, with no text to check it against. Check it against the original.",
+    "name_not_matched": "This test's name could not be found in the document text. Check it against the original.",
+    "value_not_matched": "The value could not be found on this test's line. Check it against the original.",
 }
+
+
+# More than this many times the upper limit, or below the lower limit divided by it, is unusual enough to
+# suggest a misread ("162" for 7.2). Real critical values can be this far out (TSH 100), so the line is still
+# grouped and alerted, only marked "check the original".
+FAR_OUTSIDE = Decimal(10)
+FAR_OUTSIDE_NOTE = "Unusually far outside the range: check the original."
 
 
 @dataclass(frozen=True)
@@ -35,13 +46,14 @@ class SummaryLine:
     value_text: str
     unit: str | None
     reference_range_text: str | None
+    note: str | None = None
 
 
 @dataclass(frozen=True)
 class InvalidLine(SummaryLine):
     """A result that could not be judged against its range; shown as written, never as high/low/normal."""
 
-    reason: str
+    reason: str = ""
 
 
 @dataclass
@@ -74,6 +86,17 @@ def range_check(value: Decimal, range_text: str) -> str | None:
     return None
 
 
+def far_outside(value: Decimal, range_text: str) -> bool:
+    """Only two-sided printed ranges ("a - b") are used: a bound like "< 5.0" says nothing about how far is odd."""
+    match = _BETWEEN.match(range_text)
+    if not match:
+        return False
+    low, high = parse_number(match.group(1)), parse_number(match.group(2))
+    if low is None or high is None or high <= 0:
+        return False
+    return value > high * FAR_OUTSIDE or (low > 0 and value < low / FAR_OUTSIDE)
+
+
 def _unclear_reason(observation: Observation) -> str | None:
     for finding in observation.validation_findings or []:
         if finding in _UNCLEAR:
@@ -86,6 +109,8 @@ def _unclear_reason(observation: Observation) -> str | None:
 def classify(observation: Observation) -> tuple[str, str | None]:
     """("above" | "below" | "within", None) or ("invalid", reason)."""
     findings = observation.validation_findings or []
+    if "value_in_other_row" in findings:
+        return "invalid", "The value read for this test belongs to another row (Not identified). Check the original."
     if any(finding.endswith("_not_identified") for finding in findings):
         return "invalid", "Part of this result could not be read (Not identified). Check it against the original."
     range_text = (observation.reference_range_text or "").strip()
@@ -112,10 +137,17 @@ def summarise(observations: list[Observation], report_date_text: str | None) -> 
                     observation.value_text,
                     observation.unit,
                     observation.reference_range_text,
-                    reason or "",
+                    reason=reason or "",
                 )
             )
             continue
-        line = SummaryLine(observation.name, observation.value_text, observation.unit, observation.reference_range_text)
+        far = status != "within" and far_outside(observation.value_numeric, observation.reference_range_text or "")
+        line = SummaryLine(
+            observation.name,
+            observation.value_text,
+            observation.unit,
+            observation.reference_range_text,
+            note=FAR_OUTSIDE_NOTE if far else None,
+        )
         {"above": summary.above, "below": summary.below, "within": summary.normal}[status].append(line)
     return summary

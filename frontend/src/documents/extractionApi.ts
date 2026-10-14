@@ -28,6 +28,8 @@ export interface SummaryLine {
   value_text: string
   unit: string | null
   reference_range_text: string | null
+  /** For example "Unusually far outside the range: check the original." */
+  note?: string | null
 }
 
 /** Results judged only against the reference range printed in the report (backend rules, not the AI). */
@@ -56,8 +58,10 @@ export interface FollowUpLine {
   description: string
   unclear: boolean
   reason: string | null
-  /** The timing as written; shown when there is no exact date. */
+  /** The timing exactly as written ("after 4 weeks", "02/09/26"); shown instead of a reformatted date. */
   when_text: string | null
+  /** due_date was counted from the document date ("after 4 weeks"), not printed. */
+  calculated: boolean
 }
 
 /** Medicines, follow-ups grouped by date, and what needs review (backend rules; the AI only reads). */
@@ -213,6 +217,7 @@ export const FAILURE_MESSAGES: Record<string, string> = {
   ai_request_rejected: 'The AI service could not accept this document.',
   ai_output_too_long: 'The document has more results than can be read in one pass.',
   ai_invalid_output: 'The AI response could not be understood.',
+  ai_empty_output: 'Nothing could be read this time, although the document has content. Use Refresh analysis to try again.',
   image_too_large: 'This image is too large to process. Try a smaller photo or a PDF scan.',
   unreadable_image: 'This image could not be opened.',
   discharge_too_many_pages:

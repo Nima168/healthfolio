@@ -28,7 +28,8 @@ class FollowUpLine:
     description: str
     unclear: bool = False
     reason: str | None = None
-    when_text: str | None = None  # the timing as written, shown when there is no exact date
+    when_text: str | None = None  # the timing exactly as written ("after 4 weeks", "02/09/26")
+    calculated: bool = False  # the due date was counted from the document date, not written
 
 
 @dataclass
@@ -60,6 +61,7 @@ def summarise_prescription(
     ]
 
     by_date: dict[date, list[str]] = {}
+    written: dict[date, tuple[str | None, bool]] = {}  # the first timing as written for each date
     unclear: list[FollowUpLine] = []
     for suggestion in suggestions:
         if suggestion.review_reason:
@@ -70,6 +72,7 @@ def summarise_prescription(
                     unclear=True,
                     reason=suggestion.review_reason,
                     when_text=suggestion.original_text,
+                    calculated=suggestion.due_date_basis == "calculated",
                 )
             )
             continue
@@ -77,9 +80,13 @@ def summarise_prescription(
             unclear.append(FollowUpLine(None, suggestion.suggested_value, when_text=suggestion.original_text))
             continue
         descriptions = by_date.setdefault(suggestion.due_date, [])
+        written.setdefault(suggestion.due_date, (suggestion.original_text, suggestion.due_date_basis == "calculated"))
         if suggestion.suggested_value not in descriptions:
             descriptions.append(suggestion.suggested_value)
-    lines = [FollowUpLine(due, " + ".join(items)) for due, items in by_date.items()] + unclear
+    lines = [
+        FollowUpLine(due, " + ".join(items), when_text=written[due][0], calculated=written[due][1])
+        for due, items in by_date.items()
+    ] + unclear
     # Date order; items without an exact date last.
     summary.follow_ups = sorted(lines, key=lambda line: (line.due_date is None, line.due_date or date.max))
 
