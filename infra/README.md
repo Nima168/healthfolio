@@ -62,12 +62,14 @@ On its first start, the server installs Docker, pulls `latest`, and starts the a
 
 ```bash
 cd frontend
-VITE_API_BASE_URL=/api/v1 npm run build
+MSYS_NO_PATHCONV=1 VITE_API_BASE_URL=/api/v1 npm run build   # see the note below
 aws s3 sync dist s3://<site_bucket> --delete
 aws ssm send-command --instance-ids <api_instance_id> --document-name AWS-RunShellScript   --parameters 'commands=["systemctl restart healthfolio-web"]'
 ```
 
 The web service copies the files from S3 each time it starts.
+
+On Windows, Git Bash rewrites values that start with `/` into Windows paths (`/api/v1` becomes `C:/Program Files/Git/api/v1`). That leaves the site unable to reach the API ("The server could not be reached"). `MSYS_NO_PATHCONV=1` turns that rewriting off. In PowerShell, use `$env:VITE_API_BASE_URL='/api/v1'; npm run build` instead.
 
 Open `<site_url>`.
 
