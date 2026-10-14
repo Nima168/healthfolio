@@ -61,7 +61,8 @@ REGION="${region}"
 SITE_URL=$(aws ssm get-parameter --region "$REGION" --name "/${name}/site_url" --query Parameter.Value --output text)
 SITE_HOST="$${SITE_URL#https://}"
 
-aws s3 sync "s3://${site_bucket}" /opt/healthfolio/site --delete --region "$REGION"
+# --exact-timestamps: a rebuilt index.html often has the same size as the old one; copy it anyway.
+aws s3 sync "s3://${site_bucket}" /opt/healthfolio/site --delete --exact-timestamps --region "$REGION"
 
 cat > /opt/healthfolio/Caddyfile <<CADDY
 $SITE_HOST {
@@ -75,9 +76,17 @@ $SITE_HOST {
 	handle /api/* {
 		reverse_proxy healthfolio-api:8000
 	}
+	# Built files have unique names: cache them for a year; a missing one is a real 404, never the page.
+	handle /assets/* {
+		root * /srv/site
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+	# Everything else is the app's page; browsers must re-check it so they never keep an old one.
 	handle {
 		root * /srv/site
 		try_files {path} /index.html
+		header Cache-Control "no-cache"
 		file_server
 	}
 }
