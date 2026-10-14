@@ -1,6 +1,6 @@
 """Lab-result summary: which values fall outside the reference range printed in the report.
 
-Deterministic rules, never the AI (DL_AI_spec.md Section 9.1: rules decide):
+Deterministic rules, never the AI (AI_spec.md Section 9.1: rules decide):
 1. Only the reference range printed next to each test is used; no outside or assumed ranges.
 2. Values, units, and ranges are shown exactly as extracted; nothing is rounded.
 3. No range, a value that is not a single number, an unreadable range, or an unclear

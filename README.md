@@ -169,8 +169,9 @@ Backend settings come from environment variables (`backend/.env` in development)
 | `FRONTEND_BASE_URL` | Used to build password-reset links | `http://localhost:5173` |
 | `LOGIN_MAX_FAILURES` / `LOCKOUT_MINUTES` | Account lockout after repeated failed logins | `5` / `15` |
 | `PASSWORD_RESET_MINUTES` | Reset-link lifetime | `30` |
-| `EMAIL_BACKEND` / `DEV_MAIL_DIR` | `file` writes emails to a local folder in development | `file` / `.dev_mail` |
+| `EMAIL_BACKEND` / `DEV_MAIL_DIR` | `file` writes emails to a local folder in development; `disabled` sends nothing (password reset unavailable) | `file` / `.dev_mail` |
 | `DOCUMENT_STORAGE_DIR` | Where uploaded documents are stored in development (git-ignored) | `storage/documents` |
+| `STORAGE_BACKEND` / `S3_BUCKET` | `local` disk, or `s3` with a private, encrypted bucket | `local` / — |
 | `UPLOAD_RATE_LIMIT_PER_HOUR` | Uploads allowed per user per hour | `30` |
 | `SUMMARY_RATE_LIMIT_PER_HOUR` | AI summaries a user can request per hour | `20` |
 | `EXTRACTION_ENABLED` | Turn on AI extraction (external provider; synthetic data only) | `false` |
@@ -286,9 +287,17 @@ To deploy:
 
 The blueprint sends no email (`EMAIL_BACKEND=disabled`), so password reset is unavailable on the demo. On the free plan, uploaded files are not kept across restarts; extracted results stay in the database.
 
+### AWS (in progress)
+
+- **API and worker:** the same Docker image, stored in Amazon ECR and run on a Lightsail container service.
+- **Database:** Amazon RDS for PostgreSQL. Lightsail reaches it through VPC peering.
+- **Uploaded documents:** a private, encrypted S3 bucket (`STORAGE_BACKEND=s3`).
+- **Website:** an S3 bucket behind CloudFront, which also forwards `/api/*` to the API.
+- `buildspec.yml` builds the image in AWS CodeBuild. Until the account's build quota allows it, the image is built locally and pushed to ECR.
+
 ## Specifications
 
-The system is defined by these specs: `goal_spec.md` (product scope), `backend_spec.md`, `api_contract_spec.md`, `data_model_spec.md`, `DL_AI_spec.md`, `frontend_spec.md`, and `observability_and_reliability_spec.md`.
+The system is defined by these specs: `goal_spec.md` (product scope), `backend_spec.md`, `api_contract_spec.md`, `data_model_spec.md`, `AI_spec.md`, `frontend_spec.md`, and `observability_and_reliability_spec.md`.
 
 ## Future Improvements
 

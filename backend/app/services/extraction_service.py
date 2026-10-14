@@ -1,4 +1,4 @@
-"""Runs one extraction job end to end (backend_spec.md Sections 6.4–6.6, DL_AI_spec.md Section 13).
+"""Runs one extraction job end to end (backend_spec.md Sections 6.4–6.6, AI_spec.md Section 13).
 
 read original → prepare (PyMuPDF text for digital PDFs, Tesseract OCR for scanned copies, page images
 for pages OCR cannot read) → [classify, only if the user chose no type] → organise into fields with the

@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     upload_rate_limit_per_hour: int = Field(default=30, gt=0)
     summary_rate_limit_per_hour: int = Field(default=20, gt=0)  # each summary is one AI request
 
-    # AI extraction (DL_AI_spec.md). Off by default: documents are sent to an external provider,
+    # AI extraction (AI_spec.md). Off by default: documents are sent to an external provider,
     # so it is an explicit opt-in, for synthetic data only until a privacy review.
     extraction_enabled: bool = False
     groq_api_key: SecretStr | None = None

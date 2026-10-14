@@ -110,7 +110,7 @@ Retention follows `observability_and_reliability_spec.md` Section 9.
 | id, user_id | |
 | template | e.g. `password_reset` |
 | status | `queued`, `sent`, `failed` |
-| provider | `file` (development), `ses` |
+| provider | `file` (development), `ses`, `disabled` (deployment without an email service; every send is recorded as failed) |
 | provider_message_id | Nullable |
 | attempts | |
 | error_category | Nullable; never the provider's raw error text |
@@ -149,7 +149,7 @@ Email bodies are not stored.
 | stage | Current pipeline stage (`backend_spec.md` Section 6.4) |
 | attempts | |
 | error_category | Nullable |
-| model_version, prompt_version | `DL_AI_spec.md` Section 15 |
+| model_version, prompt_version | `AI_spec.md` Section 15 |
 | reading_method | How the text was obtained: `digital`, `ocr`, `ocr+vision` (some pages read from the image), `vision` |
 | ocr_confidence | Average Tesseract confidence over the OCR pages (0–100); null when no page was read by OCR |
 | report_date_text | The report or prescription date exactly as printed |
@@ -216,7 +216,7 @@ As `backend_spec.md` Section 5.3: `id`, `user_id`, `suggestion_type` (`profile_v
 **alerts:** `id`, `user_id`, `rule_id`, `rule_version`, `severity`, `status` (`open`, `acknowledged`, `resolved`), `input_refs` (JSON list of observation/document IDs), `explanation_text` (AI, labelled), `next_steps`, `acknowledged_at`, `resolved_at`, `created_at`.
 
 ### 5.9 ai_summaries
-`id`, `user_id`, `scope` (`document`, `history`), `content`, `source_refs` (JSON), `general_knowledge_sections` (JSON flags, `DL_AI_spec.md` Section 6.1), `model_version`, `prompt_version`, `created_at`.
+`id`, `user_id`, `scope` (`document`, `history`), `content`, `source_refs` (JSON), `general_knowledge_sections` (JSON flags, `AI_spec.md` Section 6.1), `model_version`, `prompt_version`, `created_at`.
 
 ### 5.10 exports and deletion_requests
 **exports:** `id`, `user_id`, `format` (`pdf_summary`, `csv`, `json`), `status` (job lifecycle), `storage_key`, `expires_at`, `created_at`.

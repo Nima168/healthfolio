@@ -1,7 +1,7 @@
-"""The structured outputs the model must return (DL_AI_spec.md Section 4.3): lab results, prescriptions, type.
+"""The structured outputs the model must return (AI_spec.md Section 4.3): lab results, prescriptions, type.
 
 The JSON schema is sent with the request (structured outputs), and the Pydantic models
-re-validate the response before anything is stored (DL_AI_spec.md Section 4.5).
+re-validate the response before anything is stored (AI_spec.md Section 4.5).
 """
 
 from typing import Literal

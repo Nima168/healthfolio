@@ -32,7 +32,7 @@ class AiSummary(TimestampMixin, Base):
     content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     # The facts given to the model, by id: what each citation points to.
     source_refs: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    # General-knowledge explanations (DL_AI_spec.md Section 6.1), kept apart from record-based text.
+    # General-knowledge explanations (AI_spec.md Section 6.1), kept apart from record-based text.
     general_knowledge_sections: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
     # Gaps found by fixed rules, shown as they were when the summary was written.
     insights: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)

@@ -1,4 +1,4 @@
-"""Printed but unreadable: such a part is shown as "Not identified", never as a guess (DL_AI_spec.md Section 4.5).
+"""Printed but unreadable: such a part is shown as "Not identified", never as a guess (AI_spec.md Section 4.5).
 
 "Not mentioned" means the document does not print the part; "Not identified" means it is printed but could
 not be read reliably. A part is not identified when the model says it cannot read it with certainty, or when

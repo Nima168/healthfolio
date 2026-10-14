@@ -15,7 +15,7 @@ This specification defines how the system monitors behavior, detects failures, a
 - `goal_spec.md` — product objectives and scope.
 - `frontend_spec.md` — user interface and interactions.
 - `backend_spec.md` — retries and idempotency (Section 4), job lifecycle (Section 4.2), database integrity and migrations (Sections 5.4, 5.6, 11.1), configuration and deployment (Sections 2.4, 11), which security events are audited (Section 8.6), and backend tests (Section 10).
-- `DL_AI_spec.md` — AI behavior, evaluation, uncertainty, and AI-specific safety.
+- `AI_spec.md` — AI behavior, evaluation, uncertainty, and AI-specific safety.
 - `api_contract_spec.md` — API endpoints, schemas, status codes, and error format.
 
 Conflicts between specifications are reconciled explicitly before implementation.

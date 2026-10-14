@@ -1,6 +1,6 @@
-# DL and AI Specification
+# AI Specification
 **Project:** AI Healthcare Decision-Support System  
-**File:** `DL_AI_spec.md`  
+**File:** `AI_spec.md`  
 **Status:** Initial Draft
 
 ## 1. Purpose and Ownership
@@ -104,9 +104,11 @@ Structural validity does not guarantee medical correctness.
 
 **Decided (2026-10-14): values checked against their own line.** Digital PDFs and OCR give the page text line by line, with a table row on one line (`app/ai/source_check.py`). Each lab result, discharge result, and medicine strength is looked up on the line(s) that name it (names matched word by word, tolerating one misread letter). A value found only on another extracted test's line was taken from the wrong row (e.g. AST and Ferritin swapped): it is shown as "Not identified" (`value_in_other_row`). A value on no line with its name is kept but flagged and not compared (`value_not_matched`); so is a test whose name is on no line (`name_not_matched`). A unit or range missing from the test's line and the next (ranges may wrap) is flagged for review only. Results from a page read as an image have no text to check against: they are flagged `read_from_image` and never compared. When the test-name lines hold no numbers at all (a PDF that gives its text column by column), `value_not_matched` is not used.
 
-**Decided (2026-10-14): dates exactly as printed.** Every date read from a document is shown as printed ("02/09/26", "12-Mar-2026 13:10"); the reformatted calendar date is only a fallback when no printed form was kept. The calendar date (used for sorting, the timeline, and calculated due dates) is kept only when the printed form has one meaning (`app/ai/dates.py`): "25/09/26", "02-Sep-2026", and "2026-09-02" are kept; "02/09/26" (day and month could be swapped) keeps none. A follow-up such as "after 4 weeks" counted from such a date gets no due date and is marked for review; a calculated due date is shown after the written timing and labelled "calculated". App-wide lists (timeline, dashboard, follow-ups) keep one date format.
+**Decided (2026-10-14): dates exactly as printed.** Every date read from a document is shown as printed ("02/09/26", "12-Mar-2026 13:10"); the reformatted calendar date is only a fallback when no printed form was kept. The calendar date (used for sorting, the timeline, and calculated due dates) is kept only when the printed form has one meaning (`app/ai/dates.py`): "25/09/26", "02-Sep-2026", and "2026-09-02" are kept; "02/09/26" (day and month could be swapped) keeps none. A follow-up such as "after 4 weeks" counted from such a date gets no due date and is marked for review; a calculated due date is shown after the written timing and labelled "calculated". App-wide lists (timeline, dashboard, follow-ups) keep one date format. A lab result's own date is copied as printed too (`result_date_text`); an ambiguous one leaves the result undated rather than falling back to the report date.
 
-**Decided (2026-10-14): an empty answer is read again.** When the model returns nothing (no results, medicines, findings) for a request whose document text has at least 200 characters, or that holds page images, the request is sent once more. A second empty answer fails the reading with `ai_empty_output` ("Nothing could be read this time … Refresh analysis"), never "no results found".
+**Decided (2026-10-14): values far outside their range are marked.** A value more than 10 times the upper limit of a two-sided printed range, or below a tenth of its lower limit, is unusual enough to suggest a misread ("162" for 7.2). Real critical values can be that far out, so the result is still grouped and alerted, with the note "Unusually far outside the range: check the original" (`app/services/lab_summary.py`). One-sided bounds ("< 5.0") are not used for this.
+
+**Decided (2026-10-14): an empty answer is read again.** When the model returns nothing (no results, medicines, findings) for a request whose document text has at least 200 characters, or that holds page images, the request is sent up to two more times (one retry was not always enough in the evaluation). A third empty answer fails the reading with `ai_empty_output` ("Nothing could be read this time … Refresh analysis"), never "no results found".
 
 ## 5. AI Architecture
 

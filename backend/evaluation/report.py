@@ -176,7 +176,7 @@ def write_report(results_dir: Path, docs_dir: Path, path: Path, baseline_dir: Pa
     )
     overall = _ratio(total.fields_correct, total.fields_checked)
     target_rows += (
-        f"<tr><td>All copies: fields right ≥ 98% (spec release gate, DL_AI_spec §11)</td><td>{_bar(overall)}</td>"
+        f"<tr><td>All copies: fields right ≥ 98% (spec release gate, AI_spec §11)</td><td>{_bar(overall)}</td>"
         f"<td>{'met' if overall is not None and overall >= 0.98 else 'not met'}</td></tr>"
     )
     target_rows += (

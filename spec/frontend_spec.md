@@ -205,7 +205,7 @@ Initial capabilities include:
 - Plain-language summaries of uploaded records.
 - Explanations of extracted medical information.
 - Cautious, evidence-grounded insights based on available records.
-- Explanations of results flagged as outside the reference range stated in the report. The flag itself comes from a validated rule; the AI only explains it (`DL_AI_spec.md` Section 9.1).
+- Explanations of results flagged as outside the reference range stated in the report. The flag itself comes from a validated rule; the AI only explains it (`AI_spec.md` Section 9.1).
 - Clear indications of missing, conflicting, or uncertain information.
 
 Trend analysis and Health Q&A are deferred (Section 20).
@@ -220,7 +220,7 @@ AI-generated content must:
 - Never recommend independently starting, stopping, or changing medication.
 - Never replace professional medical evaluation or emergency services.
 
-Statements about the user's health come only from the user's authorized records. Explanations of medical terms may use general medical knowledge (`DL_AI_spec.md` Section 6.1); the interface must label them as general information, not from the user's records, and show a note that a doctor's advice is needed.
+Statements about the user's health come only from the user's authorized records. Explanations of medical terms may use general medical knowledge (`AI_spec.md` Section 6.1); the interface must label them as general information, not from the user's records, and show a note that a doctor's advice is needed.
 
 If there is insufficient information, the interface should state that clearly rather than manufacture a conclusion.
 
@@ -415,7 +415,7 @@ This specification defines frontend responsibilities and expected behavior.
 - `backend_spec.md` defines backend architecture and business services.
 - `api_contract_spec.md` defines API resources, schemas, and interactions.
 - `data_model_spec.md` defines entities and their relationships.
-- `DL_AI_spec.md` defines AI processing and safety behavior.
+- `AI_spec.md` defines AI processing and safety behavior.
 - `observability_and_reliability_spec.md` defines monitoring, recovery, reliability, and the sensitive-data logging rule.
 
 Requirement traceability and change management follow `goal_spec.md` Section 10. Conflicts between specifications are reconciled explicitly before implementation. Changes affecting shared workflows must be reviewed across the relevant specifications. Acceptance criteria and API dependencies must remain consistent as the system evolves.

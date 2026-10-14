@@ -1,4 +1,4 @@
-"""Pipeline stage 5: organise a document's text into fields with Qwen3.8-27B on Groq (DL_AI_spec.md 4.3, 7, 8, 10).
+"""Pipeline stage 5: organise a document's text into fields with Qwen3.8-27B on Groq (AI_spec.md 4.3, 7, 8, 10).
 
 Three tasks share one request shape: lab results, prescriptions, and (only when the user did not
 choose a document type) classifying the document. The model only copies what is written; dates,

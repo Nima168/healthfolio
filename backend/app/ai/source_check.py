@@ -1,4 +1,4 @@
-"""Check each extracted value against the line it was printed on (DL_AI_spec.md Section 4.5).
+"""Check each extracted value against the line it was printed on (AI_spec.md Section 4.5).
 
 Deterministic code only. Digital PDFs and OCR give the page text line by line, with a table row on
 one line. A value the AI returns for a test must be on that test's line; one found only on another

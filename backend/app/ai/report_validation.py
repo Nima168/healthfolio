@@ -1,4 +1,4 @@
-"""Validate consultation notes, imaging reports, and other test reports (DL_AI_spec.md Sections 4.5, 9.2).
+"""Validate consultation notes, imaging reports, and other test reports (AI_spec.md Sections 4.5, 9.2).
 
 Deterministic code only; everything is kept exactly as written (decision 2026-10-12). The result is a
 JSON-safe `details` dict stored on the processing job, plus follow-ups for consultation notes, which

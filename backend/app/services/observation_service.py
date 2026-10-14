@@ -206,7 +206,7 @@ class ObservationService:
     def add_follow_ups(self, user_id: uuid.UUID, document_id: uuid.UUID) -> DocumentExtractionResponse:
         """Add as reminders: turn the document's clear, dated follow-ups into tracked follow-ups.
 
-        Only on this explicit request (DL_AI_spec.md Section 9.2). Items needing review are not added.
+        Only on this explicit request (AI_spec.md Section 9.2). Items needing review are not added.
         """
         document = self._document(user_id, document_id)
         job = jobs.latest_job(self.session, document.id)

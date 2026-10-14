@@ -1,4 +1,4 @@
-"""Validate an extracted prescription and settle follow-up dates (DL_AI_spec.md Sections 4.5, 8, 9.2).
+"""Validate an extracted prescription and settle follow-up dates (AI_spec.md Sections 4.5, 8, 9.2).
 
 Deterministic code only. The model copies what is written; this module decides:
 - the follow-up date: a written calendar date, or one calculated here from the printed

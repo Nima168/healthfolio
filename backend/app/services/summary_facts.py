@@ -1,6 +1,6 @@
 """What an AI summary may say: the user's records as numbered facts, and gaps found by fixed rules.
 
-The model sees only these facts (DL_AI_spec.md Section 6). Each has an id the summary must cite, so every
+The model sees only these facts (AI_spec.md Section 6). Each has an id the summary must cite, so every
 sentence can be traced back to a record. Names, email, date of birth, and document titles are not sent.
 """
 

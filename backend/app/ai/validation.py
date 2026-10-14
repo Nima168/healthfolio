@@ -1,4 +1,4 @@
-"""Pipeline stages 6–7: normalise and validate extracted results (DL_AI_spec.md Section 4.5).
+"""Pipeline stages 6–7: normalise and validate extracted results (AI_spec.md Section 4.5).
 
 Deterministic checks only. Structural validity is not medical correctness, so anything
 uncertain is flagged for the user to review rather than corrected silently.

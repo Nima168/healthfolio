@@ -1,4 +1,4 @@
-"""Validate an extracted discharge summary (DL_AI_spec.md Sections 4.5, 8, 9.2).
+"""Validate an extracted discharge summary (AI_spec.md Sections 4.5, 8, 9.2).
 
 Deterministic code only. The model copies what is written; this module decides:
 - the length of stay (calendar days, admission and discharge day both counted);

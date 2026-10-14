@@ -1,4 +1,4 @@
-"""Plain-language summaries written from the user's own facts (DL_AI_spec.md Sections 6, 6.1, 9).
+"""Plain-language summaries written from the user's own facts (AI_spec.md Sections 6, 6.1, 9).
 
 The model writes; code checks. Every sentence must cite the facts it rests on, and any number it states must
 appear in those facts. Sentences that fail are dropped, never shown. General-knowledge explanations are kept

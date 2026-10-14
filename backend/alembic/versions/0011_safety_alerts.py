@@ -105,7 +105,7 @@ def upgrade() -> None:
                     "not_used": "clinical thresholds, other reports' ranges, trends across dates",
                 },
                 "severity": "warning",
-                "source_reference": "goal_spec.md F-9; backend_spec.md Section 7.5; DL_AI_spec.md Section 9.1",
+                "source_reference": "goal_spec.md F-9; backend_spec.md Section 7.5; AI_spec.md Section 9.1",
                 "approved_by": "Project specification (clinical review required before production use)",
                 "approved_at": datetime(2026, 10, 12, tzinfo=UTC),
                 "active": True,

@@ -354,7 +354,7 @@ Additional formats, including DICOM, are added only when explicitly designed, im
 Storage rules:
 
 - Original documents are kept separate from their relational metadata.
-- A replaceable document-storage interface is used: protected local storage during development, object storage in deployment (Section 11.4).
+- A replaceable document-storage interface is used: protected local storage during development, object storage in deployment (Section 11.4). Implemented: `LocalDocumentStorage` and `S3DocumentStorage` (`STORAGE_BACKEND=s3`: private bucket, server-side encryption, credentials from the AWS role or an access key with access to that bucket only).
 - Local filesystem paths must not be assumed to remain valid in deployed environments.
 - Internal storage paths and unrestricted storage URLs must not be exposed.
 - Original files, provenance, processing status, and error information are preserved. Originals remain unchanged during extraction and analysis; replacement or correction follows a controlled workflow that preserves history.
@@ -417,7 +417,7 @@ The backend interacts with OCR, extraction, and language models through separate
 
 The pipeline must not live inside API route handlers or depend on a single provider.
 
-The backend owns orchestration, authorization, validation, persistence, job management, and safe exposure of results. Model selection, prompts, extraction schemas, and evaluation belong in `DL_AI_spec.md`.
+The backend owns orchestration, authorization, validation, persistence, job management, and safe exposure of results. Model selection, prompts, extraction schemas, and evaluation belong in `AI_spec.md`.
 
 ## 7. Health Domain Services
 
@@ -493,7 +493,7 @@ Automated reminder delivery (email, push, or other channels) is deferred (`goal_
 
 ### 7.5 Safety Rules, Alerts, and Urgent Scenarios
 
-Configurable safety rules use explicitly defined, validated criteria and the relevant source data, context, and validation status. Rules decide whether an alert is raised; AI may only explain a triggered alert (`DL_AI_spec.md` Section 9.1). Flagging results outside the reference range stated in the source report is a rule, and such flags are presented as items for review, not diagnoses. The system must:
+Configurable safety rules use explicitly defined, validated criteria and the relevant source data, context, and validation status. Rules decide whether an alert is raised; AI may only explain a triggered alert (`AI_spec.md` Section 9.1). Flagging results outside the reference range stated in the source report is a rule, and such flags are presented as items for review, not diagnoses. The system must:
 
 - Record the triggering rule or criterion.
 - Link the alert to the relevant observations or records.
@@ -707,7 +707,7 @@ Verify the backend:
 - Does not convert uncertain outputs into verified facts.
 - Labels general-knowledge explanations and includes the doctor's-advice note.
 
-Model quality and clinical evaluation methodology are in `DL_AI_spec.md`.
+Model quality and clinical evaluation methodology are in `AI_spec.md`.
 
 ### 10.7 Security and Safety Tests
 
@@ -834,7 +834,7 @@ This file defines backend architecture, responsibilities, and implementation con
 
 - `goal_spec.md` — Product purpose, scope, high-level requirements, and traceability/change-management rules.
 - `frontend_spec.md` — Frontend responsibilities and UI behavior.
-- `DL_AI_spec.md` — AI models, techniques, prompts, evaluation.
+- `AI_spec.md` — AI models, techniques, prompts, evaluation.
 - `observability_and_reliability_spec.md` — Logging, monitoring, reliability, recovery.
 - `api_contract_spec.md` — Endpoints, schemas, status codes, error contracts.
 - `data_model_spec.md` — Entities, fields, relationships, constraints.

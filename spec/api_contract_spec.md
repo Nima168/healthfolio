@@ -11,7 +11,7 @@ It is the source of truth for API endpoint definitions, request/response schemas
 - User interface and interactions: `frontend_spec.md`
 - Backend implementation, data management, and security controls: `backend_spec.md`
 - Entities and relationships: `data_model_spec.md`
-- AI behavior and evaluation: `DL_AI_spec.md`
+- AI behavior and evaluation: `AI_spec.md`
 - Logging, monitoring, and reliability: `observability_and_reliability_spec.md`
 
 When a requirement spans several areas, the owning specification defines the rule and the others reference it.
@@ -466,7 +466,7 @@ Processing status values match the job lifecycle in `backend_spec.md` Section 4.
 
 The API must not report processing as complete before the result is ready.
 
-AI results must distinguish extracted source information from AI-generated interpretation and identify uncertainty where applicable. Explanations based on general medical knowledge must be marked as such in the response and carry the doctor's-advice note (`DL_AI_spec.md` Section 6.1). Clinical boundaries for AI output are defined in `backend_spec.md` Section 1.4; the API must not expose any capability those boundaries prohibit.
+AI results must distinguish extracted source information from AI-generated interpretation and identify uncertainty where applicable. Explanations based on general medical knowledge must be marked as such in the response and carry the doctor's-advice note (`AI_spec.md` Section 6.1). Clinical boundaries for AI output are defined in `backend_spec.md` Section 1.4; the API must not expose any capability those boundaries prohibit.
 
 ## 8. Standard Error Response
 
