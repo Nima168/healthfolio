@@ -285,7 +285,7 @@ Healthfolio runs on AWS (region `ap-south-1`). The infrastructure is defined wit
 - **Database:** Amazon RDS for PostgreSQL, private, reachable only from the server. Its password is kept in AWS Secrets Manager.
 - **Files:** uploaded documents go to a private, encrypted S3 bucket (`STORAGE_BACKEND=s3`), accessed through the server's IAM role (no access keys). The built website is also kept in S3.
 
-- **Email:** password-reset emails are sent through Amazon SES from a verified sender address.
+- **Email:** password-reset emails can be sent through Amazon SES (`email_backend = "ses"` in Terraform). It is **off for now** (`disabled`): the account is in the SES sandbox, which delivers only to verified addresses. The Forgot password page says that reset is unavailable.
 
 See `infra/README.md` for the deployment steps.
 

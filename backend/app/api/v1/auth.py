@@ -25,6 +25,10 @@ from app.services.storage import get_document_storage
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+RESET_UNAVAILABLE_MESSAGE = (
+    "Password reset by email is not available on this site yet. If you cannot log in, create a new account."
+)
+
 REFRESH_COOKIE = "refresh_token"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
 CSRF_HEADER = "X-CSRF-Protection"
@@ -118,6 +122,9 @@ def forgot_password(
     settings: SettingsDep,
     sender: EmailSenderDep,
 ) -> MessageResponse:
+    if settings.email_backend == "disabled":
+        # Said plainly instead of "check your email": no reset email could ever arrive.
+        raise ApiError(503, "PASSWORD_RESET_UNAVAILABLE", RESET_UNAVAILABLE_MESSAGE)
     issued = AuthService(session, settings).request_password_reset(body.email)
     if issued is not None:
         # Sent after the response, so timing does not reveal whether the account exists.

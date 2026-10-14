@@ -28,6 +28,17 @@ variable "budget_limit_usd" {
   default     = 20
 }
 
+variable "email_backend" {
+  description = "\"ses\" sends password-reset emails; \"disabled\" turns password reset off (the page says so)."
+  type        = string
+  default     = "disabled" # until SES production access is granted (sandbox delivers only to verified addresses)
+
+  validation {
+    condition     = contains(["ses", "disabled"], var.email_backend)
+    error_message = "email_backend must be \"ses\" or \"disabled\"."
+  }
+}
+
 variable "sender_email" {
   description = "Address password-reset emails are sent from; verified in SES (set in terraform.tfvars)."
   type        = string

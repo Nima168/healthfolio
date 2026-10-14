@@ -9,7 +9,7 @@ resource "aws_sesv2_email_identity" "sender" {
 resource "aws_ssm_parameter" "email_backend" {
   name  = "/${var.name}/email_backend"
   type  = "String"
-  value = "ses"
+  value = var.email_backend
 }
 
 resource "aws_ssm_parameter" "email_from" {

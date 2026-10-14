@@ -141,3 +141,14 @@ def test_ses_failures_are_recorded_without_the_provider_message():
 def test_ses_needs_a_sender():
     with pytest.raises(ValueError, match="EMAIL_FROM"):
         settings(email_backend="ses")
+
+
+def test_password_reset_says_it_is_unavailable_when_email_is_off(client, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "email_backend", "disabled")
+    response = client.post("/api/v1/auth/password/forgot", json={"email": "someone@example.com"})
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "PASSWORD_RESET_UNAVAILABLE"
+    assert "not available" in response.json()["error"]["message"]
