@@ -1,5 +1,5 @@
-# The API and the extraction worker in one container (Render free plan: no separate worker service).
-FROM python:3.12-slim
+# The API and the extraction worker in one container (also used on Render and AWS Lightsail).
+FROM public.ecr.aws/docker/library/python:3.12-slim
 
 # Tesseract reads scanned copies (app/ai/reading.py).
 RUN apt-get update \

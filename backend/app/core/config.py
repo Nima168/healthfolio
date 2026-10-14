@@ -53,6 +53,9 @@ class Settings(BaseSettings):
 
     # Documents (api_contract_spec.md Section 6.1).
     document_storage_dir: str = "storage/documents"
+    # "local": files under document_storage_dir; "s3": the S3 bucket below (credentials from the AWS role).
+    storage_backend: Literal["local", "s3"] = "local"
+    s3_bucket: str | None = None
     upload_rate_limit_per_hour: int = Field(default=30, gt=0)
     summary_rate_limit_per_hour: int = Field(default=20, gt=0)  # each summary is one AI request
 
@@ -114,6 +117,8 @@ class Settings(BaseSettings):
                 raise ValueError("CORS_ORIGINS must be set in production")
             if not self.cookie_secure:
                 raise ValueError("COOKIE_SECURE must be true in production")
+            if self.storage_backend == "s3" and not self.s3_bucket:
+                raise ValueError("S3_BUCKET must be set when STORAGE_BACKEND=s3")
             if self.email_backend == "file":
                 raise ValueError("EMAIL_BACKEND=file is for development only")
         return self
