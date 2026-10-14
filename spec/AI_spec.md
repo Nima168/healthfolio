@@ -245,6 +245,15 @@ These are minimum release gates, not proof of clinical correctness; they are rev
 
 **Evaluation harness (2026-10-14):** `backend/evaluation/` generates fictional documents from known data (lab reports, prescriptions, discharge summaries, consultation notes, imaging reports), renders each as a digital PDF and as scanned copies at three damage levels (clean, medium, hard), runs them through the real pipeline (upload check, PyMuPDF/Tesseract with vision fallback, Groq, validation rules), and reports items found, field accuracy, invented items, review-flag coverage of wrong values, grouping, dates, honest blanks, OCR character error rate, reading route, run-to-run consistency, and speed. Synthetic data cannot stand in for real reports: results show behaviour and failure points, and a de-identified real-document set remains needed before release.
 
+**Latest results (2026-10-14, quick set: 10 documents, 106 items, single runs):**
+- No misleading groupings: 0 results shown above, below, or normal in the wrong group.
+- Dates: 16 of 16 right, and 10 of 10 shown exactly as printed.
+- Fields right: 91.1%.
+- Items found: 99 of 106.
+- Wrong values: 10, of which 6 were flagged for review.
+
+The critical-field gate (≥ 98%) is **not met**. The remaining errors are OCR misreads that the AI copies faithfully, and run-to-run variation in how completely a page is read. Full method and the comparison across versions: `docs/END_TO_END.md` §6.
+
 ## 12. Privacy and Responsible AI Processing
 
 AI processing follows the backend's authentication, authorization, data-protection, and external-provider requirements (`backend_spec.md` Sections 8 and 8.5). Logging follows `observability_and_reliability_spec.md` Section 4.2.

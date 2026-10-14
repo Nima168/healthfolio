@@ -2,6 +2,8 @@
 
 Terraform for the AWS deployment (region `ap-south-1`).
 
+For the overall picture (architecture, testing, AI evaluation, operations), see [docs/END_TO_END.md](../docs/END_TO_END.md).
+
 ```
 Browser ── HTTPS ── EC2 server (Elastic IP, https://<ip-with-dashes>.sslip.io)
                      ├── Caddy: HTTPS certificate (Let's Encrypt), website files, /api/* →

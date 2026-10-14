@@ -37,22 +37,23 @@ Screens from a demo account with fictional sample reports.
 ```
 ├── backend/                 FastAPI application
 │   ├── app/
+│   │   ├── ai/              Reading (PyMuPDF, OCR), Groq extraction, validation rules
 │   │   ├── api/v1/          Versioned API routes (/api/v1)
 │   │   ├── core/            Config, logging, errors, middleware, security
 │   │   ├── db/              Database engine, sessions, ORM base
 │   │   ├── models/          SQLAlchemy models
 │   │   ├── repositories/    Database access
 │   │   ├── schemas/         Request/response models
-│   │   └── services/        Business logic (auth, email)
+│   │   ├── services/        Business rules: summaries, alerts, timeline, storage, email
+│   │   └── worker.py        Extraction worker
 │   ├── alembic/             Database migrations
-│   └── tests/               Unit and integration tests
+│   ├── evaluation/          AI accuracy evaluation (fictional documents, scoring, report)
+│   ├── tests/               Unit and integration tests
+│   └── Dockerfile           API + worker image (includes Tesseract)
 ├── frontend/                React + Vite single-page app
-│   └── src/
-│       ├── api/             Central API client
-│       ├── auth/            Session state, route protection
-│       ├── components/      App shell and shared components
-│       ├── pages/           Page components
-│       └── styles/          Design tokens
+│   └── src/                 Feature folders (documents, timeline, profile, medications, …), API client, styles
+├── infra/                   Terraform for AWS (EC2 + Caddy, RDS, S3, ECR, SES, budget) and server setup
+├── docs/                    End-to-end guide: implementation, testing, AI evaluation, deployment
 ├── docker/                  Database init scripts
 ├── docker-compose.yml       Local PostgreSQL
 └── spec/                    Product, data model, backend, API, AI, frontend, and observability specifications
@@ -250,6 +251,8 @@ Every response carries an `X-Request-ID` header for troubleshooting.
 
 ## Testing
 
+546 backend tests (unit and integration, with a fake AI client) and 138 frontend tests.
+
 ```bash
 # Backend (integration tests need the database running)
 cd backend
@@ -268,6 +271,14 @@ npm run build
 ### Accuracy evaluation
 
 Fictional reports with known answers are generated, saved as digital PDFs and as scans at three damage levels, read by the real pipeline, and scored (items found, field accuracy, invented items, review flags, OCR error rate, consistency). It calls the AI provider, so it is run on demand, not in the test suite.
+
+Latest quick-set results (10 documents, 106 items):
+- **0 misleading groupings.**
+- **Dates:** 16/16 right, and 10/10 shown exactly as printed.
+- **Fields right:** 91.1%.
+- **Items found:** 99/106.
+
+The 98% critical-field release gate is not met yet. Details and the comparison across versions: [docs/END_TO_END.md §6](docs/END_TO_END.md#6-ai-evaluation).
 
 ```bash
 cd backend
@@ -290,6 +301,8 @@ Healthfolio runs on AWS (region `ap-south-1`). The infrastructure is defined wit
 See `infra/README.md` for the deployment steps.
 
 ## Specifications
+
+For the full walkthrough, from implementation through testing and AI evaluation to deployment, see **[docs/END_TO_END.md](docs/END_TO_END.md)**.
 
 The system is defined by these specs: `goal_spec.md` (product scope), `backend_spec.md`, `api_contract_spec.md`, `data_model_spec.md`, `AI_spec.md`, `frontend_spec.md`, and `observability_and_reliability_spec.md`.
 

@@ -49,6 +49,8 @@ AI summaries (`services/summary_service.py`) work only from already-extracted re
 
 **Frontend** (`frontend/src`): feature folders (`documents`, `timeline`, `profile`, `medications`, …), each with its own API module and tests. `api/client.ts` wraps fetch with the base URL from `config.ts` (`VITE_API_BASE_URL`, required in production builds).
 
+**Docs:** `docs/END_TO_END.md` is the end-to-end guide (architecture, pipeline, testing, evaluation results, deployment, operations); keep its numbers and deployment section current.
+
 **Specs** in `spec/` are the source of truth for decisions (e.g. `AI_spec.md` §4.5 records the validation decisions with dates). Update the relevant spec section when changing a decided behaviour.
 
 **Evaluation** (`backend/evaluation`): seeded fictional cases rendered as digital and damaged scans, run through the real pipeline, scored (misleading fields/groups, Not identified, dates as printed). Output in `backend/evaluation/out/` (git-ignored).
