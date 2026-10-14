@@ -25,6 +25,12 @@ resource "aws_iam_role_policy" "app" {
         Resource = "${aws_s3_bucket.documents.arn}/*"
       },
       {
+        Sid      = "WebsiteFiles"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket", "s3:GetObject"]
+        Resource = [aws_s3_bucket.site.arn, "${aws_s3_bucket.site.arn}/*"]
+      },
+      {
         Sid      = "PullImageLogin"
         Effect   = "Allow"
         Action   = "ecr:GetAuthorizationToken"

@@ -1,16 +1,21 @@
 #!/bin/bash
-# EC2 first boot (Terraform templatefile): install Docker and a service that starts the Healthfolio
-# container. Secrets are read at each start from SSM Parameter Store and Secrets Manager; none are
-# written into this script or Terraform.
+# EC2 first boot (Terraform templatefile): install Docker and two services on a private Docker network:
+# - healthfolio:     the API and extraction worker (not published on any host port);
+# - healthfolio-web: Caddy, with HTTPS (Let's Encrypt), the website files, and /api/* to the app.
+# Secrets are read at each start from SSM Parameter Store and Secrets Manager; none are written into
+# this script or Terraform.
 set -euo pipefail
 
 dnf install -y docker
 systemctl enable --now docker
+docker network inspect healthfolio >/dev/null 2>&1 || docker network create healthfolio
 
-mkdir -p /opt/healthfolio
-cat > /opt/healthfolio/start.sh <<'SCRIPT'
+mkdir -p /opt/healthfolio/site /opt/healthfolio/caddy-data /opt/healthfolio/caddy-config
+
+# ---------- the app ----------
+cat > /opt/healthfolio/start-app.sh <<'SCRIPT'
 #!/bin/bash
-# Pull the latest image, gather settings, (re)start the container.
+# Pull the latest image, gather settings, (re)start the app container.
 set -euo pipefail
 REGION="${region}"
 IMAGE="${image}"
@@ -43,26 +48,70 @@ EXTRACTION_ENABLED=true
 ENV
 
 docker rm -f healthfolio-api 2>/dev/null || true
-exec docker run --name healthfolio-api --rm -p 8000:8000 --env-file /opt/healthfolio/app.env "$IMAGE"
+exec docker run --name healthfolio-api --rm --network healthfolio --env-file /opt/healthfolio/app.env "$IMAGE"
 SCRIPT
-chmod 700 /opt/healthfolio/start.sh
 
-cat > /etc/systemd/system/healthfolio.service <<'UNIT'
+# ---------- the website and HTTPS ----------
+cat > /opt/healthfolio/start-web.sh <<'SCRIPT'
+#!/bin/bash
+# Copy the latest website files from S3, then (re)start Caddy for the site's address.
+set -euo pipefail
+REGION="${region}"
+SITE_URL=$(aws ssm get-parameter --region "$REGION" --name "/${name}/site_url" --query Parameter.Value --output text)
+SITE_HOST="$${SITE_URL#https://}"
+
+aws s3 sync "s3://${site_bucket}" /opt/healthfolio/site --delete --region "$REGION"
+
+cat > /opt/healthfolio/Caddyfile <<CADDY
+$SITE_HOST {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	handle /api/* {
+		reverse_proxy healthfolio-api:8000
+	}
+	handle {
+		root * /srv/site
+		try_files {path} /index.html
+		file_server
+	}
+}
+CADDY
+
+docker rm -f healthfolio-web 2>/dev/null || true
+exec docker run --name healthfolio-web --rm --network healthfolio -p 80:80 -p 443:443 \
+  -v /opt/healthfolio/Caddyfile:/etc/caddy/Caddyfile:ro \
+  -v /opt/healthfolio/site:/srv/site:ro \
+  -v /opt/healthfolio/caddy-data:/data \
+  -v /opt/healthfolio/caddy-config:/config \
+  public.ecr.aws/docker/library/caddy:2
+SCRIPT
+chmod 700 /opt/healthfolio/start-app.sh /opt/healthfolio/start-web.sh
+
+# ---------- services: restart until settings exist, and after any crash ----------
+for unit in healthfolio:start-app healthfolio-web:start-web; do
+  service="$${unit%%:*}"
+  script="$${unit##*:}"
+  cat > "/etc/systemd/system/$service.service" <<UNIT
 [Unit]
-Description=Healthfolio API and extraction worker
+Description=Healthfolio ($service)
 After=docker.service network-online.target
 Requires=docker.service
 Wants=network-online.target
 
 [Service]
-ExecStart=/opt/healthfolio/start.sh
-# Retries until the settings exist (e.g. before the two secrets are added) and after any crash.
+ExecStart=/opt/healthfolio/$script.sh
 Restart=always
 RestartSec=30
 
 [Install]
 WantedBy=multi-user.target
 UNIT
+done
 
 systemctl daemon-reload
-systemctl enable --now healthfolio.service
+systemctl enable --now healthfolio.service healthfolio-web.service

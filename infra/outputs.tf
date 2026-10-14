@@ -1,10 +1,6 @@
 output "site_url" {
   description = "The app's address (site and API)."
-  value       = "https://${aws_cloudfront_distribution.site.domain_name}"
-}
-
-output "cloudfront_distribution_id" {
-  value = aws_cloudfront_distribution.site.id
+  value       = "https://${local.site_host}"
 }
 
 output "site_bucket" {

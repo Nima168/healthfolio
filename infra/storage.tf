@@ -7,7 +7,7 @@ resource "aws_s3_bucket" "documents" {
   bucket = "${var.name}-documents-${local.account_id}"
 }
 
-# The built website, served only through CloudFront.
+# The built website; the server copies it in when the web container starts.
 resource "aws_s3_bucket" "site" {
   bucket = "${var.name}-site-${local.account_id}"
 }
@@ -40,19 +40,4 @@ resource "aws_s3_bucket_ownership_controls" "owner" {
   rule {
     object_ownership = "BucketOwnerEnforced"
   }
-}
-
-# Only this CloudFront distribution may read the website files.
-resource "aws_s3_bucket_policy" "site" {
-  bucket = aws_s3_bucket.site.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "cloudfront.amazonaws.com" }
-      Action    = "s3:GetObject"
-      Resource  = "${aws_s3_bucket.site.arn}/*"
-      Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.site.arn } }
-    }]
-  })
 }

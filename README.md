@@ -277,10 +277,10 @@ uv run python -m evaluation report          # HTML report
 
 Healthfolio runs on AWS (region `ap-south-1`). The infrastructure is defined with Terraform in `infra/`:
 
-- **API and worker:** one Docker image (`backend/Dockerfile`, includes Tesseract), stored in Amazon ECR and run on a small EC2 server. Database migrations run on start.
+- **Server:** one small EC2 server with a fixed IP. Caddy serves the website, handles HTTPS (free Let's Encrypt certificate, renewed automatically) and forwards `/api/*` to the app, so the site and API share one address. The address is `https://<ip>.sslip.io`, which needs no domain.
+- **API and worker:** one Docker image (`backend/Dockerfile`, includes Tesseract), stored in Amazon ECR. Database migrations run on start.
 - **Database:** Amazon RDS for PostgreSQL, private, reachable only from the server. Its password is kept in AWS Secrets Manager.
-- **Uploaded documents:** a private, encrypted S3 bucket (`STORAGE_BACKEND=s3`), accessed through the server's IAM role (no access keys).
-- **Website:** an S3 bucket behind CloudFront. CloudFront also forwards `/api/*` to the server over a private connection (VPC origin), so the server is not reachable from the internet and the login cookie stays first-party.
+- **Files:** uploaded documents go to a private, encrypted S3 bucket (`STORAGE_BACKEND=s3`), accessed through the server's IAM role (no access keys). The built website is also kept in S3.
 
 No email service is configured (`EMAIL_BACKEND=disabled`), so password reset is unavailable on the deployed app. See `infra/README.md` for the deployment steps.
 
