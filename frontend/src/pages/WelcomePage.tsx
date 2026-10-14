@@ -120,6 +120,9 @@ const PRINCIPLES = [
 function AccuracyNotice() {
   return (
     <aside className="welcome-notice" role="note" aria-labelledby="accuracy-notice-title">
+      <span className="welcome-notice-label" aria-hidden="true">
+        Note
+      </span>
       <strong id="accuracy-notice-title">AI accuracy has not been rigorously validated.</strong>
       <p>
         Reading is tested only on fictional sample reports. That is not clinical validation, and the target of 98%
