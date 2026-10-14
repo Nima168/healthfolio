@@ -150,7 +150,7 @@ def test_values_with_unreadable_characters_need_review():
     garbled = result(test_name="LDL / HDL Ratio", value_text="3.8", value_numeric=3.8, reference_range_text="�35")
     [item] = validate_payload(ExtractionPayload.model_validate(payload([garbled])), 1, date(2026, 10, 14))
 
-    assert "unreadable_characters" in item.findings
+    assert "range_not_identified" in item.findings and item.reference_range_text == "Not identified"
     assert item.needs_review
 
 

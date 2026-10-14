@@ -10,6 +10,7 @@ import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from app.ai.readability import NOT_IDENTIFIED, garbled_text
 from app.ai.schema import ExtractedFollowUp, ExtractedMedication, PrescriptionPayload
 
 LIMITS = {"name": 200, "strength": 100, "instructions": 300, "duration": 100, "description": 300, "date_text": 200}
@@ -18,6 +19,7 @@ MAX_RELATIVE = {"days": 730, "weeks": 104, "months": 24}  # beyond two years is 
 UNCLEAR_MEDICATION = "The name, strength, or instructions were not clearly legible."
 NO_INSTRUCTIONS = "How to take it is not written or unclear."
 DUPLICATE_MEDICATION = "This medicine appears more than once."
+NOT_IDENTIFIED_MEDICATION = "Some details could not be read ({parts}): shown as Not identified. Check the original."
 UNCLEAR_FOLLOW_UP = "The follow-up was not clearly legible."
 NO_TIMING = "No follow-up date or timing is written."
 UNREADABLE_DATE = "The follow-up date could not be read."
@@ -95,9 +97,22 @@ def _medication(item: ExtractedMedication, page_count: int | None, seen: set[tup
     name = _clean(item.name, LIMITS["name"]) or "Unnamed medicine"
     strength = _clean(item.strength, LIMITS["strength"])
     instructions = _clean(item.instructions, LIMITS["instructions"])
+    duration = _clean(item.duration_text, LIMITS["duration"])
+
+    # Printed but unreadable details become "Not identified", never a guess (app/ai/readability.py).
+    unreadable = [
+        part
+        for part, text in (("strength", strength), ("instructions", instructions), ("duration", duration))
+        if part in item.unreadable or garbled_text(text)
+    ]
+    strength = NOT_IDENTIFIED if "strength" in unreadable else strength
+    instructions = NOT_IDENTIFIED if "instructions" in unreadable else instructions
+    duration = NOT_IDENTIFIED if "duration" in unreadable else duration
 
     reason = None
-    if item.confidence != "high" or name == "Unnamed medicine":
+    if unreadable:
+        reason = NOT_IDENTIFIED_MEDICATION.format(parts=", ".join(unreadable))
+    elif item.confidence != "high" or name == "Unnamed medicine":
         reason = UNCLEAR_MEDICATION
     elif instructions is None:
         reason = NO_INSTRUCTIONS
@@ -110,7 +125,7 @@ def _medication(item: ExtractedMedication, page_count: int | None, seen: set[tup
         name=name,
         strength=strength,
         instructions=instructions,
-        duration_text=_clean(item.duration_text, LIMITS["duration"]),
+        duration_text=duration,
         page=_page(item.page, page_count),
         snippet=_clean(item.source_text, 500),
         confidence=item.confidence,

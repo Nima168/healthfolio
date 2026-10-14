@@ -21,7 +21,7 @@ import {
   type SummaryLine,
   type TestReportSummary,
 } from './extractionApi'
-import { COPY_TYPE_LABELS, formatDayMonthYear, NOT_MENTIONED, todayIso } from './format'
+import { COPY_TYPE_LABELS, formatDayMonthYear, NOT_IDENTIFIED, NOT_MENTIONED, todayIso } from './format'
 
 const TITLES = {
   lab_report: 'Extracted lab results',
@@ -38,16 +38,36 @@ const ACTIVE: JobStatus[] = ['pending', 'running']
 
 // ---------- summary in the agreed plain-text format ----------
 
+/** A part printed but not readable is marked, so it is never mistaken for a value. */
+function Part({ text }: { text: string }) {
+  if (text !== NOT_IDENTIFIED) return <>{text}</>
+  return (
+    <span className="not-identified" title="Printed in the document but could not be read clearly">
+      {NOT_IDENTIFIED}
+    </span>
+  )
+}
+
 function ValueLines({ lines, critical = false }: { lines: SummaryLine[]; critical?: boolean }) {
   if (lines.length === 0) return <p className="summary-none">None</p>
   return (
     <ul className={`summary-lines${critical ? ' summary-critical' : ''}`}>
-      {lines.map((line, index) => (
-        <li key={`${line.name}-${index}`}>
-          {line.name}: {line.value_text}
-          {line.unit && ` ${line.unit}`} (Reference: {line.reference_range_text ?? NOT_MENTIONED})
-        </li>
-      ))}
+      {lines.map((line, index) => {
+        const unreadable = [line.value_text, line.unit, line.reference_range_text].includes(NOT_IDENTIFIED)
+        return (
+          <li key={`${line.name}-${index}`}>
+            {line.name}: <Part text={line.value_text} />
+            {line.unit && (
+              <>
+                {' '}
+                <Part text={line.unit} />
+              </>
+            )}{' '}
+            (Reference: {line.reference_range_text ? <Part text={line.reference_range_text} /> : NOT_MENTIONED})
+            {unreadable && <span className="unclear-tag"> – check the original</span>}
+          </li>
+        )
+      })}
     </ul>
   )
 }

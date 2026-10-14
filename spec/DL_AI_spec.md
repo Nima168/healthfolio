@@ -100,6 +100,8 @@ Model outputs are validated against predefined schemas before acceptance. Valida
 
 Structural validity does not guarantee medical correctness.
 
+**Decided (2026-10-14): no misleading values.** A part that is not printed is shown as **"Not mentioned"**; a part that is printed but cannot be read reliably is shown as **"Not identified"** and never as a guess. A part is not identified when the model lists it as unreadable (each result and medicine carries an `unreadable` list; the part is returned empty), or when fixed rules (`app/ai/readability.py`) find it garbled: an unrecognised character (U+FFFD); letters where a number belongs, outside known qualitative results ("TENS" for a numeric test); letters glued to digits or a double decimal point ("O38", "5.7.H"); a range whose separator is lost or replaced ("0.3 1.2", "55:2"); stray symbols in a unit. The doubtful text is replaced everywhere it would appear (results, timeline, search, AI summaries, exports); the item is marked for review with a `*_not_identified` finding and is never compared with a range. Header lines read as results (report dates, patient details) are removed. Confidence describes how clearly an item reads; OCR as the source is not by itself a reason for low confidence.
+
 ## 5. Multimodal AI Architecture
 
 | Component | Responsibility |
@@ -232,6 +234,8 @@ Release thresholds (decided), measured on the synthetic/de-identified evaluation
 | Summaries | 0 unsupported clinical claims in the reviewed sample |
 
 These are minimum release gates, not proof of clinical correctness; they are revisited as evaluation data grows.
+
+**Evaluation harness (2026-10-14):** `backend/evaluation/` generates fictional documents from known data (lab reports, prescriptions, discharge summaries, consultation notes, imaging reports), renders each as a digital PDF and as scanned copies at three damage levels (clean, medium, hard), runs them through the real pipeline (upload check, PyMuPDF/Tesseract with vision fallback, Groq, validation rules), and reports items found, field accuracy, invented items, review-flag coverage of wrong values, grouping, dates, honest blanks, OCR character error rate, reading route, run-to-run consistency, and speed. Synthetic data cannot stand in for real reports: results show behaviour and failure points, and a de-identified real-document set remains needed before release.
 
 ## 12. Privacy and Responsible AI Processing
 

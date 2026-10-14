@@ -85,6 +85,9 @@ def _unclear_reason(observation: Observation) -> str | None:
 
 def classify(observation: Observation) -> tuple[str, str | None]:
     """("above" | "below" | "within", None) or ("invalid", reason)."""
+    findings = observation.validation_findings or []
+    if any(finding.endswith("_not_identified") for finding in findings):
+        return "invalid", "Part of this result could not be read (Not identified). Check it against the original."
     range_text = (observation.reference_range_text or "").strip()
     if not range_text:
         return "invalid", "No reference range is printed for this test."

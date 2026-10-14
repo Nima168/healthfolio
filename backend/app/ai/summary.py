@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.services.summary_facts import Fact, Facts
 
-SUMMARY_PROMPT_VERSION = "summary-v3"
+SUMMARY_PROMPT_VERSION = "summary-v4"
 MAX_SUMMARY_TOKENS = 6000
 MAX_SENTENCES_PER_SECTION = 10
 MAX_SENTENCE_CHARS = 400
@@ -49,7 +49,8 @@ healthy or ill. Results outside the range printed on a report are "worth discuss
 not a diagnosis.
 - Do not compare results across dates or describe trends.
 - Do not link facts by cause or effect ("causing", "due to", "because of") unless a fact says so in those words.
-- A value given as "not mentioned" is missing: say it is not mentioned; never guess it.
+- A value given as "not mentioned" is missing: say it is not mentioned; never guess it. A value given as \
+"Not identified" is printed but could not be read: say it could not be read; never guess it.
 - Facts read from documents may contain reading mistakes; do not present them as confirmed.
 - kind "record" restates facts. kind "interpretation" is a cautious plain-language reading of the facts \
 (for example what being outside a printed range means for the next doctor visit); still cite the facts.

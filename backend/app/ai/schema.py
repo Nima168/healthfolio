@@ -6,11 +6,20 @@ re-validate the response before anything is stored (DL_AI_spec.md Section 4.5).
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def _nullable(schema: dict) -> dict:
     return {"anyOf": [schema, {"type": "null"}]}
+
+
+def _unreadable(parts: list[str]) -> dict:
+    """Parts of an item that are printed but cannot be read with certainty (app/ai/readability.py)."""
+    return {
+        "type": "array",
+        "items": {"type": "string", "enum": parts},
+        "description": "Parts that are printed but cannot be read with certainty; each is returned as null.",
+    }
 
 
 _RESULT_PROPERTIES: dict[str, dict] = {
@@ -27,6 +36,7 @@ _RESULT_PROPERTIES: dict[str, dict] = {
     "source_text": {"type": "string", "description": "The exact line or table row the result was read from."},
     "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
     "notes": _nullable({"type": "string", "description": "Anything unclear: illegible, ambiguous, uncertain."}),
+    "unreadable": _unreadable(["value", "unit", "range"]),
 }
 
 EXTRACTION_SCHEMA: dict = {
@@ -69,6 +79,7 @@ class ExtractedResult(BaseModel):
     source_text: str
     confidence: Literal["high", "medium", "low"]
     notes: str | None
+    unreadable: list[Literal["value", "unit", "range"]] = Field(default_factory=list)
 
 
 class ExtractionPayload(BaseModel):
@@ -94,6 +105,7 @@ _MEDICATION_PROPERTIES: dict[str, dict] = {
     "source_text": {"type": "string", "description": "The exact line the medicine was read from."},
     "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
     "notes": _nullable({"type": "string", "description": "Anything unclear: illegible, ambiguous, uncertain."}),
+    "unreadable": _unreadable(["strength", "instructions", "duration"]),
 }
 
 _FOLLOW_UP_PROPERTIES: dict[str, dict] = {
@@ -166,6 +178,7 @@ class ExtractedMedication(BaseModel):
     source_text: str
     confidence: Literal["high", "medium", "low"]
     notes: str | None
+    unreadable: list[Literal["strength", "instructions", "duration"]] = Field(default_factory=list)
 
 
 class ExtractedFollowUp(BaseModel):
@@ -234,6 +247,7 @@ _DISCHARGE_RESULT_PROPERTIES: dict[str, dict] = {
     ),
     "page": _nullable({"type": "integer", "description": "1-based page where the result appears."}),
     "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+    "unreadable": _unreadable(["value", "unit", "range"]),
 }
 
 DISCHARGE_SCHEMA: dict = {
@@ -281,6 +295,7 @@ class ExtractedDischargeResult(BaseModel):
     result_date_text: str | None
     page: int | None
     confidence: Literal["high", "medium", "low"]
+    unreadable: list[Literal["value", "unit", "range"]] = Field(default_factory=list)
 
 
 class DischargePayload(BaseModel):

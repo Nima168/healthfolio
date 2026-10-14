@@ -42,6 +42,8 @@ known-third-party = ["alembic"]  # backend/alembic/ is migrations, not the packa
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106"]  # fake credentials are intentional in redaction tests
 "alembic/versions/**" = ["E501"]  # generated SQL constraint strings
+"evaluation/**" = ["S311"]  # seeded random test data, not security
+"evaluation/report.py" = ["E501"]  # the HTML report template
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -19,6 +19,8 @@ export const PRECISION_LABELS: Record<DatePrecision, string> = {
 
 /** Shown wherever a report leaves a value out. Nothing is assumed or filled in. */
 export const NOT_MENTIONED = 'Not mentioned'
+/** Printed in the document but not readable reliably: never replaced by a guess (backend readability rules). */
+export const NOT_IDENTIFIED = 'Not identified'
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`

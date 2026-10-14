@@ -35,3 +35,6 @@ Thumbs.db
 
 # Development email output (may contain reset links)
 .dev_mail/
+
+# Accuracy evaluation: generated documents and saved readings (regenerated on demand)
+backend/evaluation/out/

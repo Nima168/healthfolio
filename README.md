@@ -115,7 +115,7 @@ Every upload queues a job. When uploading, you say whether the file is a **digit
 
 Consultation notes (symptoms, observations, assessment, plan, follow-ups), written imaging reports (findings, impression, and the report's own uncertainty statements; scan images are not read yet), and other test reports such as ECGs (measurements against their printed ranges, machine and physician interpretations kept apart) get their own summaries too, all copied exactly as written.
 
-Uploads are checked before saving: blurry, too dark, blank, or very small photos and scanned pages are sent back with a request for a clearer copy (typed PDFs are always clear). Discharge summaries must be **one page** (the page with the diagnosis and discharge medicines), due to AI reading limits. Values a report does not state are never guessed and are shown as **"Not mentioned"**.
+Uploads are checked before saving: blurry, too dark, blank, or very small photos and scanned pages are sent back with a request for a clearer copy (typed PDFs are always clear). Discharge summaries must be **one page** (the page with the diagnosis and discharge medicines), due to AI reading limits. Values a report does not state are never guessed and are shown as **"Not mentioned"**. Values that are printed but cannot be read reliably (for example an OCR misread) are shown as **"Not identified"**, marked for review, and never compared with a range: the app shows a gap rather than a wrong number.
 
 Discharge summaries show the hospital, the stay (with the number of days), diagnoses exactly as written, key results (last value outside the printed range, with first → last, or text results), discharge medicines, follow-ups, and when to return to the emergency department. AI output can vary from run to run, so every document offers **Refresh analysis** after reading (also after an empty or failed reading). It replaces the results with a new reading, and a PDF can be read again as the other kind of copy (digital or scanned).
 
@@ -259,6 +259,17 @@ cd frontend
 npm run lint
 npm run test
 npm run build
+```
+
+### Accuracy evaluation
+
+Fictional reports with known answers are generated, saved as digital PDFs and as scans at three damage levels, read by the real pipeline, and scored (items found, field accuracy, invented items, review flags, OCR error rate, consistency). It calls the AI provider, so it is run on demand, not in the test suite.
+
+```bash
+cd backend
+uv run python -m evaluation generate        # 60 test documents (no AI calls)
+uv run python -m evaluation run --quick     # 10 documents; omit --quick for all, add --repeat 3 for consistency
+uv run python -m evaluation report          # HTML report
 ```
 
 ## Specifications

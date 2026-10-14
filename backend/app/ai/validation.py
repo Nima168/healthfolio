@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
+from app.ai.readability import NOT_IDENTIFIED, REPLACEMENT_CHARACTER, check_result, not_a_result
 from app.ai.schema import ExtractedResult, ExtractionPayload
 
 _NUMBER = re.compile(r"[-+]?\d+(?:,\d{3})*(?:[.,]\d+)?")
@@ -52,6 +53,10 @@ REVIEW_FINDINGS = {
     "possible_duplicate",
     "value_truncated",
     "unreadable_characters",
+    # Printed but not readable: shown as "Not identified" (app/ai/readability.py).
+    "value_not_identified",
+    "unit_not_identified",
+    "range_not_identified",
 }
 
 
@@ -107,22 +112,33 @@ def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_coun
 
     name, _ = _clip(result.test_name, LIMITS["name"])
     value_text, truncated = _clip(result.value_text, LIMITS["value_text"])
-    if not name or not value_text:
+    if not name or not (value_text or "value" in result.unreadable):
         return None  # nothing usable to review
+    unit, _ = _clip(result.unit, LIMITS["unit"])
+    reference_text, _ = _clip(result.reference_range_text, LIMITS["reference_range_text"])
+    if not_a_result(name, value_text, unit, reference_text):
+        return None  # a report date or patient detail read as if it were a test
     if truncated:
         findings.append("value_truncated")
 
+    # Printed but unreadable parts become "Not identified", never a guess.
+    value_text, unit, reference_text, not_identified = check_result(
+        value_text, unit, reference_text, list(result.unreadable)
+    )
+    findings.extend(f"{part}_not_identified" for part in not_identified)
+
     # Our own parse of the written value wins; a disagreement with the model is flagged.
-    numeric = parse_number(value_text)
+    numeric = None if value_text == NOT_IDENTIFIED else parse_number(value_text)
     model_numeric = _decimal(result.value_numeric)
-    if model_numeric is not None and (numeric is None or numeric != model_numeric):
+    if value_text != NOT_IDENTIFIED and model_numeric is not None and (numeric is None or numeric != model_numeric):
         findings.append("numeric_value_mismatch")
 
-    unit, _ = _clip(result.unit, LIMITS["unit"])
     if numeric is not None and not unit:
         findings.append("missing_unit")
 
     low, high = _decimal(result.reference_low), _decimal(result.reference_high)
+    if "range" in not_identified:
+        low = high = None
     if low is not None and high is not None and low > high:
         findings.append("invalid_reference_range")
 
@@ -137,10 +153,8 @@ def _validate_one(result: ExtractedResult, payload: ExtractionPayload, page_coun
         findings.append("page_out_of_range")
         page = None
 
-    reference_text, _ = _clip(result.reference_range_text, LIMITS["reference_range_text"])
     snippet, _ = _clip(result.source_text, LIMITS["snippet"])
-    # Characters OCR could not recognise appear as U+FFFD (the replacement character): a person must check them.
-    if any("�" in (text or "") for text in (name, value_text, unit, reference_text)):
+    if REPLACEMENT_CHARACTER in name:
         findings.append("unreadable_characters")
     return ValidatedResult(
         name=name,

@@ -21,6 +21,7 @@ from app.ai.prescription_validation import (
     _medication,
     _page,
 )
+from app.ai.readability import check_result, not_a_result
 from app.ai.schema import DischargePayload, ExtractedDischargeResult
 from app.ai.validation import parse_number
 
@@ -55,6 +56,11 @@ class ValidatedDischargeResult:
     observed_at: date | None
     page: int | None
     confidence: str
+    not_identified: list[str] = field(default_factory=list)  # parts printed but not readable
+
+    @property
+    def needs_review(self) -> bool:
+        return self.confidence != "high" or bool(self.not_identified)
 
 
 @dataclass
@@ -110,17 +116,22 @@ def _unique(texts: list[str], limit: int) -> list[str]:
 def _result(item: ExtractedDischargeResult, header: DischargeHeader, page_count: int | None):
     name = _clean(item.test_name, 200)
     value = _clean(item.value_text, 200)
-    if not name or not value:
+    if not name or not (value or "value" in item.unreadable):
         return None
+    unit, reference = _clean(item.unit, 50), _clean(item.reference_range_text, 200)
+    if not_a_result(name, value, unit, reference):
+        return None
+    value, unit, reference, not_identified = check_result(value, unit, reference, list(item.unreadable))
     return ValidatedDischargeResult(
         name=name,
         value_text=value,
-        value_numeric=_number(value),
-        unit=_clean(item.unit, 50),
-        reference_range_text=_clean(item.reference_range_text, 200),
+        value_numeric=None if "value" in not_identified else _number(value),
+        unit=unit,
+        reference_range_text=reference,
         observed_at=result_date(item.result_date_text, header.admitted_on),
         page=_page(item.page, page_count),
         confidence=item.confidence,
+        not_identified=not_identified,
     )
 
 

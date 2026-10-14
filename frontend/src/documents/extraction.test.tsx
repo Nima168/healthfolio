@@ -193,6 +193,24 @@ describe('Extracted lab results', () => {
     expect(await screen.findByText('Report Date: Not mentioned')).toBeInTheDocument()
   })
 
+  it('marks parts that could not be read as "Not identified", never as a value', async () => {
+    const base = extraction()
+    const unreadable = {
+      name: 'MCV',
+      value_text: 'Not identified',
+      unit: 'fL',
+      reference_range_text: 'Not identified',
+      reason: 'Part of this result could not be read (Not identified). Check it against the original.',
+    }
+    setup({ ...base, summary: { ...base.summary!, invalid: [unreadable] } })
+    renderAt('/documents/doc-1')
+
+    const line = (await screen.findByText(/^MCV:/)).closest('li')!
+    expect(within(line).getAllByText('Not identified')).toHaveLength(2)
+    expect(within(line).getAllByText('Not identified')[0]).toHaveClass('not-identified')
+    expect(line).toHaveTextContent('– check the original')
+  })
+
   it('leaves out Invalid Records when there are none', async () => {
     const base = extraction()
     setup({ ...base, summary: { ...base.summary!, invalid: [] } })

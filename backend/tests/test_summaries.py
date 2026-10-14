@@ -212,7 +212,7 @@ def test_history_summary_is_written_checked_and_cited(client, asha, db, ai):
 
     # Stored with its versions, and shown again on the next visit.
     stored = db.scalars(select(AiSummary)).one()
-    assert (stored.scope, stored.prompt_version, stored.model_version) == ("history", "summary-v3", "qwen/qwen3.8-27b")
+    assert (stored.scope, stored.prompt_version, stored.model_version) == ("history", "summary-v4", "qwen/qwen3.8-27b")
     assert client.get("/api/v1/summaries/history", headers=asha).json()["summary"]["id"] == summary["id"]
 
 

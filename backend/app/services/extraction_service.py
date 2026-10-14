@@ -365,15 +365,15 @@ class ExtractionRunner:
                     source_location={"page": result.page, "snippet": None},
                     origin="document_extracted",
                     confidence=result.confidence,
-                    needs_review=result.confidence != "high",
-                    validation_findings=[],
+                    needs_review=result.needs_review,
+                    validation_findings=[f"{part}_not_identified" for part in result.not_identified],
                 )
             )
         self._add_medications(job, validated.medications)
         for position, follow_up in enumerate(validated.follow_ups):
             self.session.add(_to_suggestion(job, follow_up, position))
         unclear = sum(item.review_reason is not None for item in [*validated.medications, *validated.follow_ups])
-        unclear += sum(result.confidence != "high" for result in validated.results)
+        unclear += sum(result.needs_review for result in validated.results)
         return {
             "results": len(validated.results) + len(validated.medications) + len(validated.follow_ups),
             "needs_review": unclear,

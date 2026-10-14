@@ -105,7 +105,7 @@ def test_worker_extracts_results(client, asha, db, settings):
     [job] = all_jobs(db)
     assert (job.model_version, job.prompt_version, job.input_tokens, job.output_tokens) == (
         "qwen/qwen3.8-27b",
-        "lab-results-v4-ocr",
+        "lab-results-v5-readability",
         1200,
         340,
     )

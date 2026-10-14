@@ -2239,3 +2239,12 @@ a.brand:hover {
     order: 0;
   }
 }
+
+/* Printed but not readable: clearly not a value */
+.not-identified {
+  font-style: italic;
+  color: #8a5a1c;
+  background: var(--color-problem-bg);
+  border-radius: 4px;
+  padding: 0 4px;
+}
