@@ -15,7 +15,12 @@ def make(**values):
 
 def production(**values):
     return make(
-        database_url=DB_URL, app_env="production", cors_origins="https://app.test", email_backend="ses", **values
+        database_url=DB_URL,
+        app_env="production",
+        cors_origins="https://app.test",
+        email_backend="ses",
+        email_from="sender@app.test",
+        **values,
     )
 
 
