@@ -27,8 +27,13 @@ describe('Welcome page', () => {
 
     const hero = await screen.findByRole('region', { name: 'Healthfolio' })
     const notice = within(hero).getByRole('note', { name: 'AI accuracy has not been rigorously validated.' })
-    expect(notice).toHaveTextContent('Rigorous validation is planned for the future')
-    expect(screen.getByText(/has not been rigorously validated; that validation is planned/)).toBeInTheDocument()
+    expect(within(notice).getByText('AI accuracy has not been rigorously validated.').tagName).toBe('STRONG')
+    expect(notice.querySelector('p')).toHaveTextContent(
+      'Reading is tested only on fictional sample reports. That is not clinical validation, and the target of 98% ' +
+        'accuracy on key values is not met yet. Rigorous validation is planned for the future.',
+    )
+    // Said once, in the notice only.
+    expect(screen.getAllByText(/rigorously validated/)).toHaveLength(1)
 
     const steps = screen.getByRole('region', { name: 'How it works' })
     expect(within(steps).getByRole('img', { name: /How a document is read/ })).toHaveAttribute(

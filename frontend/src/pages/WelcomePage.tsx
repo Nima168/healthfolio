@@ -123,8 +123,7 @@ function AccuracyNotice() {
       <strong id="accuracy-notice-title">AI accuracy has not been rigorously validated.</strong>
       <p>
         Reading is tested only on fictional sample reports. That is not clinical validation, and the target of 98%
-        accuracy on key values is not met yet. Rigorous validation is planned for the future. Please use sample
-        documents only, and always check results against the original.
+        accuracy on key values is not met yet. Rigorous validation is planned for the future.
       </p>
     </aside>
   )
@@ -265,8 +264,7 @@ export function WelcomePage() {
         <p className="welcome-disclaimer">
           Healthfolio gives information, not medical advice, and does not replace your doctor. In an emergency, call
           your local emergency number. This is a prototype: please use sample documents, not real patient records,
-          until its privacy review is complete. The accuracy of AI reading has not been rigorously validated; that
-          validation is planned for the future.
+          until its privacy review is complete.
         </p>
       </main>
 
