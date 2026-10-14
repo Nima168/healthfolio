@@ -54,8 +54,19 @@ class FileEmailSender:
         return message_id
 
 
+class DisabledEmailSender:
+    """No email service configured (a demo deployment): every send fails and is recorded as such."""
+
+    provider = "disabled"
+
+    def send(self, to: str, subject: str, body: str) -> str:
+        raise EmailSendError("email_disabled")
+
+
 def get_email_sender(settings: Settings) -> EmailSender:
     if settings.email_backend == "file":
         return FileEmailSender(settings.dev_mail_dir)
+    if settings.email_backend == "disabled":
+        return DisabledEmailSender()
     # The SES adapter is added at deployment time, when AWS credentials are available.
     raise NotImplementedError("EMAIL_BACKEND=ses is not implemented yet")

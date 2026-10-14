@@ -79,7 +79,7 @@ class EmailDelivery(TimestampMixin, Base):
     __tablename__ = "email_deliveries"
     __table_args__ = (
         CheckConstraint("status IN ('queued', 'sent', 'failed')", name="ck_email_deliveries_status"),
-        CheckConstraint("provider IN ('file', 'ses')", name="ck_email_deliveries_provider"),
+        CheckConstraint("provider IN ('file', 'ses', 'disabled')", name="ck_email_deliveries_provider"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

@@ -68,9 +68,20 @@ class Settings(BaseSettings):
     ocr_min_confidence: int = Field(default=85, ge=0, le=100)
     worker_poll_seconds: float = Field(default=2.0, gt=0)
 
-    # Email: "file" writes messages to dev_mail_dir (development/test only); "ses" for deployment.
-    email_backend: Literal["file", "ses"] = "file"
+    # Email: "file" writes messages to dev_mail_dir (development/test only); "ses" for deployment;
+    # "disabled" sends nothing (a demo deployment without an email service: password reset is unavailable).
+    email_backend: Literal["file", "ses", "disabled"] = "file"
     dev_mail_dir: str = ".dev_mail"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def use_psycopg_driver(cls, value: object) -> object:
+        """Hosting providers give "postgres://" or "postgresql://" URLs; the app uses the psycopg 3 driver."""
+        if isinstance(value, str):
+            for prefix in ("postgres://", "postgresql://"):
+                if value.startswith(prefix):
+                    return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
 
     @field_validator("jwt_secret")
     @classmethod
