@@ -4,7 +4,7 @@
 
 ### 1.1 Purpose
 
-The backend provides the core application services for the Multimodal AI Healthcare Decision-Support System. It manages user health data, medical documents, medication records, health observations, checkup/follow-up tracking, safety alerts, and communication with AI processing components.
+The backend provides the core application services for the AI Healthcare Decision-Support System. It manages user health data, medical documents, medication records, health observations, checkup/follow-up tracking, safety alerts, and communication with AI processing components.
 
 It must store health information securely, keep it linked to its source, restrict it to authorized users, and coordinate AI processing without letting AI output silently overwrite original records or verified user data.
 
@@ -25,7 +25,7 @@ It must store health information securely, keep it linked to its source, restric
 
 1. Manage user profiles and health-history records.
 2. Upload, store, retrieve, and manage medical documents.
-3. Coordinate document extraction and multimodal AI processing.
+3. Coordinate document extraction and AI processing.
 4. Store structured health observations with values, units, dates, and source references.
 5. Manage prescriptions, medication records, and medication history.
 6. Support health timelines and source-grounded summaries. Historical comparison and trend analysis are deferred (`goal_spec.md` Section 6).
@@ -88,7 +88,7 @@ Organize by business responsibility, not in a single file. Logical modules:
 - **Follow-up and alert module:** Checkup/follow-up tracking, safety alerts and their lifecycle.
 - **Notification module:** Email delivery for account workflows; future reminder channels.
 - **Export module:** PDF summary and CSV/JSON data exports.
-- **AI orchestration module:** Interfaces to document processing, multimodal AI, retrieval, summarization.
+- **AI orchestration module:** Interfaces to document processing, AI extraction, retrieval, summarization.
 - **Data-access layer:** Database operations and transactions.
 - **Background processing module:** Long-running jobs, retries, scheduled tasks.
 - **Shared infrastructure:** Configuration, logging, error handling, security utilities, common validation.
@@ -404,10 +404,10 @@ Review requirements depend on information type and intended use. Safety-critical
 
 ### 6.7 AI Component Integration
 
-The backend interacts with OCR, extraction, multimodal analysis, and language models through separate, replaceable interfaces. AI responsibilities coordinated by the backend:
+The backend interacts with OCR, extraction, and language models through separate, replaceable interfaces. AI responsibilities coordinated by the backend:
 
 - Extracting supported information from documents.
-- Coordinating OCR, parsing, and multimodal processing.
+- Coordinating OCR, parsing, and AI processing.
 - Converting extracted information into validated structured data.
 - Generating summaries grounded in authorized records (Health Q&A is deferred).
 - Suggesting profile values and follow-up dates from documents, for user confirmation.

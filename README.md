@@ -1,6 +1,6 @@
 # Healthfolio
 
-**Your medical history, organised and explained.** A multimodal AI healthcare support system.
+**Your medical history, organised and explained.** An AI healthcare support system.
 
 A personal health-records platform that stores medical documents, extracts and organizes their information, tracks medications and follow-ups, and provides cautious, source-backed AI summaries. It offers informational decision support only and does not replace professional medical care.
 

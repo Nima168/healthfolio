@@ -1,5 +1,5 @@
 # DL and AI Specification
-**Project:** Multimodal AI Healthcare Decision-Support System  
+**Project:** AI Healthcare Decision-Support System  
 **File:** `DL_AI_spec.md`  
 **Status:** Initial Draft
 
@@ -108,7 +108,7 @@ Structural validity does not guarantee medical correctness.
 
 **Decided (2026-10-14): an empty answer is read again.** When the model returns nothing (no results, medicines, findings) for a request whose document text has at least 200 characters, or that holds page images, the request is sent once more. A second empty answer fails the reading with `ai_empty_output` ("Nothing could be read this time … Refresh analysis"), never "no results found".
 
-## 5. Multimodal AI Architecture
+## 5. AI Architecture
 
 | Component | Responsibility |
 |---|---|
@@ -292,7 +292,7 @@ Model, prompt, and pipeline changes are versioned and evaluated before release, 
 Possible future extensions, not part of the initial scope:
 
 - Additional medical document formats.
-- More advanced multimodal understanding.
+- Image understanding (e.g. reading scan images directly).
 - Improved terminology normalization.
 - Additional languages.
 - Validated predictive models.

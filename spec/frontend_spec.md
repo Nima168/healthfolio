@@ -1,4 +1,4 @@
-# Frontend Specification — Multimodal AI Healthcare Decision-Support System
+# Frontend Specification — AI Healthcare Decision-Support System
 
 ## 1. Purpose and Scope
 

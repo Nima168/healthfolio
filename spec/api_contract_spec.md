@@ -1,5 +1,5 @@
 # API Contract Specification
-## Multimodal AI Healthcare Decision-Support System
+## AI Healthcare Decision-Support System
 
 ## 1. Purpose and Ownership
 

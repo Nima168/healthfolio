@@ -1,4 +1,4 @@
-# Goal Specification — Multimodal AI Healthcare Decision-Support System
+# Goal Specification — AI Healthcare Decision-Support System
 
 ## 1. Project Overview
 
@@ -50,7 +50,7 @@ Demographics, conditions, allergies, medical history, and other user-provided he
 - Search by document type, date, condition, provider, and extracted content.
 - Failed uploads are clearly reported.
 
-### F-3: Multimodal Document Processing
+### F-3: Document Processing
 - Supports PDFs, scanned documents, and images.
 - Extracted data keeps source reference, date, and unit where available.
 - Incomplete or uncertain extraction is explicitly flagged.

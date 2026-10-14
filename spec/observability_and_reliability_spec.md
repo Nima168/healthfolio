@@ -1,6 +1,6 @@
 # Observability and Reliability Specification
 
-**Project:** Multimodal AI Healthcare Decision-Support System  
+**Project:** AI Healthcare Decision-Support System  
 **File:** `observability_and_reliability_spec.md`  
 **Status:** Initial Draft
 

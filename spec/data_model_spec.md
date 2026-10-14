@@ -1,6 +1,6 @@
 # Data Model Specification
 
-**Project:** Multimodal AI Healthcare Decision-Support System
+**Project:** AI Healthcare Decision-Support System
 **File:** `data_model_spec.md`
 **Status:** Initial Draft
 
