@@ -295,7 +295,10 @@ The system is defined by these specs: `goal_spec.md` (product scope), `backend_s
 
 ## Future Improvements
 
-An accuracy evaluation set for AI extraction and summaries, reminder delivery, Unicode fonts in the PDF export, trends across dates, and Health Q&A — delivered incrementally as their data model and API contracts are defined.
+- **More complete extraction:** read long documents page by page, then check which printed result lines no extracted item covers, and re-read only those lines. This takes longer per document but misses fewer results and fields.
+- **Image understanding:** reading scan images (X-rays, ECG traces) directly, not only their written reports.
+- **CloudFront in front of the server** once the AWS account is verified, so the server is no longer reachable from the internet directly.
+- Reminder delivery, Unicode fonts in the PDF export, trends across dates, and Health Q&A.
 
 ## License notes
 

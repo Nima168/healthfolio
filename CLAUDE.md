@@ -62,6 +62,13 @@ AI summaries (`services/summary_service.py`) work only from already-extracted re
 
 - `backend/Dockerfile` runs migrations, the worker, and the API in one container (`start.sh`); it includes Tesseract.
 - AWS (ap-south-1) is defined in `infra/` (Terraform; state in S3 bucket `healthfolio-tfstate-<account>`): one EC2 server with an Elastic IP runs Caddy (HTTPS via Let's Encrypt for `<ip>.sslip.io`, website files synced from S3, `/api/*` proxy) and the app container on a private Docker network, under systemd (`infra/server-setup.sh`); RDS PostgreSQL reachable only from the server; documents in S3 via the server's IAM role. The server reads the DB password (Secrets Manager) and `/healthfolio/groq_api_key`, `/healthfolio/jwt_secret` (SSM SecureString, created by the user) at each start. Email is Amazon SES (`/healthfolio/email_backend`, `/healthfolio/email_from` in SSM; sandbox until production access). Live at https://65-0-63-32.sslip.io. CloudFront needs account verification, and Lightsail and CodeBuild have quota 0 on this account. Steps in `infra/README.md`; the user runs `terraform apply`.
+- Changing `infra/server-setup.sh` replaces the server on apply (about 5 minutes down, and a new Let's Encrypt certificate: keep it to a few a week). Caddy serves `/assets/*` as immutable (a missing asset is a 404) and the page with `Cache-Control: no-cache`; the site is synced from S3 with `--exact-timestamps`.
+- Website deploy: `MSYS_NO_PATHCONV=1 VITE_API_BASE_URL=/api/v1 npm run build` (Git Bash otherwise rewrites `/api/v1` into a Windows path and the site cannot reach the API), `aws s3 sync dist s3://<site_bucket> --delete`, then restart `healthfolio-web` with `aws ssm send-command` (both steps are in `infra/README.md`).
+- Python edits on Windows write CRLF by default; shell scripts must stay LF (`.gitattributes`), so write them in binary mode or with the Edit tool.
+
+## Planned next (agreed, not started)
+
+Extraction completeness: read page by page, detect printed result lines no extracted item covers (reverse of `ai/source_check.py`), re-read only those lines, show progress; measure with the quick evaluation (last run 99/106 items found).
 - The account has no CodeBuild capacity and local Docker cannot reach Docker Hub, so images are built locally from a `public.ecr.aws` base image and pushed to ECR.
 
 ## Repository rules
