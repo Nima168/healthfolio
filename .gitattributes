@@ -1,0 +1,2 @@
+# Shell scripts run on Linux (Docker image, EC2 user data): always LF.
+*.sh text eol=lf

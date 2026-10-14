@@ -9,19 +9,18 @@ data "aws_subnets" "default" {
   }
 }
 
-# PostgreSQL is reachable only from Lightsail's network (its VPC is peered with the default VPC:
-# `aws lightsail peer-vpc`, done once; see README.md).
+# PostgreSQL is reachable only from the API server.
 resource "aws_security_group" "db" {
   name        = "${var.name}-db"
-  description = "Healthfolio database: PostgreSQL from Lightsail only"
+  description = "Healthfolio database: PostgreSQL from Lightsail only" # outdated wording; changing it would replace the group
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "Lightsail peered VPC"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["172.26.0.0/16"]
+    description     = "API server"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
   }
 }
 

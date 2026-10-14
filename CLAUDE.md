@@ -61,7 +61,7 @@ AI summaries (`services/summary_service.py`) work only from already-extracted re
 ## Deployment
 
 - `backend/Dockerfile` runs migrations, the worker, and the API in one container (`start.sh`); it includes Tesseract.
-- AWS (ap-south-1) is defined in `infra/` (Terraform; state in S3 bucket `healthfolio-tfstate-<account>`): CloudFront serves the site from S3 and forwards `/api/*` to a Lightsail container service; RDS PostgreSQL (private, via Lightsail VPC peering); documents in S3 (`STORAGE_BACKEND=s3`). Steps in `infra/README.md`. The user runs `terraform apply`; secrets (DB password in Secrets Manager, Groq key, JWT secret, the app's access key) never go into Terraform or the repo.
+- AWS (ap-south-1) is defined in `infra/` (Terraform; state in S3 bucket `healthfolio-tfstate-<account>`): CloudFront serves the site from S3 and forwards `/api/*` privately (VPC origin) to one EC2 server running the image under systemd (`infra/server-setup.sh`); RDS PostgreSQL reachable only from the server; documents in S3 via the server's IAM role. The server reads the DB password (Secrets Manager) and `/healthfolio/groq_api_key`, `/healthfolio/jwt_secret` (SSM SecureString, created by the user) at each start. Lightsail and CodeBuild are not usable on this account (quota 0). Steps in `infra/README.md`; the user runs `terraform apply`.
 - The account has no CodeBuild capacity and local Docker cannot reach Docker Hub, so images are built locally from a `public.ecr.aws` base image and pushed to ECR.
 
 ## Repository rules

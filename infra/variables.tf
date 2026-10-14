@@ -10,10 +10,10 @@ variable "name" {
   default     = "healthfolio"
 }
 
-variable "container_power" {
-  description = "Lightsail container size (micro: 0.25 vCPU, 1 GB)."
+variable "instance_type" {
+  description = "API server size (t3.small: 2 vCPU, 2 GB; enough for OCR)."
   type        = string
-  default     = "micro"
+  default     = "t3.small"
 }
 
 variable "db_instance_class" {

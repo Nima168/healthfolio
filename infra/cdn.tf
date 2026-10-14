@@ -1,5 +1,17 @@
-locals {
-  api_host = trimsuffix(trimprefix(aws_lightsail_container_service.api.url, "https://"), "/")
+# CloudFront reaches the API server privately inside the VPC; the server has no public entry point.
+resource "aws_cloudfront_vpc_origin" "api" {
+  vpc_origin_endpoint_config {
+    name                   = "${var.name}-api"
+    arn                    = aws_instance.app.arn
+    http_port              = 8000
+    https_port             = 443
+    origin_protocol_policy = "http-only" # private AWS network between CloudFront and the server
+
+    origin_ssl_protocols {
+      items    = ["TLSv1.2"]
+      quantity = 1
+    }
+  }
 }
 
 resource "aws_cloudfront_origin_access_control" "site" {
@@ -45,13 +57,11 @@ resource "aws_cloudfront_distribution" "site" {
 
   origin {
     origin_id   = "api"
-    domain_name = local.api_host
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-      origin_read_timeout    = 60
+    domain_name = aws_instance.app.private_dns
+    vpc_origin_config {
+      vpc_origin_id            = aws_cloudfront_vpc_origin.api.id
+      origin_read_timeout      = 60
+      origin_keepalive_timeout = 5
     }
   }
 
