@@ -1,0 +1,196 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "How a Document Is Read",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "frontend": {
+          "label": "App step"
+        },
+        "backend": {
+          "label": "Worker step"
+        },
+        "database": {
+          "label": "Database"
+        },
+        "security": {
+          "label": "Fixed rules (code)"
+        },
+        "external": {
+          "label": "External AI"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Upload to summary"
+    },
+    {
+      "id": "exceptions",
+      "label": "Unclear copy or low OCR",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "intake",
+      "label": "API: upload",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "reading",
+      "label": "Worker + Groq: read",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "checking",
+      "label": "Code: check + show",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "upload",
+    "queue",
+    "text",
+    "structure",
+    "rules",
+    "summary"
+  ],
+  "nodes": [
+    {
+      "id": "upload",
+      "lane": "main",
+      "col": 0,
+      "type": "frontend",
+      "label": "Upload",
+      "sublabel": "digital or scan"
+    },
+    {
+      "id": "queue",
+      "lane": "main",
+      "col": 1,
+      "type": "database",
+      "label": "Queue job",
+      "sublabel": "PostgreSQL"
+    },
+    {
+      "id": "text",
+      "lane": "main",
+      "col": 2,
+      "type": "backend",
+      "label": "Get text",
+      "sublabel": "PyMuPDF · OCR"
+    },
+    {
+      "id": "structure",
+      "lane": "main",
+      "col": 3,
+      "type": "external",
+      "label": "Groq AI",
+      "sublabel": "re-read if empty"
+    },
+    {
+      "id": "rules",
+      "lane": "main",
+      "col": 4,
+      "type": "security",
+      "label": "Check rules",
+      "sublabel": "code, not AI"
+    },
+    {
+      "id": "summary",
+      "lane": "main",
+      "col": 5,
+      "type": "frontend",
+      "label": "Summary",
+      "sublabel": "with sources"
+    },
+    {
+      "id": "reject",
+      "lane": "exceptions",
+      "col": 0,
+      "type": "frontend",
+      "label": "Clearer copy",
+      "sublabel": "blurry or dark"
+    },
+    {
+      "id": "vision",
+      "lane": "exceptions",
+      "col": 3,
+      "type": "backend",
+      "label": "Page image",
+      "sublabel": "OCR under 85%"
+    }
+  ],
+  "edges": [
+    {
+      "id": "upload-queue",
+      "from": "upload",
+      "to": "queue",
+      "label": "saved",
+      "role": "main"
+    },
+    {
+      "id": "queue-text",
+      "from": "queue",
+      "to": "text",
+      "label": "job",
+      "role": "main"
+    },
+    {
+      "id": "text-structure",
+      "from": "text",
+      "to": "structure",
+      "role": "main"
+    },
+    {
+      "id": "structure-rules",
+      "from": "structure",
+      "to": "rules",
+      "label": "fields",
+      "role": "main",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "rules-summary",
+      "from": "rules",
+      "to": "summary",
+      "label": "checked",
+      "role": "main"
+    },
+    {
+      "id": "upload-reject",
+      "from": "upload",
+      "to": "reject",
+      "label": "unclear",
+      "role": "error"
+    },
+    {
+      "id": "text-vision",
+      "from": "text",
+      "to": "vision",
+      "label": "low OCR",
+      "role": "branch"
+    },
+    {
+      "id": "vision-structure",
+      "from": "vision",
+      "to": "structure",
+      "label": "image",
+      "role": "branch",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ]
+}

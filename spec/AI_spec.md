@@ -252,7 +252,7 @@ These are minimum release gates, not proof of clinical correctness; they are rev
 - Items found: 99 of 106.
 - Wrong values: 10, of which 6 were flagged for review.
 
-The critical-field gate (≥ 98%) is **not met**. The remaining errors are OCR misreads that the AI copies faithfully, and run-to-run variation in how completely a page is read. Full method and the comparison across versions: `docs/END_TO_END.md` §6.
+**AI accuracy has not been rigorously validated:** this is a small synthetic set with single runs, not clinical validation. Rigorous validation (a de-identified real-document set, repeated runs, all release gates met) is kept as a future plan. The critical-field gate (≥ 98%) is **not met**. The remaining errors are OCR misreads that the AI copies faithfully, and run-to-run variation in how completely a page is read. Full method and the comparison across versions: `docs/END_TO_END.md` §6.
 
 ## 12. Privacy and Responsible AI Processing
 

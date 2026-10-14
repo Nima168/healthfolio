@@ -6,7 +6,10 @@ A personal health-records platform that stores medical documents, extracts and o
 
 **Live demo:** https://65-0-63-32.sslip.io (use synthetic documents only; uploaded text is sent to the AI provider).
 
-> **Status:** all the features below are in place and deployed on AWS. AI extraction is measured with a built-in accuracy evaluation on fictional reports, but it is not clinically validated: use synthetic data only.
+> **Status:** all the features below are in place and deployed on AWS.
+
+> [!IMPORTANT]
+> **AI accuracy has not been rigorously validated.** The built-in evaluation uses fictional reports only; it is not clinical validation, and the target of 98% accuracy on critical fields is not met yet. Rigorous validation, on a de-identified real-document set with repeated runs, is planned for the future. Use synthetic documents only, and always check results against the original document.
 
 ## Screenshots
 
@@ -31,6 +34,63 @@ Screens from a demo account with fictional sample reports.
 4. Secrets and the API image come from AWS (Secrets Manager / SSM, ECR).
 
 The diagram was made with [Archify](https://github.com/tt-a1i/archify). Its interactive version, with dark mode, zoom and path tracing, is [`docs/architecture/healthfolio-architecture.html`](docs/architecture/healthfolio-architecture.html): download it and open it in a browser. Source: [`healthfolio-architecture.json`](docs/architecture/healthfolio-architecture.json). Full walkthrough: [docs/END_TO_END.md](docs/END_TO_END.md).
+
+## How a Document Is Read
+
+> [!IMPORTANT]
+> **AI accuracy has not been rigorously validated.** The built-in evaluation uses fictional reports only; it is not clinical validation, and the target of 98% accuracy on critical fields is not met yet. Rigorous validation, on a de-identified real-document set with repeated runs, is planned for the future. Use synthetic documents only, and always check results against the original document.
+
+![How a document is read: upload, queue, get text, Groq AI, check rules, summary](docs/architecture/extraction-pipeline.png)
+
+**The AI only reads; fixed rules in code decide what you see.** Interactive version: [`docs/architecture/extraction-pipeline.html`](docs/architecture/extraction-pipeline.html) (download and open it in a browser).
+
+| Step | What happens |
+|---|---|
+| **1. Upload** | You choose the document type, and whether it is a **digital PDF** or a **scanned copy**. Blurry, dark, blank, or tiny scans are sent back for a clearer copy. |
+| **2. Queue** | The upload is saved and a reading job is queued. The worker picks it up within seconds. |
+| **3. Get text** | Digital PDF: **PyMuPDF** reads the text layer. Scan: **Tesseract OCR** at 300 DPI, cleaned up, table rows kept together. A page under 85% OCR confidence goes to the AI as an **image** instead. |
+| **4. Groq AI** | Returns the fields in a **strict JSON schema** for that document type, copying values exactly as written. An empty answer for a page with text is read again, up to 3 times. |
+| **5. Check rules** | Code, not AI, checks every value (see the table below). Anything doubtful is marked for review. |
+| **6. Summary** | A plain-language summary built by rules, with each value linked to its source. **Refresh analysis** reads the document again. |
+
+### What each document type gives you
+
+| Document | Summary on the document page |
+|---|---|
+| 🧪 **Lab report** | Values **above**, **below**, and **within** the range printed on the report, plus **invalid records** (no range, not a single number, or unclear), shown as written and never judged |
+| 💊 **Prescription** | Date and doctor; each medicine with instructions and duration; follow-ups by date ("after 4 weeks" is calculated by code and labelled) |
+| 🏥 **Discharge summary** (one page) | Hospital, stay and number of days, diagnoses as written, key results (first → last), discharge medicines, follow-ups, when to return to the emergency department |
+| 🩺 **Consultation note** | Symptoms, observations, assessment, plan, follow-ups |
+| 🩻 **Imaging report** | Findings, impression, and the report's own uncertainty statements (written reports only; scan images are not read yet) |
+| 📈 **Other test report** (e.g. ECG) | Measurements against their printed ranges; machine and physician interpretations kept apart |
+
+### The rules that keep results honest
+
+| On the document | What Healthfolio shows | Rule |
+|---|---|---|
+| A unit that is not printed | **Not mentioned** | Nothing is guessed |
+| `Albumin 2.7 g/dL`, which OCR misreads as `2,` | **Not identified** – check the original | Printed but unreadable: never guessed, never compared |
+| AST and Ferritin values swapped between rows | **Not identified** for both | Each value must be on its own test's line |
+| `Date: 02/09/26` | `02/09/26`, exactly as printed | Day and month could be swapped, so no date is calculated from it |
+| `Total Protein 162 g/dL (6.4 – 8.3)` | Above range, with *"Unusually far outside the range: check the original"* | More than 10× outside a printed range suggests a misread |
+| `CRP 5.0 (< 5.0)` | Above range | Printed ranges are applied exactly; the AI never decides |
+| A medicine on a prescription | *Not confirmed* | Never marked as "taking" until you confirm it |
+
+## Features
+
+| Feature | What it does |
+|---|---|
+| **Health Profile** | Body measurements (height, weight, calculated BMI with its adult category); medical history (conditions, surgeries, hospital stays, including stays from discharge summaries); vital signs as dated readings (blood pressure and heart rate, never labelled high or low); medications (prescription, over-the-counter, supplements); allergies with type and reaction (shown first); family history. Every change is kept in a history. Diagnoses read from discharge summaries join the profile only when you accept or correct them. |
+| **Dashboard** | One page with open and urgent alerts, items to review, overdue and upcoming follow-ups, recent documents and their reading status, profile completeness, allergies, BMI, latest vital signs, and recent activity. |
+| **Health Timeline** | All records in date order, with lab results grouped per report date. Each entry shows its source and whether you confirmed or changed it. Results from different dates are never combined. It can be filtered by category and date. |
+| **Search** | Finds any word across tests, medicines, diagnoses, report text, allergies, and history, with the matching field highlighted. It can be narrowed by type, hospital, condition, and dates. The search text is never put in the address or the logs. |
+| **Medical Documents** | Filter by type, date range, and hospital; group by type, month, or hospital, with counts. The choices are kept in the page address. |
+| **Medications** | Grouped as taking now, not confirmed, or stopped. You can edit, mark taking or stopped, or remove a medicine, and each keeps a full change history. Medicines you changed are kept when a document is read again. |
+| **Checkups and Follow-ups** | Follow-ups from prescriptions and reports, added when you choose; each can be marked done or cancelled. |
+| **Alerts** | Fixed, documented rules, never AI. A result outside its printed range is flagged as something to review with a doctor, not a diagnosis. Each alert explains why it was raised, what to do next, and its source. Alerts can be acknowledged and resolved, and keep their history. Emergency guidance is always shown. |
+| **AI Summaries and Insights** | Only when you ask. The AI works from your extracted records as numbered facts and must cite them; code removes any sentence whose numbers, months, or sources do not match. Interpretations and general information are labelled. Your name, email, and date of birth are never sent. |
+| **Account and Privacy** | Change your password (other devices are signed out). Export a PDF health summary, JSON or CSV records, or a ZIP of your originals; each is prepared on request and never stored. Deleting your account needs your password and the word DELETE, and removes everything at once. |
+| **Welcome page** | A public introduction (`/welcome`) with a screenshot tour of each step. |
 
 ## Tech Stack
 
@@ -128,35 +188,7 @@ cd backend
 uv run python -m app.worker          # keeps running; add --once to process the queue and exit
 ```
 
-Every upload queues a job. When uploading, you say whether the file is a **digital PDF** or a **scanned copy** (photos are always scanned). The worker gets the text first: digital PDFs with **PyMuPDF**, scanned copies with **Tesseract OCR** (300 DPI, cleaned up, table rows kept together). The AI then organises that text into structured fields. A page OCR cannot read confidently (below 85% average confidence) is sent to the AI as an image instead, so a poor scan is not silently misread. Each document shows how it was read and the OCR confidence, and values with unreadable characters are marked for review. The document page shows a plain-text summary: values above and below the reference range printed in the report, normal values, and invalid records (no range, not a single number, or unclear; shown as written, not judged). Range checks are done by fixed rules in code, never by the AI.
-
-Consultation notes (symptoms, observations, assessment, plan, follow-ups), written imaging reports (findings, impression, and the report's own uncertainty statements; scan images are not read yet), and other test reports such as ECGs (measurements against their printed ranges, machine and physician interpretations kept apart) get their own summaries too, all copied exactly as written.
-
-Uploads are checked before saving: blurry, too dark, blank, or very small photos and scanned pages are sent back with a request for a clearer copy (typed PDFs are always clear). Discharge summaries must be **one page** (the page with the diagnosis and discharge medicines), due to AI reading limits. Values a report does not state are never guessed and are shown as **"Not mentioned"**. Values that are printed but cannot be read reliably (for example an OCR misread) are shown as **"Not identified"**, marked for review, and never compared with a range: the app shows a gap rather than a wrong number. Each value is also checked against the line it was printed on, so a value taken from another row of the table is never shown as the test's result. Dates from a document are shown exactly as printed; a date like 02/09/26, where day and month could be swapped, is never converted.
-
-Discharge summaries show the hospital, the stay (with the number of days), diagnoses exactly as written, key results (last value outside the printed range, with first → last, or text results), discharge medicines, follow-ups, and when to return to the emergency department. AI output can vary from run to run, so every document offers **Refresh analysis** after reading (also after an empty or failed reading). It replaces the results with a new reading, and a PDF can be read again as the other kind of copy (digital or scanned).
-
-The **Health Profile** brings together your body measurements (height, weight, and calculated BMI with its adult category), medical history (conditions, past surgeries, hospitalizations, including stays read from discharge summaries), vital signs as dated readings (blood pressure and heart rate, the latest shown with its date and every reading on the Timeline, never labelled high or low), active medications (prescription, over-the-counter, and supplements), allergies with their type and reaction (shown first), and family medical history, with a history of every change to your details. Diagnoses read from your discharge summaries appear as suggestions that join your profile only when you accept or correct them; nothing is replaced without you.
-
-A public **Welcome page** (`/welcome`, shown at the home address when signed out) introduces what Healthfolio does, how it works, and how to access it, with buttons to log in or create an account. A **See it in action** section walks through each step with screenshots (taken from a demo account with fictional sample reports); a click opens one full size.
-
-The **Dashboard** gives a one-page overview: open and urgent alerts, items to review, overdue and upcoming follow-ups, recent documents and their reading status, profile completeness with allergies, BMI, and the latest vital signs, and recent activity, each linking to its page.
-
-**AI Summaries and Insights** writes a plain-language summary of your whole history, or of one document, only when you ask. The AI works from your already-extracted records, given as numbered facts, and must cite them; code then removes any sentence whose numbers, months, or sources do not match. Each statement links to its source, AI interpretations and general medical information are labelled separately (with a reminder to ask your doctor), gaps such as unconfirmed medicines or overdue follow-ups are found by fixed rules, and the page says when your records changed since the summary. Your name, email, and date of birth are never sent.
-
-**Account and Privacy Settings** shows your account, lets you change your password (other devices are signed out), and exports your data: a readable PDF health summary built by fixed rules, all records as JSON or as CSV files, and a ZIP of your original documents, each prepared on request and never stored on the server. Deleting your account needs your password and the word DELETE; it removes your files and every record at once, keeps only an anonymous security log for 90 days, and explains that backups expire within 30 days.
-
-**Alerts** come from fixed, documented rules, never from AI. The first rule flags a result outside the range printed on its own report, as an item to review with a doctor, not a diagnosis. Each alert explains why it was raised, what to keep in mind, what to do next, and links to its source. Alerts can be acknowledged and resolved, and keep their history. The page always shows emergency guidance and states that having no alerts does not mean you are healthy.
-
-**Search** (on the Timeline page) finds any word across your records (tests, medicines, diagnoses, report text, allergies, history), shows which field matched with the words highlighted, and can be narrowed by document type, hospital, condition, and dates. The search text is never put in the page address or logs.
-
-The **Health Timeline** shows all your records in date order: lab results (one entry per report date, results outside the printed range first), imaging and test reports, consultations, hospital stays, prescriptions, medicines, and follow-ups. Each entry says where it came from and whether you confirmed or changed it, and opens its source. Results from different dates are never combined or compared. It can be filtered by category and date.
-
-The **Medical Documents** list can be filtered by type, report date range, and hospital or clinic, and grouped by type, month, or hospital, with a count per group. The choices are kept in the page address, so refreshing keeps them.
-
-The **Medications** page lists every medicine read from your documents and any you add yourself, grouped as taking now, not confirmed, and stopped. A medicine from a document is never marked as being taken until you confirm it. You can edit details, mark a medicine as taking or stopped, or remove it, and each medicine keeps a full change history. Medicines you changed are kept when a document is read again or deleted.
-
-Prescriptions get their own summary: the date and doctor, each medicine with its instructions and duration, upcoming follow-ups grouped by date (dates written as "after 4 weeks" are calculated by code from the prescription date), with anything unclear marked "(unclear – check original)". "Add to Checkups and Follow-ups" saves the follow-ups to the Checkups and Follow-ups page, where each can be marked done or cancelled. If no document type was chosen at upload, the AI first decides whether it is a lab report or a prescription.
+How the worker reads a document is shown in [How a Document Is Read](#how-a-document-is-read).
 
 ### Database migrations
 
@@ -284,6 +316,9 @@ npm run build
 
 ### Accuracy evaluation
 
+> [!IMPORTANT]
+> **AI accuracy has not been rigorously validated.** The built-in evaluation uses fictional reports only; it is not clinical validation, and the target of 98% accuracy on critical fields is not met yet. Rigorous validation, on a de-identified real-document set with repeated runs, is planned for the future. Use synthetic documents only, and always check results against the original document.
+
 Fictional reports with known answers are generated, saved as digital PDFs and as scans at three damage levels, read by the real pipeline, and scored (items found, field accuracy, invented items, review flags, OCR error rate, consistency). It calls the AI provider, so it is run on demand, not in the test suite.
 
 Latest quick-set results (10 documents, 106 items):
@@ -322,6 +357,7 @@ The system is defined by these specs: `goal_spec.md` (product scope), `backend_s
 
 ## Future Improvements
 
+- **Rigorous validation of AI accuracy:** a de-identified real-document evaluation set, repeated runs to measure consistency, and meeting the 98% critical-field target before any real use.
 - **More complete extraction:** read long documents page by page, then check which printed result lines no extracted item covers, and re-read only those lines. This takes longer per document but misses fewer results and fields.
 - **Image understanding:** reading scan images (X-rays, ECG traces) directly, not only their written reports.
 - **CloudFront in front of the server** once the AWS account is verified, so the server is no longer reachable from the internet directly.

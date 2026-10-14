@@ -109,6 +109,8 @@ curl https://<site_host>/api/v1/health/ready      # {"status":"ready","checks":{
 
 Then open `<site_url>`, create an account, and upload a **synthetic** lab report.
 
+AI accuracy has not been rigorously validated (planned for the future), so the deployed app is for demonstration with synthetic documents only.
+
 ## Updating
 
 | Change | Steps |

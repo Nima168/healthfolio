@@ -2,6 +2,9 @@
 
 From the implementation, through testing and AI evaluation, to deployment on AWS. Feature descriptions are in the main [README](../README.md). The decided behaviour is in [`spec/`](../spec). Exact deployment commands are in [`infra/README.md`](../infra/README.md).
 
+> [!IMPORTANT]
+> **AI accuracy has not been rigorously validated.** The built-in evaluation uses fictional reports only; it is not clinical validation, and the target of 98% accuracy on critical fields is not met yet. Rigorous validation, on a de-identified real-document set with repeated runs, is planned for the future. Use synthetic documents only, and always check results against the original document.
+
 - [1. Architecture](#1-architecture)
 - [2. Local setup](#2-local-setup)
 - [3. How a document is read](#3-how-a-document-is-read)
@@ -17,6 +20,8 @@ From the implementation, through testing and AI evaluation, to deployment on AWS
 ## 1. Architecture
 
 ![Healthfolio end-to-end architecture](architecture/healthfolio-architecture.png)
+
+![How a document is read](architecture/extraction-pipeline.png)
 
 *Made with [Archify](https://github.com/tt-a1i/archify). The interactive version is [`architecture/healthfolio-architecture.html`](architecture/healthfolio-architecture.html) (download and open it in a browser). Source: [`healthfolio-architecture.json`](architecture/healthfolio-architecture.json).*
 
@@ -152,6 +157,9 @@ The backend tests use a scripted fake Groq client (`tests/ai_fakes.py`). Because
 
 ## 6. AI evaluation
 
+> [!IMPORTANT]
+> **AI accuracy has not been rigorously validated.** The built-in evaluation uses fictional reports only; it is not clinical validation, and the target of 98% accuracy on critical fields is not met yet. Rigorous validation, on a de-identified real-document set with repeated runs, is planned for the future. Use synthetic documents only, and always check results against the original document.
+
 ### Method
 
 `backend/evaluation/` measures the real pipeline without real patient data:
@@ -217,7 +225,7 @@ The release thresholds are in `spec/AI_spec.md` §11:
 | Low-confidence critical fields routed to review | All | Met for unreadable and off-line values; OCR misreads copied faithfully still pass |
 | Non-critical fields | ≥ 90% | Not measured separately yet |
 
-Use synthetic documents only. The evaluation shows behaviour and failure points; it is not clinical validation. A de-identified real-document set is still needed.
+**AI accuracy has not been rigorously validated.** The evaluation shows behaviour and failure points on fictional documents; it is not clinical validation. Rigorous validation (a de-identified real-document set, repeated runs, and meeting the 98% critical-field gate) is kept as a future plan. Until then, use synthetic documents only.
 
 ---
 
@@ -276,7 +284,7 @@ Changing `infra/server-setup.sh` replaces the server on apply. The site is down 
 
 ## 9. Known limitations
 
-- **Extraction accuracy** is below the release gate on the synthetic set. AI output also varies between runs ("Refresh analysis" re-reads a document). Planned: page-by-page reading with a coverage check that re-reads missed lines.
+- **AI accuracy is not rigorously validated.** It is below the release gate on the synthetic set, and rigorous validation on de-identified real documents is planned for the future. AI output also varies between runs ("Refresh analysis" re-reads a document). Planned: page-by-page reading with a coverage check that re-reads missed lines.
 - **Uploaded document text goes to Groq.** Use synthetic documents only until a privacy review.
 - **Password reset is off** until SES production access is granted. In the SES sandbox, mail reaches only verified addresses.
 - **The server is reachable from the internet** on ports 80 and 443. CloudFront would remove that once the account is verified.
