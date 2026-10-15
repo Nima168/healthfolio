@@ -21,33 +21,6 @@ describe('Welcome page', () => {
     expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
   })
 
-  it('ends by saying AI accuracy is not rigorously validated, and shows how a document is read', async () => {
-    stubFetch(LOGGED_OUT)
-    renderAt('/welcome')
-
-    const hero = await screen.findByRole('region', { name: 'Healthfolio' })
-    expect(within(hero).queryByRole('note')).not.toBeInTheDocument()
-    const notice = screen.getByRole('note', { name: 'AI accuracy has not been rigorously validated.' })
-    // At the end of the page, after the disclaimer.
-    const disclaimer = screen.getByText(/gives information, not medical advice/)
-    expect(disclaimer.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(within(notice).getByText('AI accuracy has not been rigorously validated.').tagName).toBe('STRONG')
-    expect(notice.querySelector('p')).toHaveTextContent(
-      'Reading is tested only on fictional sample reports. That is not clinical validation, and the target of 98% ' +
-        'accuracy on key values is not met yet. Rigorous validation is planned for the future.',
-    )
-    // Said once, in the notice only.
-    expect(screen.getAllByText(/rigorously validated/)).toHaveLength(1)
-
-    const steps = screen.getByRole('region', { name: 'How it works' })
-    expect(within(steps).getByRole('img', { name: /How a document is read/ })).toHaveAttribute(
-      'src',
-      '/welcome/how-a-document-is-read.webp',
-    )
-    // Password reset by email is switched off, so the page does not promise it.
-    expect(screen.queryByText(/Reset it from the login page/)).not.toBeInTheDocument()
-  })
-
   it('links back from the login page', async () => {
     stubFetch(LOGGED_OUT)
     renderAt('/login')

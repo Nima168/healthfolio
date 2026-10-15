@@ -116,22 +116,6 @@ const PRINCIPLES = [
   { title: 'Private by design', text: 'Only you can see your records, and you can export or delete them at any time.' },
 ]
 
-/** Closes the page: the AI reading is measured on fictional reports only, not rigorously validated. */
-function AccuracyNotice() {
-  return (
-    <aside className="welcome-notice" role="note" aria-labelledby="accuracy-notice-title">
-      <span className="welcome-notice-label" aria-hidden="true">
-        Note
-      </span>
-      <strong id="accuracy-notice-title">AI accuracy has not been rigorously validated.</strong>
-      <p>
-        Reading is tested only on fictional sample reports. That is not clinical validation, and the target of 98%
-        accuracy on key values is not met yet. Rigorous validation is planned for the future.
-      </p>
-    </aside>
-  )
-}
-
 /** Public introduction to Healthfolio (no sign-in needed). */
 export function WelcomePage() {
   const { status } = useAuth()
@@ -212,18 +196,6 @@ export function WelcomePage() {
               </li>
             ))}
           </ol>
-          <figure className="welcome-pipeline">
-            <a href="/welcome/how-a-document-is-read.webp" target="_blank" rel="noreferrer">
-              <img
-                src="/welcome/how-a-document-is-read.webp"
-                alt="How a document is read: upload, queue the job, get the text (PyMuPDF or OCR), Groq AI structures it, fixed rules check every value, then the summary. Unclear copies are sent back; pages with low OCR confidence go to the AI as images."
-                loading="lazy"
-              />
-            </a>
-            <figcaption>
-              How a document is read. The AI only reads the text; fixed rules in code check every value before you see it.
-            </figcaption>
-          </figure>
         </section>
 
         <ScreenshotTour />
@@ -268,7 +240,6 @@ export function WelcomePage() {
           your local emergency number. This is a prototype: please use sample documents, not real patient records,
           until its privacy review is complete.
         </p>
-        <AccuracyNotice />
       </main>
 
       <footer className="welcome-footer">

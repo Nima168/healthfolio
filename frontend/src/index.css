@@ -1911,65 +1911,6 @@ section[aria-labelledby='page-title'] > .card + .card {
   padding: 13px 30px;
   text-decoration: none;
 }
-/* Accuracy note at the end of the page: amber like other warnings, full width, with room to read. */
-.welcome-notice {
-  display: block;
-  margin: 40px 0 0;
-  padding: 26px 32px 28px;
-  border: 1px solid #f0d29a;
-  border-left: 6px solid var(--color-problem-text);
-  border-radius: var(--radius-lg);
-  background: var(--color-problem-bg);
-  box-shadow: var(--shadow-soft);
-  text-align: left;
-}
-.welcome-notice-label {
-  display: block;
-  margin-bottom: 10px;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-problem-text);
-}
-.welcome-notice strong {
-  display: block;
-  font-family: var(--font-heading);
-  font-size: 1.45rem;
-  font-weight: 400;
-  line-height: 1.3;
-  color: var(--color-problem-text);
-}
-.welcome-notice p {
-  margin: 12px 0 0;
-  font-size: 1.15rem;
-  line-height: 1.7;
-  color: var(--color-text);
-}
-@media (max-width: 600px) {
-  .welcome-notice {
-    padding: 20px 18px 22px;
-  }
-}
-/* "How a document is read" diagram under the steps. */
-.welcome-pipeline {
-  margin: 28px 0 0;
-  text-align: center;
-}
-.welcome-pipeline img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-}
-.welcome-pipeline figcaption {
-  margin-top: 10px;
-  color: var(--color-text-muted);
-}
 .welcome-section {
   margin-top: 56px;
 }
