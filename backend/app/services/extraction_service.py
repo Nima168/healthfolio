@@ -472,7 +472,12 @@ class ExtractionRunner:
         content, media_type = self._original
         images = prepare(content, media_type, "scanned", ocr=None)
         jobs.heartbeat(self.session, job, "extracting_images")
-        outcome = extract(images)
+        try:
+            outcome = extract(images)
+        except ExtractionError as exc:
+            # The first reading stands (its unread parts show as Not identified); reading again can retry.
+            logger.warning("second look failed", extra={"job_id": str(job.id), "reason": exc.category})
+            return None
         self._add_usage(job, outcome.model, outcome.input_tokens, outcome.output_tokens)
         after = outcome.payload.medications
         if len(after) < len(medications) or sum(needs_second_look(m) for m in after) >= before:

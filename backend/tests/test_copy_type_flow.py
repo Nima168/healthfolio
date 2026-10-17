@@ -1,5 +1,6 @@
 """Copy type (digital or scanned) from upload to reading, and "Refresh analysis" (real test database)."""
 
+import groq
 import pytest
 from sqlalchemy import select
 
@@ -11,6 +12,7 @@ from app.worker import Worker
 from tests.ai_fakes import (
     SYNTHETIC_REPORT_LINES,
     FakeGroq,
+    api_error,
     medication,
     payload,
     prescription,
@@ -182,3 +184,15 @@ def test_a_clear_scanned_reading_needs_no_second_look(client, asha):
 
     assert len(fake.requests) == 1
     assert extraction(client, asha, document["id"])["job"]["reading_method"] == "ocr"
+
+
+def test_a_failed_second_look_keeps_the_first_reading(client, asha):
+    document = upload(client, asha, printed_scan(), category="prescription", copy_type="scanned")
+    unread = prescription(medications=[medication(**AMOXICILLIN, instructions="625 mg", duration_text=None)])
+
+    run_worker(response(unread), api_error(groq.RateLimitError, 429), ocr=TableOcr())
+
+    body = extraction(client, asha, document["id"])
+    assert (body["job"]["status"], body["job"]["reading_method"]) == ("completed_with_warnings", "ocr")
+    [medicine] = body["prescription"]["medications"]
+    assert medicine["instructions"] == "Not identified"
