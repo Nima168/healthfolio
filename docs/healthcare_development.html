@@ -278,7 +278,7 @@
   <div class="section-head"><h2 id="s3-title">3. Document processing pipeline</h2><span class="badge done">Built</span></div>
   <figure>
     <img src="architecture/extraction-pipeline.png" alt="How a document is read: text from PyMuPDF or Tesseract OCR, vision fallback for low-confidence pages, Groq extraction with a strict schema, deterministic validation, rule-based summaries" loading="lazy">
-    <figcaption>How a document is read (source: <a href="architecture/extraction-pipeline.json">architecture/extraction-pipeline.json</a>). The medicine "second look" below was added after this diagram.</figcaption>
+    <figcaption>How a document is read (source: <a href="architecture/extraction-pipeline.json">architecture/extraction-pipeline.json</a>). It includes the medicine "second look": when a medicine read from OCR text is incomplete, the page image is read again.</figcaption>
   </figure>
   <div class="flow" role="img" aria-label="Pipeline with branches">
     <div class="step"><b>PDF or photo</b>user picks report type and digital/scanned</div><span class="arrow">→</span>

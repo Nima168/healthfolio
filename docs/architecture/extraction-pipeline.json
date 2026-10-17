@@ -32,7 +32,7 @@
     },
     {
       "id": "exceptions",
-      "label": "Unclear copy or low OCR",
+      "label": "Unclear copy, low OCR, unread medicine",
       "variant": "exception"
     }
   ],
@@ -130,6 +130,14 @@
       "type": "backend",
       "label": "Page image",
       "sublabel": "OCR under 85%"
+    },
+    {
+      "id": "second-look",
+      "lane": "exceptions",
+      "col": 4,
+      "type": "external",
+      "label": "Second look",
+      "sublabel": "page image"
     }
   ],
   "edges": [
@@ -189,8 +197,21 @@
       "to": "structure",
       "label": "image",
       "role": "branch",
-      "fromSide": "top",
-      "toSide": "bottom"
+      "fromSide": "top"
+    },
+    {
+      "id": "structure-second-look",
+      "from": "structure",
+      "to": "second-look",
+      "label": "medicine unread",
+      "role": "branch"
+    },
+    {
+      "id": "second-look-rules",
+      "from": "second-look",
+      "to": "rules",
+      "label": "if clearer",
+      "role": "branch"
     }
   ]
 }
