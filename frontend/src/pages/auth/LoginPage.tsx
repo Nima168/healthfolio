@@ -96,7 +96,11 @@ function DemoNote({ account, onUse }: { account: DemoAccount; onUse: (account: D
         <dt>Password</dt>
         <dd>{account.password}</dd>
       </dl>
-      <p className="demo-note-ask">Please don't change the demo account's email or password: others use it too.</p>
+      <p className="demo-note-ask">
+        Please don't change the demo account's email or password.
+        <br />
+        Please don't delete the uploaded medical documents.
+      </p>
       <button type="button" className="button button-secondary" onClick={() => onUse(account)}>
         Use demo account
       </button>
