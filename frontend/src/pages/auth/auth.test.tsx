@@ -99,8 +99,9 @@ describe('Demo account note', () => {
     expect(note).toHaveTextContent('Try the app and its AI features')
     expect(note).toHaveTextContent('demo@example.com')
     expect(note).toHaveTextContent('demo passphrase 1')
-    expect(note).toHaveTextContent("Please don't change the demo account's email or password.")
-    expect(note).toHaveTextContent("Please don't delete the uploaded medical documents.")
+    expect(note).toHaveTextContent(
+      "Please don't change the demo account's email or password and don't delete the uploaded medical documents.",
+    )
 
     await userEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
     expect(screen.getByLabelText('Email')).toHaveValue('demo@example.com')
