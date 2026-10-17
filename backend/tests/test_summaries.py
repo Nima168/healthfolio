@@ -9,7 +9,16 @@ from app.ai.summary import SummaryPayload, _months, _numbers, build_request, che
 from app.api.v1.summaries import provide_ai_client
 from app.core.config import get_settings
 from app.models.summary import AiSummary
-from app.services.summary_facts import Fact, Facts
+from app.services.summary_facts import (
+    LEFT_OUT_RESERVE,
+    MAX_FACTS_CHARS,
+    Fact,
+    Facts,
+    _current,
+    _fitting,
+    facts_size,
+)
+from app.services.timeline_service import TimelineEntry
 from tests.ai_fakes import FakeGroq, connection_error, payload, response, result
 from tests.test_extraction_flow import make_user, run_worker, upload_report
 
@@ -134,6 +143,37 @@ def test_request_sends_only_facts_as_data_with_a_strict_schema():
     assert "Mine" not in user["content"]  # document titles stay on the server
 
 
+def test_status_is_sent_and_the_facts_are_compact():
+    facts = Facts(records=[Fact(id="F1", kind="follow_ups", title="Repeat CBC (due)", status="Overdue")], checks=[])
+
+    content = build_request(facts, get_settings(), scope="history")["messages"][1]["content"]
+
+    assert '"status":"Overdue"' in content
+    assert "\n " not in content  # no indentation: the AI service limits input tokens a minute
+
+
+def test_cancelled_follow_ups_are_left_out():
+    entries = [
+        TimelineEntry(
+            id="a", date=None, date_precision=None, category="follow_ups", title="CBC (due)", tag="Cancelled"
+        ),
+        TimelineEntry(id="b", date=None, date_precision=None, category="follow_ups", title="KFT (due)", tag="Upcoming"),
+    ]
+
+    assert [e.title for e in _current(entries)] == ["KFT (due)"]
+
+
+def test_oldest_records_are_left_out_when_the_facts_are_too_large():
+    timeline = [Fact(id=f"F{i}", kind="lab_results", title=f"Lab results {i}", details=["x" * 1000]) for i in range(30)]
+    profile = [Fact(id="F1", kind="profile", title="Sex: male")]
+
+    kept = _fitting(timeline, profile)
+
+    assert 0 < kept < len(timeline)
+    assert facts_size(timeline[:kept] + profile) <= MAX_FACTS_CHARS - LEFT_OUT_RESERVE
+    assert _fitting(timeline[:3], profile) == 3  # small histories are sent whole
+
+
 # ---------- end to end ----------
 
 HBA1C = result(
@@ -212,7 +252,8 @@ def test_history_summary_is_written_checked_and_cited(client, asha, db, ai):
 
     # Stored with its versions, and shown again on the next visit.
     stored = db.scalars(select(AiSummary)).one()
-    assert (stored.scope, stored.prompt_version, stored.model_version) == ("history", "summary-v4", "qwen/qwen3.8-27b")
+    expected = ("history", "summary-v5-status", "qwen/qwen3.8-27b")
+    assert (stored.scope, stored.prompt_version, stored.model_version) == expected
     assert client.get("/api/v1/summaries/history", headers=asha).json()["summary"]["id"] == summary["id"]
 
 

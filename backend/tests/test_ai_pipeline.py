@@ -193,6 +193,7 @@ def test_multi_batch_scan_results_are_merged(settings):
         (connection_error(), "ai_unavailable", True),
         (api_error(groq.AuthenticationError, 401), "ai_not_configured", False),
         (api_error(groq.BadRequestError, 400), "ai_request_rejected", False),
+        (api_error(groq.APIStatusError, 413), "ai_request_too_large", False),  # over the input-token limit
     ],
 )
 def test_failures_are_classified(settings, reply, category, transient):

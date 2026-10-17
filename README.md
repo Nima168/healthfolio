@@ -300,7 +300,7 @@ Every response carries an `X-Request-ID` header for troubleshooting.
 
 ## Testing
 
-608 backend tests (unit and integration, with a fake AI client) and 165 frontend tests.
+612 backend tests (unit and integration, with a fake AI client) and 165 frontend tests.
 
 ```bash
 # Backend (integration tests need the database running)

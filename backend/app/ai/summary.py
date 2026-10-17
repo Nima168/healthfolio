@@ -15,8 +15,9 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.services.summary_facts import Fact, Facts
 
-SUMMARY_PROMPT_VERSION = "summary-v4"
-MAX_SUMMARY_TOKENS = 6000
+SUMMARY_PROMPT_VERSION = "summary-v5-status"
+# Includes the model's hidden reasoning: 6,000 ran out on a 48-record history (2026-10-17). Same as document reading.
+MAX_SUMMARY_TOKENS = 16000
 MAX_SENTENCES_PER_SECTION = 10
 MAX_SENTENCE_CHARS = 400
 MAX_EXPLANATIONS = 6
@@ -44,6 +45,8 @@ cannot support with the facts.
 Do not count facts yourself (write "several" or "some", not a number you worked out).
 - Say a medicine is being taken or was stopped only when its fact says "taking" or "stopped". Otherwise say \
 it was prescribed or is listed.
+- A fact's status (for example "Overdue", "Upcoming", "Done", "Taking", "2 outside range") is set by the app; \
+use it as given.
 - Do not diagnose, do not suggest treatment or changes to medicines, and do not say whether the person is \
 healthy or ill. Results outside the range printed on a report are "worth discussing with your doctor", \
 not a diagnosis.
@@ -136,7 +139,8 @@ class SummaryPayload(BaseModel):
 
 def build_request(facts: Facts, settings: Settings, *, scope: str) -> dict[str, Any]:
     """The chat-completion request. Pure, so what is sent can be checked offline."""
-    data = json.dumps([fact.for_model() for fact in facts.all], ensure_ascii=False, indent=1)
+    # Compact: the AI service limits input tokens a minute (app/services/summary_facts.py MAX_FACTS_CHARS).
+    data = json.dumps([fact.for_model() for fact in facts.all], ensure_ascii=False, separators=(",", ":"))
     instruction = DOCUMENT_INSTRUCTION if scope == "document" else HISTORY_INSTRUCTION
     return {
         "model": settings.ai_model,

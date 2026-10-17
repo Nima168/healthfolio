@@ -632,6 +632,10 @@ class GroqExtractor:
             logger.error("ai request rejected", extra={"status": exc.status_code})
             raise ExtractionError("ai_request_rejected", transient=False) from exc
         except groq.APIStatusError as exc:
+            if (
+                exc.status_code == 413
+            ):  # larger than the service allows (e.g. input tokens a minute): retrying cannot help
+                raise ExtractionError("ai_request_too_large", transient=False) from exc
             raise ExtractionError("ai_unavailable", transient=exc.status_code >= 500) from exc
 
         choice = response.choices[0]

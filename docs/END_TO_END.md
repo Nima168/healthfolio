@@ -145,8 +145,8 @@ The AI only reads. Everything that could mislead is decided by deterministic cod
 
 | Suite | Size | Command |
 |---|---|---|
-| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 608 tests | `cd backend && uv run pytest` |
-| Backend without the database | 369 tests | `uv run pytest -m "not integration"` |
+| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 612 tests | `cd backend && uv run pytest` |
+| Backend without the database | 373 tests | `uv run pytest -m "not integration"` |
 | One real AI call on a synthetic report (costs a little) | 3 tests | `RUN_LIVE_AI=1 uv run pytest -m live` |
 | Frontend: components and pages (Vitest, Testing Library) | 165 tests in 19 files | `cd frontend && npm run test` |
 | Lint and types | — | `uv run ruff check .`, `npm run lint` (oxlint), `npm run build` (`tsc -b` + Vite) |

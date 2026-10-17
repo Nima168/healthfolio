@@ -28,6 +28,7 @@ _READ = ("completed", "completed_with_warnings")
 _FAILURES = {
     "ai_not_configured": "AI summaries are not set up on this server.",
     "ai_unavailable": "The AI service is busy or unreachable. Please try again in a minute.",
+    "ai_request_too_large": "There is too much to summarise in one request for the AI service. Please contact support.",
 }
 
 

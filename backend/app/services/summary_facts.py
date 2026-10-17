@@ -21,6 +21,10 @@ from app.services.profile_service import ProfileService
 from app.services.timeline_service import TimelineEntry, TimelineService
 
 MAX_RECORD_FACTS = 120  # newest first; keeps the request well inside the model's context
+# The facts as sent (compact JSON). With the instructions this keeps a request under the AI service's limit of
+# 7,000 input tokens a minute (a 64-fact history was 7,714 tokens and was refused, 2026-10-17).
+MAX_FACTS_CHARS = 14_000
+LEFT_OUT_RESERVE = 250  # room for the "older records left out" check
 STALE_LAB_DAYS = 365
 
 TRUST = {
@@ -40,6 +44,7 @@ class Fact:
     date: str | None = None
     details: list[str] = field(default_factory=list)
     trust: str | None = None
+    status: str | None = None  # set by the app: "Overdue", "Done", "Taking", "2 outside range"
     # Shown to the user with the citation; never sent to the model.
     source_document_id: str | None = None
     source_document_title: str | None = None
@@ -49,6 +54,8 @@ class Fact:
         data = {"id": self.id, "kind": self.kind, "title": self.title, "date": self.date or "not mentioned"}
         if self.details:
             data["details"] = self.details
+        if self.status:
+            data["status"] = self.status
         if self.trust:
             data["source"] = TRUST.get(self.trust, self.trust)
         return data
@@ -87,6 +94,7 @@ def _entry_fact(index: int, entry: TimelineEntry) -> Fact:
         date=entry.date.isoformat() if entry.date else None,
         details=[line for line in entry.lines if line],
         trust=entry.trust,
+        status=entry.tag,
         source_document_id=str(entry.source_document_id) if entry.source_document_id else None,
         source_document_title=entry.source_document_title,
         link=entry.link,
@@ -100,10 +108,26 @@ class SummaryFacts:
     # ---------- whole history ----------
 
     def history(self, user_id: uuid.UUID) -> Facts:
-        entries = TimelineService(self.session).entries(user_id)
-        records = [_entry_fact(i, e) for i, e in enumerate(entries[:MAX_RECORD_FACTS], start=1)]
-        records += self._profile(user_id, start=len(records) + 1)
-        return Facts(records=records, checks=self._history_checks(user_id, entries))
+        entries = _current(TimelineService(self.session).entries(user_id))
+        timeline = [_entry_fact(i, e) for i, e in enumerate(entries[:MAX_RECORD_FACTS], start=1)]
+        profile = self._profile(user_id, start=1)
+        checks = self._history_checks(user_id, entries)
+        # Oldest timeline records are left out first when the facts would be too large to send.
+        kept = _fitting(timeline, profile + checks)
+        records = timeline[:kept] + profile
+        for index, fact in enumerate(records, start=1):
+            fact.id = f"F{index}"
+        if kept < len(timeline):
+            left_out = _plural(len(timeline) - kept, "older record was", "older records were")
+            checks.append(
+                Fact(
+                    id=f"C{len(checks) + 1}",
+                    kind="check",
+                    title=f"{left_out} left out of this summary to keep it within the AI service's size limit.",
+                    link="/timeline",
+                )
+            )
+        return Facts(records=records, checks=checks)
 
     def _profile(self, user_id: uuid.UUID, start: int) -> list[Fact]:
         data = ProfileService(self.session).profile(user_id)
@@ -188,7 +212,9 @@ class SummaryFacts:
     # ---------- one document ----------
 
     def document(self, user_id: uuid.UUID, document: Document) -> Facts:
-        entries = [e for e in TimelineService(self.session).entries(user_id) if e.source_document_id == document.id]
+        entries = [
+            e for e in _current(TimelineService(self.session).entries(user_id)) if e.source_document_id == document.id
+        ]
         records = [_entry_fact(i, e) for i, e in enumerate(entries[:MAX_RECORD_FACTS], start=1)]
         return Facts(records=records, checks=self._document_checks(user_id, document))
 
@@ -217,6 +243,25 @@ class SummaryFacts:
         return _checks(
             [(f"{_plural(count, one, many)} {text}", link) for count, one, many, text, link in rules if count]
         )
+
+
+def _current(entries: list[TimelineEntry]) -> list[TimelineEntry]:
+    """Cancelled follow-ups are not part of the person's health picture, so they are not sent."""
+    return [e for e in entries if not (e.category == "follow_ups" and e.tag == "Cancelled")]
+
+
+def facts_size(facts: list[Fact]) -> int:
+    """Characters of the facts as sent to the model (compact JSON, app/ai/summary.py)."""
+    return len(json.dumps([f.for_model() for f in facts], ensure_ascii=False, separators=(",", ":")))
+
+
+def _fitting(timeline: list[Fact], rest: list[Fact]) -> int:
+    """How many of the newest timeline facts fit next to the others within MAX_FACTS_CHARS."""
+    budget = MAX_FACTS_CHARS - facts_size(rest) - LEFT_OUT_RESERVE
+    kept = len(timeline)
+    while kept and facts_size(timeline[:kept]) > budget:
+        kept -= 1
+    return kept
 
 
 def _checks(items: list[tuple[str, str]]) -> list[Fact]:

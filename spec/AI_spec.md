@@ -154,6 +154,8 @@ The AI layer may organize information chronologically and summarize documented h
 
 Sentences in an AI summary that cannot be matched to the user's records are removed and not shown; the number removed is stored (`dropped_count`) for monitoring but no longer shown to the user (decision 2026-10-17).
 
+What a summary is given (decision 2026-10-17): cancelled follow-ups are not sent; each fact carries its status as the app shows it ("Overdue", "Done", "Taking", "2 outside range"). The facts are sent as compact JSON within a size budget so the request stays under the AI service's input-tokens-a-minute limit; when they would exceed it, the oldest timeline records are left out and the summary says how many ("8 older records were left out of this summary…"). A request the service refuses as too large is reported as such (`ai_request_too_large`), not as "busy".
+
 Trend identification across dates is deferred. When introduced, trends must not be interpreted as diagnoses, and measurement comparison follows `backend_spec.md` Section 7.2.
 
 ### 6.1 General-Knowledge Explanations

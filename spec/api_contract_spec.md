@@ -255,7 +255,7 @@ All require a Bearer access token. Another user's document returns `404` on ever
 6. No diagnosis, causes, or advice.
 
 The client shows it as plain text: `Report Date`, `Values Above Range`, `Values Below Range`, `Normal Values` (each `None` when empty), then `Invalid Records` only when there are any. Invalid records are shown as written (value, unit, range), never judged, each followed by its `reason` (2026-10-17). No closing line (removed 2026-10-11).
-- `error_category` values are safe codes (e.g. `ai_unavailable`, `ai_refused`, `image_too_large`, `unreadable_pdf`); clients map them to plain-language messages.
+- `error_category` values are safe codes (e.g. `ai_unavailable`, `ai_refused`, `ai_request_too_large`, `image_too_large`, `unreadable_pdf`); clients map them to plain-language messages.
 
 Rules:
 

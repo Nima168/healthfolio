@@ -269,6 +269,7 @@ export const FAILURE_MESSAGES: Record<string, string> = {
   ai_not_configured: 'AI extraction is not set up on this server.',
   ai_refused: 'The AI service declined to process this document.',
   ai_request_rejected: 'The AI service could not accept this document.',
+  ai_request_too_large: 'This document is too large for the AI service to read in one request.',
   ai_output_too_long: 'The document has more results than can be read in one pass.',
   ai_invalid_output: 'The AI response could not be understood.',
   ai_empty_output: 'Nothing could be read this time, although the document has content. Use Refresh analysis to try again.',
