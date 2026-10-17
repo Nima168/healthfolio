@@ -50,6 +50,10 @@ jobs:
       - name: Sign in to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      # The base image comes from ECR Public; anonymous pulls from shared runners get rate-limited (429).
+      - name: Sign in to ECR Public (base image)
+        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
       - name: Build and push the API image
         working-directory: backend
         run: |

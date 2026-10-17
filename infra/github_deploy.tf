@@ -78,6 +78,14 @@ resource "aws_iam_role_policy" "github_deploy" {
         Resource = "*"
       },
       {
+        # Signed-in pulls of the base image from ECR Public (anonymous pulls from shared GitHub runners hit
+        # "429 Too Many Requests – Data limit exceeded"). Read-only: a login token, nothing else.
+        Sid      = "PullBaseImageSignedIn"
+        Effect   = "Allow"
+        Action   = ["ecr-public:GetAuthorizationToken", "sts:GetServiceBearerToken"]
+        Resource = "*"
+      },
+      {
         Sid    = "PushApiImage"
         Effect = "Allow"
         Action = [
