@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Healthfolio Development Record</title>
+<meta name="description" content="End-to-end development record of Healthfolio, an AI healthcare decision-support system: specifications, architecture, document pipeline, AI evaluation, safety, deployment, design decisions, and interview preparation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;600&family=Neuton:ital,wght@0,300;0,400;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAF7F2; --card: #FFFDF9; --text: #2F3128; --muted: #6A675C; --line: #E6DFD4; --accent: #5A6848;
+    --olive: #7A8864; --blue: #A9BDD1; --peach: #E5BCA9; --sky: #E3EAF2; --mint: #E9ECDF; --lilac: #F4EBDC;
+    --done-bg: #E9ECDF; --done-fg: #4A5A38; --part-bg: #F4EBDC; --part-fg: #8A5A2B; --plan-bg: #E3EAF2; --plan-fg: #3F5A75;
+    --gap-bg: #F6E3DC; --gap-fg: #8A3B2B;
+    --serif: "DM Serif Display", Georgia, serif; --body: Neuton, Georgia, serif; --mono: "JetBrains Mono", Menlo, monospace;
+    --shadow: 0 1px 3px rgba(47,49,40,.06), 0 6px 18px rgba(47,49,40,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1E1F1A; --card: #26281F; --text: #ECE8DF; --muted: #B3AE9F; --line: #3A3C31; --accent: #A9B98F;
+      --sky: #2B3440; --mint: #2E3427; --lilac: #3A3226;
+      --done-bg: #2E3427; --done-fg: #C3D2A8; --part-bg: #3A3226; --part-fg: #E6C08F; --plan-bg: #2B3440; --plan-fg: #B9CDE2;
+      --gap-bg: #40271F; --gap-fg: #F0B9A6;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1E1F1A; --card: #26281F; --text: #ECE8DF; --muted: #B3AE9F; --line: #3A3C31; --accent: #A9B98F;
+    --sky: #2B3440; --mint: #2E3427; --lilac: #3A3226;
+    --done-bg: #2E3427; --done-fg: #C3D2A8; --part-bg: #3A3226; --part-fg: #E6C08F; --plan-bg: #2B3440; --plan-fg: #B9CDE2;
+    --gap-bg: #40271F; --gap-fg: #F0B9A6;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 19px/1.6 var(--body); }
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-visible {
+    outline: 3px solid var(--olive); outline-offset: 2px; border-radius: 6px;
+  }
+  .skip { position: absolute; left: -999px; top: 8px; background: var(--card); padding: 8px 12px; z-index: 10; }
+  .skip:focus { left: 8px; }
+  code, .mono, .badge, .tag, td.mono { font-family: var(--mono); font-size: .76rem; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 400; line-height: 1.2; }
+  h1 { font-size: clamp(2rem, 4vw, 2.8rem); margin: 0 0 6px; }
+  h2 { font-size: 1.7rem; margin: 0 0 14px; }
+  h3 { font-size: 1.25rem; margin: 18px 0 8px; color: var(--accent); }
+  p { margin: 0 0 12px; }
+
+  .layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 28px; max-width: 1280px; margin: 0 auto; padding: 24px 16px 80px; }
+  .layout > *, .grid2 > *, .tracker > *, .kpis > * { min-width: 0; }
+  code, p, li, .card { overflow-wrap: anywhere; }
+  body { overflow-x: hidden; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto;
+            background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+  nav.toc h2 { font-size: 1.1rem; margin-bottom: 8px; }
+  nav.toc ol { list-style: none; padding: 0; margin: 0; }
+  nav.toc li a { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: 8px; text-decoration: none; color: var(--text); font-size: .95rem; }
+  nav.toc li a:hover, nav.toc li a.active { background: var(--mint); }
+  .toc-tools { display: grid; gap: 8px; margin-top: 14px; }
+  .search { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: .95rem; }
+  .btn { font: inherit; font-size: .9rem; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  .btn:hover { background: var(--mint); }
+  .btn[aria-pressed="true"] { background: var(--accent); color: var(--card); border-color: var(--accent); }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+
+  header.hero { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 28px; box-shadow: var(--shadow); margin-bottom: 22px; }
+  .meta { color: var(--muted); font-family: var(--mono); font-size: .76rem; }
+  .notice { border-left: 4px solid var(--peach); background: var(--lilac); padding: 12px 16px; border-radius: 10px; margin-top: 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+  .kpi { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .kpi b { display: block; font-family: var(--serif); font-size: 1.6rem; font-weight: 400; color: var(--accent); }
+  .kpi span { font-size: .85rem; color: var(--muted); }
+
+  section.block { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; margin-bottom: 20px; box-shadow: var(--shadow); scroll-margin-top: 16px; }
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .done { background: var(--done-bg); color: var(--done-fg); }
+  .partial { background: var(--part-bg); color: var(--part-fg); }
+  .planned { background: var(--plan-bg); color: var(--plan-fg); }
+  .gap { background: var(--gap-bg); color: var(--gap-fg); }
+
+  .tracker { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 6px 0 16px; }
+  .stage { text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--bg); cursor: pointer; font: inherit; color: var(--text); }
+  .stage:hover { border-color: var(--olive); }
+  .stage .num { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+  .stage strong { display: block; font-family: var(--serif); font-weight: 400; font-size: 1.05rem; margin: 2px 0 6px; }
+  .bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; margin-top: 8px; }
+  .bar i { display: block; height: 100%; background: var(--olive); }
+
+  .table-wrap { overflow-x: auto; margin: 8px 0 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 700; font-size: .85rem; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--bg); }
+  figure { margin: 10px 0 16px; }
+  figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+  figcaption { color: var(--muted); font-size: .85rem; margin-top: 6px; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 10px 0 16px; }
+  .flow .step { flex: 1 1 140px; background: var(--sky); border-radius: 12px; padding: 10px 12px; font-size: .9rem; }
+  .flow .step b { display: block; font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+  .flow .arrow { align-self: center; color: var(--muted); font-family: var(--mono); }
+  .flow .step.decide { background: var(--mint); }
+  .flow .step.warn { background: var(--lilac); }
+
+  details { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); margin: 8px 0; }
+  details > summary { cursor: pointer; padding: 11px 14px; list-style: none; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+  details[open] > summary::after { content: "–"; }
+  details .body { padding: 0 16px 14px; }
+  .label { font-family: var(--mono); font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; display: block; margin-top: 8px; }
+  .pros-cons { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  ul, ol.plain { padding-left: 22px; margin: 6px 0 12px; } li { margin-bottom: 4px; }
+  .hidden { display: none !important; }
+  .count { color: var(--muted); font-family: var(--mono); font-size: .75rem; }
+  footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 30px; }
+
+  @media (max-width: 600px) {
+    .badge { white-space: normal; }
+    details > summary { align-items: flex-start; }
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; max-height: none; }
+  }
+  @media print {
+    body { background: #fff; color: #000; font-size: 12pt; }
+    .layout { display: block; padding: 0; }
+    nav.toc, .btn-row, .toc-tools, .skip, .no-print { display: none !important; }
+    section.block, header.hero { box-shadow: none; break-inside: avoid-page; border-color: #ccc; }
+    details { border-color: #ccc; } details > summary::after { content: ""; }
+    details .body { display: block !important; }
+    a { color: #000; text-decoration: none; }
+    .hidden { display: revert !important; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="layout">
+
+<nav class="toc" aria-label="Table of contents">
+  <h2>Contents</h2>
+  <ol id="toc-list">
+    <li><a href="#overview">Overview <span class="count">0</span></a></li>
+    <li><a href="#tracker">Development tracker</a></li>
+    <li><a href="#s1">1. Requirements and specs</a></li>
+    <li><a href="#s2">2. System design</a></li>
+    <li><a href="#s3">3. Document pipeline</a></li>
+    <li><a href="#s4">4. AI models and APIs</a></li>
+    <li><a href="#s5">5. Backend and frontend</a></li>
+    <li><a href="#s6">6. AI evaluation and testing</a></li>
+    <li><a href="#s7">7. Safety and security</a></li>
+    <li><a href="#s8">8. Infrastructure</a></li>
+    <li><a href="#s9">9. Future roadmap</a></li>
+    <li><a href="#decisions">Design decisions</a></li>
+    <li><a href="#interview">Interview Q&amp;A</a></li>
+    <li><a href="#next">Risks and next steps</a></li>
+  </ol>
+  <div class="toc-tools">
+    <label for="search" class="label">Search this page</label>
+    <input id="search" class="search" type="search" placeholder="e.g. OCR, Groq, backup" autocomplete="off">
+    <p id="search-status" class="count" aria-live="polite"></p>
+    <button type="button" class="btn" id="expand-all">Expand all</button>
+    <button type="button" class="btn" id="collapse-all">Collapse all</button>
+    <button type="button" class="btn" id="print">Print / save as PDF</button>
+    <button type="button" class="btn" id="theme">Switch light / dark</button>
+  </div>
+</nav>
+
+<main id="main">
+
+<header class="hero" id="overview" data-search>
+  <div class="meta">Development record · state as of 2026-10-18 · branch feature/ai-extraction</div>
+  <h1>Healthfolio</h1>
+  <p>An AI healthcare decision-support system for individuals. People upload their own medical documents (lab reports, prescriptions, discharge summaries, consultation notes, imaging, pathology and specialist reports). A background worker reads them into structured records, and the app shows rule-based summaries, a timeline, alerts, follow-ups, a health profile, and cited AI summaries. It informs; it does not diagnose or replace a doctor.</p>
+  <p class="notice"><strong>Evidence rule for this page.</strong> Every status below comes from the repository: specifications, code, tests, configuration, and the end-to-end guide. Planned work is never counted as done. <strong>AI accuracy has not been rigorously validated:</strong> evaluation uses synthetic documents only, and the 98% critical-field release gate is not met.</p>
+  <div class="kpis">
+    <div class="kpi"><b>7</b><span>specification files (2,931 lines)</span></div>
+    <div class="kpi"><b>623</b><span>backend tests (3 skipped)</span></div>
+    <div class="kpi"><b>166</b><span>frontend tests in 19 files</span></div>
+    <div class="kpi"><b>21</b><span>database tables · 21 migrations</span></div>
+    <div class="kpi"><b>91.1%</b><span>fields right, synthetic quick set</span></div>
+    <div class="kpi"><b>0</b><span>misleading groupings (quick set)</span></div>
+  </div>
+</header>
+
+<section class="block" id="tracker" aria-labelledby="tracker-title">
+  <div class="section-head"><h2 id="tracker-title">Development tracker</h2><span class="count">click a stage to jump</span></div>
+  <div class="btn-row" role="group" aria-label="Filter stages by status">
+    <button type="button" class="btn" data-stage-filter="all" aria-pressed="true">All</button>
+    <button type="button" class="btn" data-stage-filter="done" aria-pressed="false">Done</button>
+    <button type="button" class="btn" data-stage-filter="partial" aria-pressed="false">Partly done</button>
+    <button type="button" class="btn" data-stage-filter="planned" aria-pressed="false">Planned</button>
+  </div>
+  <div class="tracker" id="stages">
+    <button type="button" class="stage" data-status="done" data-target="s1"><span class="num">STAGE 1</span><strong>Requirements and specs</strong><span class="badge done">Done</span><div class="bar"><i style="width:100%"></i></div></button>
+    <button type="button" class="stage" data-status="done" data-target="s2"><span class="num">STAGE 2</span><strong>System design</strong><span class="badge done">Done</span><div class="bar"><i style="width:100%"></i></div></button>
+    <button type="button" class="stage" data-status="done" data-target="s3"><span class="num">STAGE 3</span><strong>Document pipeline</strong><span class="badge done">Built</span> <span class="badge partial">accuracy gate not met</span><div class="bar"><i style="width:85%"></i></div></button>
+    <button type="button" class="stage" data-status="done" data-target="s4"><span class="num">STAGE 4</span><strong>AI models and APIs</strong><span class="badge done">Integrated</span> <span class="badge gap">privacy review open</span><div class="bar"><i style="width:80%"></i></div></button>
+    <button type="button" class="stage" data-status="done" data-target="s5"><span class="num">STAGE 5</span><strong>Backend and frontend</strong><span class="badge done">Done</span><div class="bar"><i style="width:100%"></i></div></button>
+    <button type="button" class="stage" data-status="partial" data-target="s6"><span class="num">STAGE 6</span><strong>AI evaluation and testing</strong><span class="badge partial">Partly done</span><div class="bar"><i style="width:60%"></i></div></button>
+    <button type="button" class="stage" data-status="partial" data-target="s7"><span class="num">STAGE 7</span><strong>Safety and security</strong><span class="badge partial">Partly done</span><div class="bar"><i style="width:75%"></i></div></button>
+    <button type="button" class="stage" data-status="partial" data-target="s8"><span class="num">STAGE 8</span><strong>Cloud deployment</strong><span class="badge done">Live on AWS</span> <span class="badge partial">no CI/CD</span><div class="bar"><i style="width:75%"></i></div></button>
+    <button type="button" class="stage" data-status="planned" data-target="s9"><span class="num">STAGE 9</span><strong>Future roadmap</strong><span class="badge planned">Planned</span><div class="bar"><i style="width:15%"></i></div></button>
+  </div>
+  <p class="count">Bar = share of the stage's documented scope with implementation evidence (an estimate from the evidence listed in each section, not a measured metric).</p>
+</section>
+
+<!-- 1 -->
+<section class="block" id="s1" data-search aria-labelledby="s1-title">
+  <div class="section-head"><h2 id="s1-title">1. Requirements and specifications</h2><span class="badge done">Done</span></div>
+  <p><strong>Problem.</strong> Records are scattered across hospitals, labs, and clinics in mixed formats; comparing reports and tracking follow-ups by hand loses information. <strong>Users:</strong> individuals managing their own records, including chronic-condition and post-procedure monitoring (<a href="../spec/goal_spec.md">goal_spec.md</a> §2–3).</p>
+  <h3>MVP scope (initial release)</h3>
+  <div class="grid2">
+    <div class="card"><span class="label">In scope</span>
+      <ul><li>Record management with preserved originals (UC-1, F-2)</li><li>Document processing and structured observations (F-3, F-4)</li><li>Medication tracking with history (UC-4, F-5)</li><li>Chronological history (UC-2, F-6)</li><li>Follow-ups shown in the app (UC-5, F-7)</li><li>Cited AI summaries (F-8) and rule-based safety alerts (UC-8, F-9)</li><li>Privacy, export, deletion (F-11, F-12)</li></ul></div>
+    <div class="card"><span class="label">Deferred / out of scope</span>
+      <ul><li>Trend comparison (UC-3) and Health Q&amp;A (UC-7): deferred</li><li>Automated reminder delivery: deferred</li><li>Caregiver/clinician access, EHR integration: future</li><li>Autonomous diagnosis or treatment changes: out of scope</li><li>Interpreting raw medical images: out of scope</li></ul></div>
+  </div>
+  <h3>The seven specification files</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Spec</th><th>Owns</th><th>Lines</th></tr>
+    <tr><td><a href="../spec/goal_spec.md">goal_spec.md</a></td><td>Product goals, use cases (UC-1…8), features (F-1…12), acceptance criteria AC-01…13</td><td class="mono">209</td></tr>
+    <tr><td><a href="../spec/backend_spec.md">backend_spec.md</a></td><td>Architecture, API design, jobs and retries, data management, ingestion, security</td><td class="mono">860</td></tr>
+    <tr><td><a href="../spec/AI_spec.md">AI_spec.md</a></td><td>Classification, OCR, extraction, validation decisions (dated), summaries, release gates</td><td class="mono">351</td></tr>
+    <tr><td><a href="../spec/api_contract_spec.md">api_contract_spec.md</a></td><td>Every endpoint, request/response shapes, error codes, processing states</td><td class="mono">603</td></tr>
+    <tr><td><a href="../spec/data_model_spec.md">data_model_spec.md</a></td><td>Tables, constraints, tombstones, history tables</td><td class="mono">259</td></tr>
+    <tr><td><a href="../spec/frontend_spec.md">frontend_spec.md</a></td><td>Screens, UX principles, accessibility, testing</td><td class="mono">425</td></tr>
+    <tr><td><a href="../spec/observability_and_reliability_spec.md">observability_and_reliability_spec.md</a></td><td>Logging, sensitive-data rule, health checks, backup targets, audit retention</td><td class="mono">224</td></tr>
+  </table></div>
+  <p>Specs are the source of truth: decided behaviour changes are recorded in the owning spec with a date (e.g. <a href="../spec/AI_spec.md">AI_spec.md</a> §4.5), and each topic has one owning spec.</p>
+</section>
+
+<!-- 2 -->
+<section class="block" id="s2" data-search aria-labelledby="s2-title">
+  <div class="section-head"><h2 id="s2-title">2. System design and architecture</h2><span class="badge done">Done</span></div>
+  <figure>
+    <img src="architecture/healthfolio-architecture.png" alt="Healthfolio architecture: browser, Caddy on EC2, FastAPI API and worker container, RDS PostgreSQL, S3 for documents and the website, Groq for AI reading, SSM and Secrets Manager for settings" loading="lazy">
+    <figcaption>System architecture as deployed (source: <a href="architecture/healthfolio-architecture.json">architecture/healthfolio-architecture.json</a>).</figcaption>
+  </figure>
+  <h3>Components</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Layer</th><th>Technology</th><th>Where</th></tr>
+    <tr><td>Frontend</td><td>React 19, Vite 8, TypeScript 6, React Router 7</td><td class="mono"><a href="../frontend/src">frontend/src</a> (feature folders)</td></tr>
+    <tr><td>API</td><td>FastAPI, Pydantic, SQLAlchemy 2, Alembic</td><td class="mono"><a href="../backend/app/api/v1">backend/app/api/v1</a> → services → repositories/models</td></tr>
+    <tr><td>Worker</td><td>Python process polling the <code>processing_jobs</code> table</td><td class="mono"><a href="../backend/app/worker.py">worker.py</a>, <a href="../backend/app/services/extraction_service.py">extraction_service.py</a></td></tr>
+    <tr><td>AI reading</td><td>PyMuPDF, Tesseract OCR 5, Groq (strict JSON schema)</td><td class="mono"><a href="../backend/app/ai">backend/app/ai</a></td></tr>
+    <tr><td>Database</td><td>PostgreSQL 16 (Docker locally, Amazon RDS deployed)</td><td class="mono">21 tables, 21 Alembic migrations</td></tr>
+    <tr><td>Files</td><td>Local disk or private S3, behind a storage interface</td><td class="mono"><a href="../backend/app/services/storage.py">storage.py</a></td></tr>
+    <tr><td>Infrastructure</td><td>Terraform, Docker, Caddy, systemd</td><td class="mono"><a href="../infra">infra/</a></td></tr>
+  </table></div>
+  <h3>Data flow</h3>
+  <div class="flow" role="img" aria-label="Upload, quality check, job queued, worker reads text, AI structures, code validates, rows stored, rule-based summary shown">
+    <div class="step"><b>1</b>Upload + type, sub-type, copy type</div><span class="arrow">→</span>
+    <div class="step"><b>2</b>Quality check (blur, darkness, size)</div><span class="arrow">→</span>
+    <div class="step"><b>3</b>Document + job row</div><span class="arrow">→</span>
+    <div class="step"><b>4</b>Worker: text via PyMuPDF / OCR</div><span class="arrow">→</span>
+    <div class="step"><b>5</b>Groq: strict JSON</div><span class="arrow">→</span>
+    <div class="step decide"><b>6</b>Code validates and decides</div><span class="arrow">→</span>
+    <div class="step decide"><b>7</b>Rule-based summary, alerts, timeline</div>
+  </div>
+  <h3>Database (21 tables)</h3>
+  <div class="grid2">
+    <div class="card"><span class="label">Accounts and audit</span><code>users</code>, <code>refresh_tokens</code>, <code>password_reset_tokens</code>, <code>audit_events</code>, <code>email_deliveries</code></div>
+    <div class="card"><span class="label">Documents and reading</span><code>documents</code>, <code>processing_jobs</code>, <code>observations</code>, <code>ai_summaries</code></div>
+    <div class="card"><span class="label">Clinical records</span><code>medications</code>, <code>medication_history</code>, <code>conditions</code>, <code>suggestions</code>, <code>follow_ups</code>, <code>vital_readings</code></div>
+    <div class="card"><span class="label">Profile and safety</span><code>profile_values</code>, <code>profile_value_history</code>, <code>medical_record_items</code>, <code>safety_rules</code>, <code>alerts</code>, <code>alert_events</code></div>
+  </div>
+  <p>Deleted documents become tombstones (file removed, identifying fields cleared, row kept for audit integrity), and since 2026-10-18 every record linked to a deleted document is deleted with it.</p>
+</section>
+
+<!-- 3 -->
+<section class="block" id="s3" data-search aria-labelledby="s3-title">
+  <div class="section-head"><h2 id="s3-title">3. Document processing pipeline</h2><span class="badge done">Built</span></div>
+  <figure>
+    <img src="architecture/extraction-pipeline.png" alt="How a document is read: text from PyMuPDF or Tesseract OCR, vision fallback for low-confidence pages, Groq extraction with a strict schema, deterministic validation, rule-based summaries" loading="lazy">
+    <figcaption>How a document is read (source: <a href="architecture/extraction-pipeline.json">architecture/extraction-pipeline.json</a>). The medicine "second look" below was added after this diagram.</figcaption>
+  </figure>
+  <div class="flow" role="img" aria-label="Pipeline with branches">
+    <div class="step"><b>PDF or photo</b>user picks report type and digital/scanned</div><span class="arrow">→</span>
+    <div class="step"><b>Digital</b>PyMuPDF text; watermark (rotated) text left out</div>
+    <div class="step"><b>Scanned</b>Tesseract at 300 DPI, table rows kept together</div><span class="arrow">→</span>
+    <div class="step warn"><b>&lt; 85% OCR confidence</b>page sent to the AI as an image</div><span class="arrow">→</span>
+    <div class="step"><b>Groq</b>one strict schema per report type</div><span class="arrow">→</span>
+    <div class="step warn"><b>Medicine part unread on OCR?</b>second look with the page image</div><span class="arrow">→</span>
+    <div class="step decide"><b>Validation</b>readability, source line, dates, ranges</div>
+  </div>
+  <div class="table-wrap"><table>
+    <tr><th>Step</th><th>What happens</th><th>Evidence</th></tr>
+    <tr><td>Upload</td><td>PDF, JPEG, PNG up to 20 MB; scans and photos checked for blur, darkness, blank pages, size; duplicates by SHA-256 refused</td><td class="mono"><a href="../backend/app/services/upload_quality.py">upload_quality.py</a>, <a href="../backend/app/services/document_service.py">document_service.py</a></td></tr>
+    <tr><td>Classification</td><td>The user's chosen report type decides; the AI classifies only when none was chosen</td><td class="mono"><a href="../backend/app/ai/extractor.py">extractor.py</a> (<code>classify-v4-ocr</code>)</td></tr>
+    <tr><td>Text</td><td>PyMuPDF for digital; Tesseract OCR for scans; low-confidence pages go as images ("vision")</td><td class="mono"><a href="../backend/app/ai/reading.py">reading.py</a></td></tr>
+    <tr><td>Structured extraction</td><td>Strict JSON schema per kind: lab, prescription, discharge, consultation, imaging, pathology, specialist, other test report. Values copied as written; unreadable parts listed</td><td class="mono"><a href="../backend/app/ai/schema.py">schema.py</a>, <a href="../backend/app/ai/extractor.py">extractor.py</a></td></tr>
+    <tr><td>Empty answers</td><td>A page with text that returns nothing is re-read up to two more times, then fails as <code>ai_empty_output</code></td><td class="mono">extractor.py</td></tr>
+    <tr><td>Medicine second look</td><td>If OCR left a medicine's frequency, duration, or strength unread, the page is read again as an image; used only if complete and clearer; if that call fails, the first reading stands (2026-10-17/18)</td><td class="mono">extraction_service.py, <a href="../backend/app/ai/prescription_validation.py">prescription_validation.py</a></td></tr>
+    <tr><td>Validation</td><td>Deterministic rules decide everything that could mislead (see §7)</td><td class="mono"><a href="../backend/app/ai/validation.py">validation.py</a>, <a href="../backend/app/ai/source_check.py">source_check.py</a>, <a href="../backend/app/ai/dates.py">dates.py</a></td></tr>
+    <tr><td>Summaries</td><td>Built by rules from stored rows: lab above/below/normal/invalid; prescriptions; discharge; reports</td><td class="mono"><a href="../backend/app/services/lab_summary.py">lab_summary.py</a>, report_summaries.py</td></tr>
+    <tr><td>Errors</td><td>Job states pending → running → completed / completed_with_warnings / failed / cancelled; safe error codes (e.g. <code>ai_unavailable</code>, <code>ai_request_too_large</code>, <code>unreadable_pdf</code>); originals never modified</td><td class="mono"><a href="../backend/app/services/jobs.py">jobs.py</a>, api_contract_spec.md §7</td></tr>
+  </table></div>
+  <h3>Source traceability</h3>
+  <p>Each extracted item keeps its page and the source line it was read from; each value must appear on its own test's line in the document text, otherwise it becomes "Not identified". AI summaries cite numbered facts, and every fact links back to its record and document.</p>
+</section>
+
+<!-- 4 -->
+<section class="block" id="s4" data-search aria-labelledby="s4-title">
+  <div class="section-head"><h2 id="s4-title">4. AI models and external APIs</h2><span class="badge done">Integrated</span></div>
+  <div class="table-wrap"><table>
+    <tr><th>Use</th><th>Model / API</th><th>Purpose</th><th>Notes (verified)</th></tr>
+    <tr><td>Document reading</td><td class="mono">Groq · qwen/qwen3.8-27b</td><td>Classify (when needed) and extract structured fields from text or page images</td><td>Strict JSON schema; reasoning hidden; up to 16,000 completion tokens; prompt versions stored on each job</td></tr>
+    <tr><td>AI summaries</td><td class="mono">Groq · same model</td><td>Plain-language summary of extracted facts, each sentence citing fact IDs</td><td>Facts sent as compact JSON within a size budget; code removes unsupported sentences</td></tr>
+    <tr><td>OCR</td><td class="mono">Tesseract 5 (local)</td><td>Text from scans</td><td>Runs inside the API image; no data leaves the server</td></tr>
+    <tr><td>PDF text</td><td class="mono">PyMuPDF (local)</td><td>Text layer of digital PDFs</td><td>Rotated watermark text is left out</td></tr>
+    <tr><td>Email</td><td class="mono">Amazon SES</td><td>Password reset</td><td>Switched off until SES production access</td></tr>
+  </table></div>
+  <h3>Limits and costs (verified)</h3>
+  <ul>
+    <li><strong>Groq input limit:</strong> 7,000 input tokens per minute on this account. A 7,714-token summary request was refused with HTTP 413 (2026-10-17); summaries now stay under a facts budget, and a 413 is reported as <code>ai_request_too_large</code>.</li>
+    <li><strong>Per-minute rate limits</strong> appear as <code>ai_unavailable</code> and are retried by the job queue; many documents uploaded at once can hit them.</li>
+    <li><strong>Infrastructure costs</strong> are documented as estimates in <a href="END_TO_END.md">END_TO_END.md</a> §8 (EC2, RDS, Elastic IP, Secrets Manager), with AWS Budgets alerts. Groq usage cost is not documented in the repository.</li>
+  </ul>
+  <h3>Privacy</h3>
+  <p>Uploaded document text (or page images) is sent to Groq. The repository records this as a known limitation: <strong>use synthetic documents only until a privacy review</strong> of the provider's retention and training terms (<a href="../spec/AI_spec.md">AI_spec.md</a> §12). Names, email, date of birth, and document titles are never sent with summary facts.</p>
+  <h3>Alternatives</h3>
+  <p class="count">No other model or provider comparison is recorded in the repository; alternatives are discussed only in the design decisions below, marked as inferred.</p>
+</section>
+
+<!-- 5 -->
+<section class="block" id="s5" data-search aria-labelledby="s5-title">
+  <div class="section-head"><h2 id="s5-title">5. Backend and frontend</h2><span class="badge done">Done</span></div>
+  <h3>Screens</h3>
+  <div class="grid2">
+    <div class="card"><b>Dashboard</b> · alerts, review items, overdue/upcoming follow-ups, recent documents, profile completeness, latest vitals</div>
+    <div class="card"><b>Medical Documents</b> · upload; list grouped by report type with sub-type; filters; document page with original side by side and rule-based summary</div>
+    <div class="card"><b>Health Timeline and Search</b> · records in date order; search across tests, medicines, diagnoses, report text</div>
+    <div class="card"><b>Diagnoses and Conditions</b> · health issues as written in documents, tracked across documents</div>
+    <div class="card"><b>Health Profile</b> · name, measurements and BMI, conditions, allergies, history, vitals, family history, change history</div>
+    <div class="card"><b>Medications</b> · taking now / not confirmed / stopped, edit and history; dosing notation explained ("1-0-1" → morning and night)</div>
+    <div class="card"><b>Checkups and Follow-ups</b> · added from documents; done, cancel, or delete</div>
+    <div class="card"><b>Alerts · AI Summaries · Account and Privacy · Welcome</b> · acknowledge/resolve; cited summaries; exports and account deletion; public introduction</div>
+  </div>
+  <h3>Endpoints (selection; full contract in <a href="../spec/api_contract_spec.md">api_contract_spec.md</a>)</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Area</th><th>Endpoints</th></tr>
+    <tr><td>Health</td><td class="mono">GET /health/live · GET /health/ready</td></tr>
+    <tr><td>Auth</td><td class="mono">POST /auth/register · login · refresh · logout · password/forgot · password/reset · password/change · account/delete</td></tr>
+    <tr><td>Users</td><td class="mono">GET, PATCH /users/me</td></tr>
+    <tr><td>Documents</td><td class="mono">POST, GET /documents · GET /documents/providers · GET, PATCH, DELETE /documents/{id} · GET /documents/{id}/file · GET /documents/{id}/observations · POST /documents/{id}/extract · POST /documents/{id}/follow-ups</td></tr>
+    <tr><td>Records</td><td class="mono">/timeline · /diagnoses · /profile (+ values, allergies, records, conditions, suggestions) · /vitals · /medications (+ history) · /follow-ups (PATCH, DELETE) · /alerts</td></tr>
+    <tr><td>Insight</td><td class="mono">/dashboard · POST /search · /summaries/history · /documents/{id}/summary</td></tr>
+    <tr><td>Export</td><td class="mono">GET /account/export/{pdf,json,csv,documents}</td></tr>
+  </table></div>
+  <h3>Authentication and storage</h3>
+  <ul>
+    <li>Argon2id password hashing; HS256 JWT access tokens (15 minutes) and a rotating HttpOnly refresh cookie (7 days) — <a href="../backend/app/core/security.py">security.py</a>, <a href="../backend/app/core/config.py">config.py</a>.</li>
+    <li>Every query is scoped to the signed-in user; other users' records return 404 (integration-tested).</li>
+    <li>Documents stored on local disk or a private, encrypted S3 bucket through one storage interface; never public URLs (files are served through the authenticated API).</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section class="block" id="s6" data-search aria-labelledby="s6-title">
+  <div class="section-head"><h2 id="s6-title">6. AI evaluation and testing</h2><span class="badge partial">Partly done</span></div>
+  <p class="notice"><strong>Not clinical validation.</strong> The evaluation set is synthetic: 15 seeded fictional cases, each rendered as a digital PDF and as scans at three damage levels (60 documents). Results show behaviour and failure points only.</p>
+  <h3>Ground truth and method</h3>
+  <ul>
+    <li>Fictional cases with known answers, including missing units and ranges, "&lt;" values, and two-page reports — <a href="../backend/evaluation/cases.py">evaluation/cases.py</a>.</li>
+    <li>Run through the real pipeline (upload check, PyMuPDF/Tesseract with vision fallback, Groq, validation) — <a href="../backend/evaluation/pipeline.py">pipeline.py</a>; scored by <a href="../backend/evaluation/score.py">score.py</a>.</li>
+  </ul>
+  <h3>Results (quick set: 10 documents, 106 items, single runs, 2026-10-14)</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Measure</th><th>First version</th><th>With "Not identified" rules</th><th>With row check and dates as printed</th></tr>
+    <tr><td>Misleading fields</td><td>35 / 279</td><td>5 / 279</td><td>10 / 258 (6 flagged)</td></tr>
+    <tr><td>Misleading groups</td><td>0</td><td>2</td><td><b>0</b></td></tr>
+    <tr><td>Fields right</td><td>87.5%</td><td>96.4%</td><td>91.1%</td></tr>
+    <tr><td>Wrong values flagged for review</td><td>20 / 21</td><td>0 / 5</td><td>6 / 10</td></tr>
+    <tr><td>Dates right</td><td>16 / 16</td><td>14 / 16</td><td><b>16 / 16</b></td></tr>
+    <tr><td>Dates shown as printed</td><td>—</td><td>—</td><td><b>10 / 10</b></td></tr>
+    <tr><td>Items found</td><td>106 / 106</td><td>106 / 106</td><td>99 / 106</td></tr>
+    <tr><td>Invented items</td><td>1</td><td>0</td><td>0</td></tr>
+  </table></div>
+  <h3>Release gates (<a href="../spec/AI_spec.md">AI_spec.md</a> §11)</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Gate</th><th>Threshold</th><th>Status</th></tr>
+    <tr><td>Critical fields (values, units, dates, medicine name and dose)</td><td>≥ 98%</td><td><span class="badge gap">Not met (91–96%)</span></td></tr>
+    <tr><td>Low-confidence critical fields routed to review</td><td>All</td><td><span class="badge partial">Met for unreadable and off-line values; faithful copies of OCR misreads still pass</span></td></tr>
+    <tr><td>Non-critical fields</td><td>≥ 90%</td><td><span class="badge planned">Not measured separately</span></td></tr>
+    <tr><td>Summaries</td><td>0 unsupported clinical claims</td><td><span class="badge partial">Enforced by code checks; no reviewed sample recorded</span></td></tr>
+  </table></div>
+  <h3>Testing</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Suite</th><th>Size</th><th>Notes</th></tr>
+    <tr><td>Backend unit + integration</td><td class="mono">623 tests (3 skipped)</td><td>Scripted fake Groq client; real PostgreSQL test database; test PDFs print exactly what the fake AI returns</td></tr>
+    <tr><td>Backend without database</td><td class="mono">379 tests</td><td><code>pytest -m "not integration"</code></td></tr>
+    <tr><td>Live AI</td><td class="mono">3 tests</td><td>One real call, opt-in (<code>RUN_LIVE_AI=1</code>)</td></tr>
+    <tr><td>Frontend</td><td class="mono">166 tests in 19 files</td><td>Vitest + Testing Library; oxlint; <code>tsc -b</code></td></tr>
+  </table></div>
+  <p><strong>Observed failure modes on the 14-document synthetic demo set (2026-10-17):</strong> OCR misreads copied faithfully (e.g. a handwritten dose, a faint table value), an invented row caught by the source check, garbled text from a scanned table, and run-to-run variation between readings. These are documented, not fixed by evaluation.</p>
+</section>
+
+<!-- 7 -->
+<section class="block" id="s7" data-search aria-labelledby="s7-title">
+  <div class="section-head"><h2 id="s7-title">7. Healthcare safety and security</h2><span class="badge partial">Partly done</span></div>
+  <h3>The AI reads; code decides</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Rule</th><th>Code</th><th>Effect</th></tr>
+    <tr><td>Not mentioned vs Not identified</td><td class="mono"><a href="../backend/app/ai/readability.py">readability.py</a></td><td>Not printed → "Not mentioned"; printed but unreadable → "Not identified", never guessed or compared</td></tr>
+    <tr><td>Value on its own line</td><td class="mono"><a href="../backend/app/ai/source_check.py">source_check.py</a></td><td>A value from another test's row becomes Not identified; image-read results are never compared</td></tr>
+    <tr><td>Dates as printed</td><td class="mono"><a href="../backend/app/ai/dates.py">dates.py</a></td><td>Ambiguous "02/09/26" keeps no calendar date; no due date calculated from it</td></tr>
+    <tr><td>Printed range only</td><td class="mono"><a href="../backend/app/services/lab_summary.py">lab_summary.py</a></td><td>Range applied exactly; tiered ranges by band; &gt;10× outside → "check the original"</td></tr>
+    <tr><td>Medicines</td><td class="mono"><a href="../backend/app/ai/prescription_validation.py">prescription_validation.py</a></td><td>Never "taking" until the user confirms; conditional follow-ups ("if not better / SOS") never dated</td></tr>
+    <tr><td>AI summaries</td><td class="mono"><a href="../backend/app/ai/summary.py">summary.py</a></td><td>Only numbered facts; numbers, months, and sources checked; unsupported sentences removed</td></tr>
+  </table></div>
+  <h3>Security and data handling</h3>
+  <div class="grid2">
+    <div class="card"><span class="label">Implemented</span><ul><li>Per-user data isolation (tested)</li><li>Argon2id, short-lived JWTs, rotating refresh cookie, CSRF check on cookie routes</li><li>Rate limits on login, register, refresh, uploads</li><li>Secrets only in <code>.env</code> or SSM / Secrets Manager</li><li>Logs carry IDs, counts, timings — never medical content</li><li>Audit events for sensitive actions</li><li>Encrypted RDS and S3; no public document URLs</li><li>Originals never modified; deletion is explicit and confirmed</li></ul></div>
+    <div class="card"><span class="label">Gaps (evidence)</span><ul><li>Document text is sent to an external LLM: privacy review pending; synthetic data only</li><li>RDS backup retention is 1 day (<code>infra/database.tf</code>) vs the 30-day target in the observability spec</li><li>No S3 versioning for documents; restore never tested</li><li>Password reset off until SES production access</li><li>Server reachable on ports 80/443 (CloudFront pending)</li></ul></div>
+  </div>
+  <h3>Medical safety boundaries</h3>
+  <p>No diagnoses, no treatment changes, no "you are healthy" statements. Out-of-range results are "worth discussing with your doctor". Emergency guidance is shown by fixed rules, never dependent on the AI being available (<a href="../spec/goal_spec.md">goal_spec.md</a> F-9, AC-07, AC-11).</p>
+</section>
+
+<!-- 8 -->
+<section class="block" id="s8" data-search aria-labelledby="s8-title">
+  <div class="section-head"><h2 id="s8-title">8. Infrastructure and cloud deployment</h2><span class="badge done">Live on AWS</span></div>
+  <div class="table-wrap"><table>
+    <tr><th>Resource (ap-south-1, Terraform)</th><th>Purpose</th></tr>
+    <tr><td>EC2 t3.small + Elastic IP</td><td>Caddy (HTTPS via Let's Encrypt) and the app container under systemd; ports 80/443 only; no SSH (Session Manager)</td></tr>
+    <tr><td>ECR <code>healthfolio-api</code></td><td>API image (includes Tesseract); last 5 images kept</td></tr>
+    <tr><td>RDS PostgreSQL 16</td><td>Private, encrypted, deletion protection; reachable only from the server</td></tr>
+    <tr><td>S3 (documents, website)</td><td>Private, encrypted; reached through the server's IAM role</td></tr>
+    <tr><td>Secrets Manager / SSM</td><td>DB password (AWS-generated); Groq key and JWT secret (owner-entered)</td></tr>
+    <tr><td>SES · AWS Budgets</td><td>Email (off for now) · cost alerts</td></tr>
+  </table></div>
+  <div class="grid2">
+    <div class="card"><span class="label">Environments</span>Local (Docker PostgreSQL, uvicorn, worker, Vite) and one AWS production environment. Production config is checked at start-up (CORS, secure cookies, S3 bucket).</div>
+    <div class="card"><span class="label">Release process</span>Image built locally from a <code>public.ecr.aws</code> base and pushed to ECR; the service restarts via SSM, pulling <code>latest</code> and running migrations. Website: build, <code>s3 sync</code>, restart web. <span class="badge partial">No CI/CD pipeline</span> (CodeBuild quota is 0 on this account).</div>
+    <div class="card"><span class="label">Monitoring</span>Health endpoints (<code>/health/live</code>, <code>/health/ready</code>), structured JSON logs via <code>journalctl</code>, AWS Budgets. <span class="badge partial">No CloudWatch dashboards or alerting</span> (dedicated alerting deferred in goal_spec §6).</div>
+    <div class="card"><span class="label">Recovery</span>Roll back by re-tagging an earlier ECR image. Database: RDS automated backups (1-day retention). <span class="badge gap">Restore procedure not tested</span></div>
+  </div>
+  <p>Steps: <a href="../infra/README.md">infra/README.md</a>; operations: <a href="END_TO_END.md">END_TO_END.md</a> §7–8.</p>
+</section>
+
+<!-- 9 -->
+<section class="block" id="s9" data-search aria-labelledby="s9-title">
+  <div class="section-head"><h2 id="s9-title">9. Future roadmap</h2><span class="badge planned">Planned</span></div>
+  <p>Status per item is taken from the current repository.</p>
+  <div class="table-wrap"><table>
+    <tr><th>#</th><th>Item</th><th>Status today (evidence)</th></tr>
+    <tr><td>1</td><td>Improve extraction accuracy: 60+ diverse documents (handwritten, plain paper, eye and dental reports, scans) with verified answers; never overwrite originals</td><td><span class="badge partial">Started</span> 60-document generated set and 14 synthetic samples; originals already preserved on every re-read</td></tr>
+    <tr><td>2</td><td>Standardize processing: Laboratory, Clinical, Imaging (text), Pathology, Specialist; template per category; unknown/mixed types; source links</td><td><span class="badge done">Largely done</span> five report types with templates and page/line sources; unknown types read as "other test report"</td></tr>
+    <tr><td>3</td><td>Consolidated medical history: chronology, diagnoses, medicines, investigations, follow-ups; facts vs uncertain; keep corrections</td><td><span class="badge partial">Partly done</span> Timeline, Diagnoses and Conditions, medication history; conflict detection not built</td></tr>
+    <tr><td>4</td><td>Health trends and charts with dates, units, ranges, sources</td><td><span class="badge planned">Planned</span> (UC-3 deferred)</td></tr>
+    <tr><td>5</td><td>Agentic AI: specialized agents, compared with the simple workflow first</td><td><span class="badge planned">Planned</span></td></tr>
+    <tr><td>6</td><td>Medical knowledge chatbot with citations, separate from personal records</td><td><span class="badge planned">Planned</span> (UC-7 deferred); labelled general-knowledge explanations exist in summaries</td></tr>
+    <tr><td>7</td><td>More languages for extraction, then UI and chatbot</td><td><span class="badge planned">Planned</span></td></tr>
+    <tr><td>8</td><td>Medical image understanding (X-rays, scans) as a separate, validated capability</td><td><span class="badge planned">Planned</span> (out of scope today)</td></tr>
+    <tr><td>9</td><td>Reliability, privacy, interoperability: regression tests, duplicates, conflict warnings, backups, exports, FHIR, clinician access</td><td><span class="badge partial">Partly done</span> regression tests, duplicate-upload check, PDF/CSV/JSON exports; FHIR and clinician access planned</td></tr>
+  </table></div>
+  <p><strong>Recommended order:</strong> accuracy and evaluation set → standardized processing and traceability → consolidated history → trends → knowledge chatbot → agentic AI and languages → image understanding and FHIR.</p>
+</section>
+
+<!-- Decisions -->
+<section class="block" id="decisions" aria-labelledby="dec-title">
+  <div class="section-head"><h2 id="dec-title">Design decision walkthrough</h2><span class="count" id="dec-count"></span></div>
+  <p>"Documented" means the choice and its reason are written in a spec or the guide; "inferred" means the reasoning is read from the implementation. No alternative listed here was tested unless stated.</p>
+  <div class="btn-row" role="group" aria-label="Filter decisions">
+    <button type="button" class="btn" data-dec-filter="all" aria-pressed="true">All</button>
+    <button type="button" class="btn" data-dec-filter="confirmed" aria-pressed="false">Confirmed</button>
+    <button type="button" class="btn" data-dec-filter="proposed" aria-pressed="false">Proposed</button>
+    <button type="button" class="btn" data-dec-filter="unresolved" aria-pressed="false">Unresolved</button>
+  </div>
+  <div id="decision-list">
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>API + separate worker sharing a database job queue</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>A FastAPI API and one worker process that polls <code>processing_jobs</code>. Reading can take minutes; the user sees status, failures retry, and nothing is lost if the API restarts (<a href="../spec/backend_spec.md">backend_spec.md</a> §4).</p>
+      <div class="pros-cons"><div><span class="label">Alternative: Celery/Redis or a cloud queue (inferred)</span><p>More throughput and tooling, but another service to run and secure.</p></div><div><span class="label">Trade-off</span><p>Simple and reliable at demo scale; one worker limits parallel reading.</p></div></div>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>FastAPI, PostgreSQL, SQLAlchemy 2, Alembic; React + Vite + TypeScript</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>Typed request/response validation, relational integrity for linked medical records, versioned migrations, and a typed single-page app (<a href="../spec/backend_spec.md">backend_spec.md</a> §2.1, <a href="../spec/frontend_spec.md">frontend_spec.md</a> §3).</p>
+      <span class="label">Trade-off</span><p>Two languages to maintain; strong typing on both sides reduces contract drift.</p>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>PyMuPDF for digital PDFs, Tesseract OCR for scans, page images below 85% confidence</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>A digital text layer is exact and free; OCR runs locally (no data leaves the server); pages OCR cannot read well go to the AI as images so a poor scan is not silently misread (<a href="../spec/AI_spec.md">AI_spec.md</a> §4.2).</p>
+      <div class="pros-cons"><div><span class="label">Alternative: send every page as an image (inferred)</span><p>Better layout reading (seen on the scanned discharge table), but more tokens, slower, and more data sent externally.</p></div><div><span class="label">Trade-off</span><p>OCR can lose table columns; handled by the medicine second look (below).</p></div></div>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>Groq with a strict JSON schema per report type</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>Schema-constrained output gives typed fields that code can validate; prompt versions are stored on each job (<a href="../backend/app/ai/extractor.py">extractor.py</a>, <a href="../backend/app/ai/schema.py">schema.py</a>).</p>
+      <span class="label">Alternatives</span><p class="count">No model comparison is recorded in the repository. Reasons such as speed or cost are not documented.</p>
+      <span class="label">Trade-off</span><p>External provider (privacy review pending) and account rate limits (7,000 input tokens a minute).</p>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>The AI only reads; deterministic code decides</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>Ranges, groups, alerts, dates, and "taking" status are decided by fixed rules so a model error cannot become a medical claim (<a href="../spec/AI_spec.md">AI_spec.md</a> §4.5, <a href="END_TO_END.md">END_TO_END.md</a> §4).</p>
+      <span class="label">Trade-off</span><p>More code and stricter outputs; some correct values are flagged or left unjudged (grouping right fell to 68% by design when image-read results stopped being compared).</p>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>"Not mentioned" vs "Not identified", source-line check, dates as printed</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>Distinguish absent from unreadable; never compare a value found on another row; never calculate from ambiguous dates. Misleading fields fell from 35 to 5 of 279 with the readability rules (synthetic quick set).</p>
+      <span class="label">Trade-off</span><p>Items found dropped from 106 to 99 in the latest run, partly run-to-run variation.</p>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>Second look with the page image for unread medicine fields</span><span class="badge done">Confirmed · 2026-10-17/18</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>On a scanned discharge, OCR lost the Frequency and Duration columns; the page image read all three medicines correctly. The image reading is used only when complete and clearer; if it fails, the first reading stands (<a href="../spec/AI_spec.md">AI_spec.md</a> §4.5).</p>
+      <div class="pros-cons"><div><span class="label">Considered before</span><p>Erasing table grid lines before OCR: fixed that page but hurt other scans (documented in the decision record).</p></div><div><span class="label">Trade-off</span><p>One extra AI call for affected documents; extra pressure on the per-minute limit.</p></div></div>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>Rule-based summaries and alerts; AI summaries only from numbered facts</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>Document summaries are built by code from stored rows. AI summaries see only facts with IDs; code drops sentences whose numbers, months, or sources do not match (<a href="../backend/app/ai/summary.py">summary.py</a>).</p>
+      <span class="label">Trade-off</span><p>Less fluent; large histories leave out the oldest records to fit the AI service's input limit, and say so.</p>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>The user's chosen report type decides; the AI classifies only when none is chosen</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body"><p>Avoids misclassification on the main path and saves an AI call; the user can switch type and re-read.</p></div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>Deleting a document deletes every linked record</span><span class="badge done">Confirmed · 2026-10-18</span></summary>
+    <div class="body"><p>Medicines, accepted conditions, added follow-ups, and alerts go with their source document; hand-entered records stay. Trade-off: user edits on those records are lost, so the confirmation says so.</p></div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>Single EC2 server with Caddy instead of CloudFront / load balancer</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body">
+      <span class="label">Why</span><p>This AWS account cannot yet use CloudFront (verification), Lightsail containers, or CodeBuild (quota 0), so one server terminates HTTPS itself (<a href="END_TO_END.md">END_TO_END.md</a> §7).</p>
+      <span class="label">Trade-off</span><p>Simple and cheap; single point of failure; server exposed on 80/443.</p>
+    </div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>Synthetic-only evaluation harness</span><span class="badge done">Confirmed · documented</span></summary>
+    <div class="body"><p>Fictional cases with known answers, rendered as digital and damaged scans, run through the real pipeline. Keeps real health data out of development; cannot stand in for real reports.</p></div>
+  </details>
+
+  <details class="decision" data-status="proposed" data-search>
+    <summary><span>De-identified real-document evaluation with repeated runs</span><span class="badge planned">Proposed</span></summary>
+    <div class="body"><p>Needed to meet and prove the 98% critical-field gate (<a href="../spec/AI_spec.md">AI_spec.md</a> §11). Depends on a data source and the privacy review.</p></div>
+  </details>
+
+  <details class="decision" data-status="proposed" data-search>
+    <summary><span>Page-by-page reading with a coverage check</span><span class="badge planned">Proposed (agreed, not started)</span></summary>
+    <div class="body"><p>Detect printed result lines that no extracted item covers (the reverse of the source check), re-read only those lines, and show progress; measure with the quick evaluation.</p></div>
+  </details>
+
+  <details class="decision" data-status="proposed" data-search>
+    <summary><span>Agentic AI orchestration</span><span class="badge planned">Proposed</span></summary>
+    <div class="body"><p>Specialized agents for classification, extraction, history, trends, and follow-ups — only after components are reliable, and compared against the current simple workflow first. Not adopted.</p></div>
+  </details>
+
+  <details class="decision" data-status="proposed" data-search>
+    <summary><span>CloudFront in front of the server; CI/CD pipeline</span><span class="badge planned">Proposed</span></summary>
+    <div class="body"><p>Once the account is verified: CloudFront for HTTPS and caching, and the server closed to direct internet traffic. No CI/CD pipeline exists today.</p></div>
+  </details>
+
+  <details class="decision" data-status="unresolved" data-search>
+    <summary><span>Sending medical document text to an external LLM</span><span class="badge gap">Unresolved</span></summary>
+    <div class="body"><p>Privacy review of the provider's retention and training terms is pending; until then, synthetic documents only (<a href="../spec/AI_spec.md">AI_spec.md</a> §12).</p></div>
+  </details>
+
+  <details class="decision" data-status="unresolved" data-search>
+    <summary><span>Backup retention and restore testing</span><span class="badge gap">Unresolved</span></summary>
+    <div class="body"><p>The observability spec sets daily backups kept 30 days (RPO 24 h, RTO 8 h) for both database and documents. Infrastructure today: RDS retention 1 day, no S3 versioning, restore not tested.</p></div>
+  </details>
+
+  </div>
+</section>
+
+<!-- Interview -->
+<section class="block" id="interview" aria-labelledby="iv-title">
+  <div class="section-head"><h2 id="iv-title">Interview questions and answers</h2><span class="count" id="iv-count"></span></div>
+  <div class="btn-row" role="group" aria-label="Filter questions by topic">
+    <button type="button" class="btn" data-iv-filter="all" aria-pressed="true">All</button>
+    <button type="button" class="btn" data-iv-filter="overview" aria-pressed="false">Overview</button>
+    <button type="button" class="btn" data-iv-filter="architecture" aria-pressed="false">Architecture</button>
+    <button type="button" class="btn" data-iv-filter="pipeline" aria-pressed="false">PDF, OCR, pipeline</button>
+    <button type="button" class="btn" data-iv-filter="llm" aria-pressed="false">LLM and validation</button>
+    <button type="button" class="btn" data-iv-filter="eval" aria-pressed="false">Evaluation</button>
+    <button type="button" class="btn" data-iv-filter="safety" aria-pressed="false">Safety and privacy</button>
+    <button type="button" class="btn" data-iv-filter="ops" aria-pressed="false">Testing and deployment</button>
+    <button type="button" class="btn" data-iv-filter="tradeoffs" aria-pressed="false">Trade-offs</button>
+  </div>
+  <div id="iv-list">
+
+  <details class="qa" data-topic="overview" data-search><summary><span>What is Healthfolio and what problem does it solve?</span><span class="tag">Overview</span></summary><div class="body">
+    <span class="label">Answer</span><p>A personal health-records app: people upload their medical documents, a worker reads them into structured records, and the app shows rule-based summaries, a timeline, alerts, follow-ups, and cited AI summaries. It solves scattered records and missed follow-ups, and it never diagnoses.</p>
+    <span class="label">Deeper</span><p>The MVP covers record management, extraction, medications, history, follow-ups, AI summaries, and safety alerts; trends and Q&amp;A were deferred on purpose.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../spec/goal_spec.md">spec/goal_spec.md</a>, <a href="../README.md">README.md</a></p>
+    <span class="label">Follow-up</span><p>Why defer trend analysis? — Comparing values across dates, units, and labs is easy to get misleadingly wrong; it needs its own rules first.</p></div></details>
+
+  <details class="qa" data-topic="overview" data-search><summary><span>How did you organise requirements?</span><span class="tag">Overview</span></summary><div class="body">
+    <span class="label">Answer</span><p>Seven spec files, each owning one topic, with IDs (UC-, F-, AC-) that other specs reference. Behaviour changes are recorded with dates in the owning spec before or with the code.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../spec">spec/</a></p>
+    <span class="label">Follow-up</span><p>Give an example of a dated decision — e.g. "dates as printed" or the medicine second look in AI_spec §4.5.</p></div></details>
+
+  <details class="qa" data-topic="architecture" data-search><summary><span>Walk me through the architecture.</span><span class="tag">Architecture</span></summary><div class="body">
+    <span class="label">Answer</span><p>React SPA → FastAPI (routers → services → repositories) → PostgreSQL. Uploads create a job; a separate worker reads the file (PyMuPDF/Tesseract), calls Groq with a strict schema, validates with fixed rules, and stores rows. Files live behind a storage interface (disk or private S3).</p>
+    <span class="label">Sources</span><p class="mono"><a href="architecture/healthfolio-architecture.png">architecture diagram</a>, <a href="../backend/app">backend/app</a></p>
+    <span class="label">Follow-up</span><p>Why a DB-backed queue instead of Celery? — Fewer moving parts at this scale; job state is also what the user sees.</p></div></details>
+
+  <details class="qa" data-topic="architecture" data-search><summary><span>How is the data modelled?</span><span class="tag">Architecture</span></summary><div class="body">
+    <span class="label">Answer</span><p>21 tables: documents and processing jobs; observations, medications (with history), conditions, suggestions, follow-ups; profile values with history; alerts with events; audit events. Deleted documents become tombstones, and linked records are deleted with them.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../spec/data_model_spec.md">data_model_spec.md</a>, <a href="../backend/app/models">backend/app/models</a></p>
+    <span class="label">Follow-up</span><p>Why history tables? — Medication and profile changes must be traceable (F-5, F-1).</p></div></details>
+
+  <details class="qa" data-topic="architecture" data-search><summary><span>How do authentication and isolation work?</span><span class="tag">Architecture</span></summary><div class="body">
+    <span class="label">Answer</span><p>Argon2id passwords, 15-minute JWT access tokens, a rotating HttpOnly refresh cookie with CSRF check; every query is scoped by user and other users' IDs return 404 — covered by integration tests.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/app/core/security.py">core/security.py</a></p>
+    <span class="label">Follow-up</span><p>Why 404 instead of 403? — It does not reveal that the record exists.</p></div></details>
+
+  <details class="qa" data-topic="pipeline" data-search><summary><span>How do you get text from PDFs and scans?</span><span class="tag">Pipeline</span></summary><div class="body">
+    <span class="label">Answer</span><p>Digital PDFs: PyMuPDF text layer (rotated watermark text skipped). Scans: Tesseract at 300 DPI with cleanup and rows kept together. Pages below 85% OCR confidence go to the AI as images.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/app/ai/reading.py">ai/reading.py</a></p>
+    <span class="label">Follow-up</span><p>What fails? — Tilted, watermarked tables can lose columns in OCR; the medicine second look reads the page image.</p></div></details>
+
+  <details class="qa" data-topic="pipeline" data-search><summary><span>What happens when a document is unreadable or the AI fails?</span><span class="tag">Pipeline</span></summary><div class="body">
+    <span class="label">Answer</span><p>Clear job states and safe error codes (<code>unreadable_pdf</code>, <code>ai_unavailable</code>, <code>ai_request_too_large</code>, <code>ai_empty_output</code>). Transient failures retry; the original file is never touched; the user can "Refresh analysis".</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/app/services/jobs.py">services/jobs.py</a>, api_contract_spec.md §7</p>
+    <span class="label">Follow-up</span><p>Why not show "no results" on an empty answer? — It would look like the document had nothing; it is re-read, then reported.</p></div></details>
+
+  <details class="qa" data-topic="llm" data-search><summary><span>How do you stop the LLM from hallucinating values?</span><span class="tag">LLM</span></summary><div class="body">
+    <span class="label">Answer</span><p>Strict JSON schema; the prompt says copy exactly and list unreadable parts; then code checks each value is on its own test's line in the document, marks unreadable parts "Not identified", and never compares image-read or ambiguous values.</p>
+    <span class="label">Deeper</span><p>Invented items fell to 0 in the quick set; a real invented row seen on a demo reading was caught by the source check and shown as invalid.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/app/ai/source_check.py">source_check.py</a>, <a href="../backend/app/ai/readability.py">readability.py</a></p>
+    <span class="label">Follow-up</span><p>What still gets through? — An OCR misread copied faithfully onto the right line.</p></div></details>
+
+  <details class="qa" data-topic="llm" data-search><summary><span>Why is validation deterministic instead of asking the model?</span><span class="tag">LLM</span></summary><div class="body">
+    <span class="label">Answer</span><p>Medical judgements — out of range, overdue, taking — must be reproducible and explainable. The model only reads; code applies the printed range and date rules.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/app/services/lab_summary.py">lab_summary.py</a>, AI_spec.md §4.5</p>
+    <span class="label">Follow-up</span><p>How do tiered ranges work? — The value's band (Borderline/High → above, Low → below) decides; unknown bands stay invalid.</p></div></details>
+
+  <details class="qa" data-topic="llm" data-search><summary><span>How do AI summaries stay grounded?</span><span class="tag">LLM</span></summary><div class="body">
+    <span class="label">Answer</span><p>The model gets only numbered facts (no names, email, or document titles); each sentence must cite fact IDs; code removes sentences whose numbers, months, or sources don't match. Requests stay under a size budget for the AI service's input limit.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/app/ai/summary.py">ai/summary.py</a>, <a href="../backend/app/services/summary_facts.py">summary_facts.py</a></p>
+    <span class="label">Follow-up</span><p>What if history is large? — Oldest timeline records are left out and the summary states how many.</p></div></details>
+
+  <details class="qa" data-topic="eval" data-search><summary><span>How did you evaluate extraction?</span><span class="tag">Evaluation</span></summary><div class="body">
+    <span class="label">Answer</span><p>15 fictional cases with known answers, each rendered digitally and as clean/medium/hard scans (60 documents), run through the real pipeline, scored on misleading fields, grouping, dates, honest blanks, and OCR CER.</p>
+    <span class="label">Deeper</span><p>Quick set: 91.1% fields right, 0 misleading groups, 16/16 dates, 99/106 items found. The 98% critical-field gate is not met; it is not clinical validation.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/evaluation">backend/evaluation</a>, END_TO_END.md §6</p>
+    <span class="label">Follow-up</span><p>Why did "fields right" go down between versions? — Fewer items found in one run (variation), and image-read results stopped being compared by design.</p></div></details>
+
+  <details class="qa" data-topic="eval" data-search><summary><span>What's your most important metric?</span><span class="tag">Evaluation</span></summary><div class="body">
+    <span class="label">Answer</span><p>Misleading fields and misleading groups — a wrong value shown as if correct is worse than an honest "Not identified". Misleading groups are 0 in the latest quick run.</p>
+    <span class="label">Follow-up</span><p>How do you treat "Not identified"? — As an honest gap, counted separately.</p></div></details>
+
+  <details class="qa" data-topic="safety" data-search><summary><span>How do you handle healthcare safety?</span><span class="tag">Safety</span></summary><div class="body">
+    <span class="label">Answer</span><p>No diagnoses or treatment advice; out-of-range is "discuss with your doctor"; alerts come from fixed rules and emergency guidance never waits for AI; medicines are never "taking" until confirmed; conditional follow-ups are never dated.</p>
+    <span class="label">Sources</span><p class="mono">goal_spec.md F-9, AC-07, AC-11; AI_spec.md §9</p>
+    <span class="label">Follow-up</span><p>What's not done? — Clinical review of rules and a privacy review of the LLM provider.</p></div></details>
+
+  <details class="qa" data-topic="safety" data-search><summary><span>What about privacy with an external LLM?</span><span class="tag">Privacy</span></summary><div class="body">
+    <span class="label">Answer</span><p>Document text goes to Groq, so the project uses synthetic documents only until a provider privacy review. Logs never carry medical content; summary facts exclude identity details; secrets live in SSM/Secrets Manager.</p>
+    <span class="label">Follow-up</span><p>How would you remove that dependency? — A self-hosted model, evaluated on the same harness.</p></div></details>
+
+  <details class="qa" data-topic="ops" data-search><summary><span>How is the code tested?</span><span class="tag">Testing</span></summary><div class="body">
+    <span class="label">Answer</span><p>623 backend tests with a scripted fake Groq client and a real PostgreSQL test database; test PDFs print exactly what the fake AI returns so the source check runs for real; 166 frontend tests with Vitest and Testing Library; lint and type checks.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../backend/tests/ai_fakes.py">tests/ai_fakes.py</a></p>
+    <span class="label">Follow-up</span><p>How do you test the real AI? — Three opt-in live tests and the evaluation harness.</p></div></details>
+
+  <details class="qa" data-topic="ops" data-search><summary><span>How is it deployed?</span><span class="tag">Deployment</span></summary><div class="body">
+    <span class="label">Answer</span><p>Terraform on AWS ap-south-1: one EC2 server running Caddy and the app container, private encrypted RDS PostgreSQL, private S3, secrets in SSM/Secrets Manager. The image is built locally and pushed to ECR; a restart pulls it and runs migrations.</p>
+    <span class="label">Sources</span><p class="mono"><a href="../infra">infra/</a>, <a href="../backend/Dockerfile">backend/Dockerfile</a></p>
+    <span class="label">Follow-up</span><p>What would you add? — CI/CD, CloudFront, monitoring alarms, tested restores, longer backup retention.</p></div></details>
+
+  <details class="qa" data-topic="tradeoffs" data-search><summary><span>What was the hardest bug?</span><span class="tag">Trade-offs</span></summary><div class="body">
+    <span class="label">Answer</span><p>A scanned discharge where OCR never read the Frequency and Duration columns, so medicines looked read when they weren't. First a safety rule (instructions repeating the strength → Not identified), then a second look with the page image, which reads all three correctly.</p>
+    <span class="label">Follow-up</span><p>What broke after? — Back-to-back AI calls hit the per-minute limit; now the first reading stands if the second look fails.</p></div></details>
+
+  <details class="qa" data-topic="tradeoffs" data-search><summary><span>What would you do differently or next?</span><span class="tag">Trade-offs</span></summary><div class="body">
+    <span class="label">Answer</span><p>Build a de-identified real-document evaluation set earlier; add the coverage check for missed lines; then trends and a cited knowledge chatbot, comparing any agentic design against the simple pipeline.</p>
+    <span class="label">Sources</span><p class="mono">This page §9; AI_spec.md §11</p>
+    <span class="label">Follow-up</span><p>How would you know agents help? — Same harness, same metrics, side by side.</p></div></details>
+
+  </div>
+</section>
+
+<!-- Next -->
+<section class="block" id="next" data-search aria-labelledby="next-title">
+  <div class="section-head"><h2 id="next-title">Risks, dependencies, and prioritized next steps</h2></div>
+  <div class="table-wrap"><table>
+    <tr><th>Priority</th><th>Next step</th><th>Risk it addresses</th><th>Depends on</th></tr>
+    <tr><td class="mono">P1</td><td>De-identified real-document evaluation set; repeated runs</td><td>Accuracy unproven; 98% gate not met</td><td>Data source, privacy review</td></tr>
+    <tr><td class="mono">P1</td><td>Privacy review of the LLM provider (or self-hosted model)</td><td>Medical text sent externally</td><td>—</td></tr>
+    <tr><td class="mono">P1</td><td>Backups to the spec (30 days, documents included) and a tested restore</td><td>Data loss</td><td>Infrastructure change</td></tr>
+    <tr><td class="mono">P2</td><td>Coverage check: re-read missed result lines</td><td>Items missed in a reading (99/106)</td><td>Evaluation set</td></tr>
+    <tr><td class="mono">P2</td><td>CI/CD and monitoring alarms</td><td>Manual releases; silent failures</td><td>Account quotas</td></tr>
+    <tr><td class="mono">P3</td><td>Trends, knowledge chatbot, agentic evaluation, languages, images, FHIR</td><td>Feature scope</td><td>P1–P2 complete</td></tr>
+  </table></div>
+</section>
+
+<footer>Healthfolio development record · built from the repository on 2026-10-18 · synthetic data only · not medical advice</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  // Theme
+  try { var saved = localStorage.getItem("hf-theme"); if (saved) document.documentElement.setAttribute("data-theme", saved); } catch (e) {}
+  $("#theme").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.getAttribute("data-theme") === "dark" ||
+      (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("hf-theme", next); } catch (e) {}
+  });
+
+  // Expand / collapse / print
+  $("#expand-all").addEventListener("click", function () { $$("details").forEach(function (d) { d.open = true; }); });
+  $("#collapse-all").addEventListener("click", function () { $$("details").forEach(function (d) { d.open = false; }); });
+  $("#print").addEventListener("click", function () { $$("details").forEach(function (d) { d.open = true; }); window.print(); });
+
+  // Stage tracker: jump and filter
+  $$(".stage").forEach(function (b) {
+    b.addEventListener("click", function () { var t = document.getElementById(b.dataset.target); if (t) { t.scrollIntoView(); t.setAttribute("tabindex", "-1"); t.focus({ preventScroll: true }); } });
+  });
+  function pressed(group, btn) { $$(group).forEach(function (x) { x.setAttribute("aria-pressed", String(x === btn)); }); }
+  $$("[data-stage-filter]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var f = btn.dataset.stageFilter; pressed("[data-stage-filter]", btn);
+      $$(".stage").forEach(function (s) { s.classList.toggle("hidden", f !== "all" && s.dataset.status !== f); });
+    });
+  });
+
+  // Decision and Q&A filters
+  function countVisible(list, label, sel, out) {
+    var n = $$(sel, list).filter(function (x) { return !x.classList.contains("hidden"); }).length;
+    $(out).textContent = n + " " + label;
+  }
+  var decFilter = "all", ivFilter = "all", query = "";
+  function applyDecisions() {
+    $$(".decision").forEach(function (d) {
+      var okFilter = decFilter === "all" || d.dataset.status === decFilter;
+      d.classList.toggle("hidden", !okFilter || !matches(d));
+    });
+    countVisible($("#decision-list"), "decisions", ".decision", "#dec-count");
+  }
+  function applyQuestions() {
+    $$(".qa").forEach(function (q) {
+      var okFilter = ivFilter === "all" || q.dataset.topic === ivFilter;
+      q.classList.toggle("hidden", !okFilter || !matches(q));
+    });
+    countVisible($("#iv-list"), "questions", ".qa", "#iv-count");
+  }
+  $$("[data-dec-filter]").forEach(function (btn) {
+    btn.addEventListener("click", function () { decFilter = btn.dataset.decFilter; pressed("[data-dec-filter]", btn); applyDecisions(); });
+  });
+  $$("[data-iv-filter]").forEach(function (btn) {
+    btn.addEventListener("click", function () { ivFilter = btn.dataset.ivFilter; pressed("[data-iv-filter]", btn); applyQuestions(); });
+  });
+
+  // Search across sections, decisions, and questions
+  function matches(el) { return !query || el.textContent.toLowerCase().indexOf(query) !== -1; }
+  function applySearch() {
+    var hits = 0;
+    $$("section.block[data-search], header[data-search]").forEach(function (s) {
+      var ok = matches(s); s.classList.toggle("hidden", !ok); if (ok) hits++;
+    });
+    applyDecisions(); applyQuestions();
+    if (query) {
+      $$(".decision:not(.hidden), .qa:not(.hidden)").forEach(function (d) { d.open = true; });
+      hits += $$(".decision:not(.hidden), .qa:not(.hidden)").length;
+      $("#search-status").textContent = hits ? hits + " matches" : "No matches";
+    } else { $("#search-status").textContent = ""; }
+    $("#decisions").classList.toggle("hidden", query && !$$(".decision:not(.hidden)").length);
+    $("#interview").classList.toggle("hidden", query && !$$(".qa:not(.hidden)").length);
+  }
+  $("#search").addEventListener("input", function (e) { query = e.target.value.trim().toLowerCase(); applySearch(); });
+
+  // Active section in the table of contents
+  var links = $$("#toc-list a");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          links.forEach(function (a) { a.classList.toggle("active", a.getAttribute("href") === "#" + en.target.id); });
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    links.forEach(function (a) { var t = document.querySelector(a.getAttribute("href")); if (t) io.observe(t); });
+  }
+
+  // Hide the stray counter in the first TOC entry
+  var first = $("#toc-list a .count"); if (first) first.remove();
+  applyDecisions(); applyQuestions();
+})();
+</script>
+</body>
+</html>
