@@ -1,0 +1,89 @@
+# Continuous deployment to AWS: after a merge to main (or "Run workflow"), once CI passes and the
+# "production" environment is approved. AWS access is a short-lived OIDC session for the deploy-only role
+# in infra/github_deploy.tf; no AWS keys are stored in GitHub. App secrets stay in SSM / Secrets Manager.
+#
+# Repository variables (Settings → Secrets and variables → Actions → Variables), from `terraform output`:
+#   AWS_REGION, AWS_DEPLOY_ROLE_ARN, ECR_REPOSITORY_URL, SITE_BUCKET, API_INSTANCE_ID, SITE_URL
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never stop a release halfway
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to AWS
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
+    permissions:
+      contents: read
+      id-token: write # the OIDC token AWS exchanges for the deploy role
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPOSITORY_URL: ${{ vars.ECR_REPOSITORY_URL }}
+      SITE_BUCKET: ${{ vars.SITE_BUCKET }}
+      API_INSTANCE_ID: ${{ vars.API_INSTANCE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Sign in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push the API image
+        working-directory: backend
+        run: |
+          docker build -t "$ECR_REPOSITORY_URL:${GITHUB_SHA}" -t "$ECR_REPOSITORY_URL:latest" .
+          docker push "$ECR_REPOSITORY_URL:${GITHUB_SHA}"
+          docker push "$ECR_REPOSITORY_URL:latest"
+
+      - name: Restart the API (pulls latest, runs migrations)
+        run: ./.github/scripts/run-on-server.sh healthfolio-restart-api
+
+      - name: Check the API is ready
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "${{ vars.SITE_URL }}/api/v1/health/ready"; then exit 0; fi
+            sleep 6
+          done
+          echo "The API did not become ready" >&2
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the website
+        working-directory: frontend
+        run: npm ci && npm run build
+        env:
+          VITE_API_BASE_URL: /api/v1
+
+      - name: Publish the website
+        working-directory: frontend
+        run: aws s3 sync dist "s3://$SITE_BUCKET" --delete
+
+      - name: Restart the web server
+        run: ./.github/scripts/run-on-server.sh healthfolio-restart-web
