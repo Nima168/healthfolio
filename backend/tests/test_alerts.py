@@ -150,15 +150,13 @@ def test_alerts_follow_the_records(client, asha):
     assert [e["event"] for e in back[acknowledged_id]["history"]] == ["raised", "acknowledged", "resolved", "reopened"]
 
 
-def test_deleting_the_document_resolves_its_alerts(client, asha):
+def test_deleting_the_document_deletes_its_alerts(client, asha):
     document_id = read_lab(client, asha)
+    assert alerts(client, asha)
 
     assert client.delete(f"/api/v1/documents/{document_id}", headers=asha).status_code == 204
 
-    items = alerts(client, asha)
-    assert {(a["status"], a["resolved_by"], a["source_document_title"]) for a in items} == {
-        ("resolved", "system", None)
-    }
+    assert alerts(client, asha) == []  # with their history (decision 2026-10-17)
 
 
 def test_discharge_summaries_alert_only_on_each_tests_last_value(client, asha):

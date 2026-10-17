@@ -184,7 +184,7 @@ All require a Bearer access token. Another user's document returns `404` on ever
 | GET | `/documents/{id}` | — | `200` document | `404` |
 | GET | `/documents/{id}/file` | Query: `download=true` for a download, otherwise inline | `200` original bytes | `404` |
 | PATCH | `/documents/{id}` | JSON with any of `title`, `category`, `report_subtype`, `document_date`, `document_date_precision`, `provider_name` (`null` clears a field, except `title`) | `200` document | `404`, `422` |
-| DELETE | `/documents/{id}` | — | `204` | `404` |
+| DELETE | `/documents/{id}` | — | `204`; the file and every record linked to the document are deleted: results, medicines, conditions, follow-ups, alerts, and summaries, including ones the user confirmed or added (decision 2026-10-17) | `404` |
 
 **Document response:**
 
@@ -282,6 +282,7 @@ The client shows it as plain text: `PRESCRIPTION SUMMARY — 07-Oct-2026 (Dr. Na
 | POST | `/documents/{id}/follow-ups` | — | `201` extraction state (`reminders: "added"`) | `404`, `409 NOTHING_TO_ADD` |
 | GET | `/follow-ups` | — | `200 {items: [follow-up]}`; scheduled first by due date | — |
 | PATCH | `/follow-ups/{id}` | `{"status": "scheduled" \| "completed" \| "cancelled"}` | `200` follow-up | `404`, `422` |
+| DELETE | `/follow-ups/{id}` | — | `204`; removed permanently (decision 2026-10-17); the document's suggestion stays accepted, so it is not offered again from that reading | `404` |
 
 **Follow-up:** `id, title, kind (investigation | appointment | checkup), due_date, status, overdue (computed), completed_at, source_document_id, source_document_title`. "Add as reminders" adds only clear, dated follow-ups, once each. No reminder is sent yet (delivery is deferred). Deleting the document keeps follow-ups already added and withdraws ones not yet added.
 
@@ -339,7 +340,7 @@ Rules:
 
 1. A document never sets a medicine as being taken: medicines read from documents are `unknown` until the user marks them `active` or `stopped` (`status_confirmed`).
 2. Every change writes a history entry (`added`, `edited`, `status_changed`, `removed`) with the values before it. A change that alters nothing writes none. Editing details clears `review_reason`.
-3. Medicines the user changed stay theirs: "Read again" and deleting the source document withdraw only medicines the user has not changed. A new reading re-links a kept medicine with the same name and strength instead of adding it twice.
+3. Medicines the user changed stay theirs when the document is read again: "Read again" withdraws only medicines the user has not changed. Deleting the source document deletes all its medicines, changed or not (decision 2026-10-17). A new reading re-links a kept medicine with the same name and strength instead of adding it twice.
 4. Medicines are never merged across documents. No medication-taking or renewal reminders (out of scope).
 5. Validation: name required (max 200 characters); the end date cannot be before the start date; unknown fields are rejected (422). Other users' medicines return 404.
 
@@ -371,7 +372,7 @@ An alert is `{ id, rule_code, rule_version, rule_description, severity, status, 
 
 Rule `RESULT_OUTSIDE_REPORT_RANGE` v1 (severity `warning`, "for review"): a plain-number result outside the reference range printed on the same report (Section 6.2 range rules). Inputs: lab results, discharge-summary results (each test's last value only), and test-report measurements. No alert for results without a printed range, non-numeric values, unreadable ranges, or unclear readings. No clinical thresholds, other reports' ranges, or trends are used. Urgent (critical-value) rules are not defined yet: they need clinical thresholds reviewed against validated sources.
 
-Lifecycle: alerts are evaluated when a reading completes, when a document is deleted, and when alerts are listed. An alert is keyed by its result's content (document, test, value, date), so reading a document again keeps the same alert and the user's acknowledgement. When the result disappears, the system resolves it (`resolved_by: system`); if it returns, the system reopens it. Alerts the user resolved stay resolved. Every change is recorded in `alert_events`. Rules change only through migrations.
+Lifecycle: alerts are evaluated when a reading completes, when a document is deleted, and when alerts are listed. An alert is keyed by its result's content (document, test, value, date), so reading a document again keeps the same alert and the user's acknowledgement. When the result disappears, the system resolves it (`resolved_by: system`); if it returns, the system reopens it. Alerts the user resolved stay resolved. Every change is recorded in `alert_events`. Deleting a document deletes its alerts and their events (decision 2026-10-17). Rules change only through migrations.
 
 ### 6.9 Health Profile
 

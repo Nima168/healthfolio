@@ -123,6 +123,19 @@ def _same_text(instructions: str, strength: str) -> bool:
     return "".join(bare.split()).casefold() == "".join(strength.split()).casefold()
 
 
+def needs_second_look(item: ExtractedMedication) -> bool:
+    """Its strength, how to take it, or its duration is printed but was not read: on a scan, OCR text can lose a
+    table's columns, so the page is read again as an image before anything is shown as Not identified
+    (decision 2026-10-17)."""
+    strength, instructions = (item.strength or "").strip(), (item.instructions or "").strip()
+    return (
+        bool(item.unreadable)
+        or not instructions
+        or any(garbled_text(text) for text in (item.strength, item.instructions, item.duration_text))
+        or bool(strength and _same_text(instructions, strength))
+    )
+
+
 def without_duration(instructions: str | None, duration: str | None) -> str | None:
     """Instructions without a trailing copy of the duration ("…, At night, 90 days" with duration "90 days")."""
     if not instructions or not duration:

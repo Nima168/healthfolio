@@ -76,7 +76,7 @@ Diagram source: [`docs/architecture/healthfolio-architecture.json`](docs/archite
 | `Total Protein 162 g/dL (6.4 – 8.3)` | Above range, with *"Unusually far outside the range: check the original"* | More than 10× outside a printed range suggests a misread |
 | `CRP 5.0 (< 5.0)` | Above range | Printed ranges are applied exactly; the AI never decides |
 | A medicine on a prescription | *Not confirmed* | Never marked as "taking" until you confirm it |
-| A scanned table where the instructions column was not read ("625 mg" again) | **Not identified** – check the original | Instructions that only repeat the strength are not shown as if read |
+| A scanned medicines table where OCR lost the Frequency and Duration columns | `1-0-1 (twice daily, after food)`, `5 days` | The page is read again as an image; only a field still unreadable is **Not identified** |
 
 ## Features
 
@@ -89,7 +89,7 @@ Diagram source: [`docs/architecture/healthfolio-architecture.json`](docs/archite
 | **Search** | Finds any word across tests, medicines, diagnoses, report text, allergies, and history, with the matching field highlighted. It can be narrowed by type, hospital, condition, and dates. The search text is never put in the address or the logs. |
 | **Medical Documents** | Listed by report type (with report sub-type) by default; filter by type, date range, and hospital; group by type, month, or hospital, or not at all, with counts. The choices are kept in the page address. |
 | **Medications** | Grouped as taking now, not confirmed, or stopped. You can edit, mark taking or stopped, or remove a medicine, and each keeps a full change history. Medicines you changed are kept when a document is read again. |
-| **Checkups and Follow-ups** | Follow-ups from prescriptions and reports, added when you choose; each can be marked done or cancelled. |
+| **Checkups and Follow-ups** | Follow-ups from prescriptions and reports, added when you choose; each can be marked done or cancelled, or deleted permanently after a confirmation. |
 | **Alerts** | Fixed, documented rules, never AI. A result outside its printed range is flagged as something to review with a doctor, not a diagnosis. Each alert explains why it was raised, what to do next, and its source. Alerts can be acknowledged and resolved, and keep their history. Emergency guidance is always shown. |
 | **AI Summaries and Insights** | Only when you ask. The AI works from the details read from your documents and what you entered in Health Profile, Medications, Follow-ups, and Vitals, given as numbered facts it must cite; code removes any sentence whose numbers, months, or sources do not match. Interpretations and general information are labelled. Your name, email, and date of birth are never sent. |
 | **Account and Privacy** | Change your password (other devices are signed out). Export a PDF health summary, JSON or CSV records, or a ZIP of your originals; each is prepared on request and never stored. Deleting your account needs your password and the word DELETE, and removes everything at once. |
@@ -269,12 +269,13 @@ Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
 | GET | `/api/v1/documents/{id}` | Document details |
 | GET | `/api/v1/documents/{id}/file` | The original file (inline, or `?download=true`) |
 | PATCH | `/api/v1/documents/{id}` | Edit type, date, or provider |
-| DELETE | `/api/v1/documents/{id}` | Delete the document, its file, and its extracted results |
+| DELETE | `/api/v1/documents/{id}` | Delete the document, its file, and every record linked to it (results, medicines, conditions, follow-ups, alerts) |
 | GET | `/api/v1/documents/{id}/observations` | Extraction status and extracted lab results |
 | POST | `/api/v1/documents/{id}/extract` | Queue extraction (first time, or retry after a failure) |
 | POST | `/api/v1/documents/{id}/follow-ups` | Add a prescription's follow-ups to Checkups and Follow-ups |
 | GET | `/api/v1/follow-ups` | List follow-ups (overdue computed) |
 | PATCH | `/api/v1/follow-ups/{id}` | Mark a follow-up done, cancelled, or scheduled again |
+| DELETE | `/api/v1/follow-ups/{id}` | Delete a follow-up permanently |
 | GET, POST | `/api/v1/medications` | List medicines; add one |
 | PATCH, DELETE | `/api/v1/medications/{id}` | Edit or change status; remove (history kept) |
 | GET | `/api/v1/medications/{id}/history` | A medicine's change history |
@@ -300,7 +301,7 @@ Every response carries an `X-Request-ID` header for troubleshooting.
 
 ## Testing
 
-612 backend tests (unit and integration, with a fake AI client) and 165 frontend tests.
+622 backend tests (unit and integration, with a fake AI client) and 166 frontend tests.
 
 ```bash
 # Backend (integration tests need the database running)

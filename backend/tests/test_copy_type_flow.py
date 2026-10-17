@@ -8,7 +8,16 @@ from app.ai.reading import OcrResult
 from app.core.config import get_settings
 from app.models.auth import AuditEvent
 from app.worker import Worker
-from tests.ai_fakes import SYNTHETIC_REPORT_LINES, FakeGroq, payload, printed_scan, response, text_pdf
+from tests.ai_fakes import (
+    SYNTHETIC_REPORT_LINES,
+    FakeGroq,
+    medication,
+    payload,
+    prescription,
+    printed_scan,
+    response,
+    text_pdf,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -116,3 +125,60 @@ def test_a_photo_cannot_be_switched_to_digital(client, asha):
     reply = client.post(f"/api/v1/documents/{document['id']}/extract", headers=asha, json={"copy_type": "digital"})
 
     assert reply.json()["copy_type"] == "scanned"
+
+
+class TableOcr:
+    """A scanned medicines table whose Frequency and Duration columns OCR did not pick up."""
+
+    def read(self, image):
+        return OcrResult("Medicine    Dose\nTab. Amoxicillin + Clavulanic acid    625 mg", 91.0)
+
+
+AMOXICILLIN = {
+    "name": "Tab. Amoxicillin + Clavulanic acid",
+    "strength": "625 mg",
+    "source_text": "Tab. Amoxicillin + Clavulanic acid    625 mg",
+}
+
+
+def test_a_scanned_table_with_unread_columns_is_read_again_from_the_image(client, asha):
+    document = upload(client, asha, printed_scan(), category="prescription", copy_type="scanned")
+    from_ocr = prescription(medications=[medication(**AMOXICILLIN, instructions="625 mg", duration_text=None)])
+    from_image = prescription(
+        medications=[medication(**AMOXICILLIN, instructions="1-0-1 (twice daily, after food)", duration_text="5 days")]
+    )
+
+    fake = run_worker(response(from_ocr), response(from_image), ocr=TableOcr())
+
+    assert len(fake.requests) == 2
+    assert isinstance(fake.requests[1]["messages"][1]["content"], list)  # the page image, not OCR text
+    body = extraction(client, asha, document["id"])
+    assert body["job"]["reading_method"] == "ocr+vision"
+    [medicine] = body["prescription"]["medications"]
+    assert (medicine["instructions"], medicine["duration_text"], medicine["unclear"]) == (
+        "1-0-1 (twice daily, after food)",
+        "5 days",
+        False,
+    )
+
+
+def test_the_first_reading_stays_when_the_image_reading_is_no_better(client, asha):
+    document = upload(client, asha, printed_scan(), category="prescription", copy_type="scanned")
+    unread = prescription(medications=[medication(**AMOXICILLIN, instructions="625 mg", duration_text=None)])
+
+    run_worker(response(unread), response(unread), ocr=TableOcr())
+
+    body = extraction(client, asha, document["id"])
+    assert body["job"]["reading_method"] == "ocr"
+    [medicine] = body["prescription"]["medications"]
+    assert medicine["instructions"] == "Not identified" and medicine["unclear"] is True
+
+
+def test_a_clear_scanned_reading_needs_no_second_look(client, asha):
+    document = upload(client, asha, printed_scan(), category="prescription", copy_type="scanned")
+    clear = prescription(medications=[medication(**AMOXICILLIN, instructions="1-0-1", duration_text="5 days")])
+
+    fake = run_worker(response(clear), ocr=TableOcr())
+
+    assert len(fake.requests) == 1
+    assert extraction(client, asha, document["id"])["job"]["reading_method"] == "ocr"

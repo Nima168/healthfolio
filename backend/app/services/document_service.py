@@ -10,15 +10,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import BinaryIO
 
-from sqlalchemy import update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import ApiError
+from app.models.alerts import Alert, AlertEvent
 from app.models.document import Document
 from app.models.extraction import Observation
-from app.models.prescription import Condition, Medication, Suggestion
+from app.models.prescription import Condition, FollowUp, Medication, Suggestion
 from app.repositories.auth import AuditRepository
 from app.repositories.documents import DocumentFilters, DocumentRepository
 from app.schemas.documents import DocumentUpdate, normalise_date
@@ -241,33 +242,33 @@ class DocumentService:
             .where(Observation.source_document_id == document.id, Observation.deleted_at.is_(None))
             .values(deleted_at=document.deleted_at)
         )
+        # Every record linked to the document goes with it, including ones the user confirmed, edited, accepted,
+        # or added (decision 2026-10-17): conditions, medicines, follow-ups, and alerts.
         self.session.execute(
             update(Condition)
-            .where(
-                Condition.source_document_id == document.id,
-                Condition.deleted_at.is_(None),
-                Condition.origin == "document_extracted",  # conditions the user accepted into the profile stay
-            )
+            .where(Condition.source_document_id == document.id, Condition.deleted_at.is_(None))
             .values(deleted_at=document.deleted_at)
         )
-        # Medicines the user changed (edited, or marked taking or stopped) are theirs now and stay.
         self.session.execute(
             update(Medication)
-            .where(
-                Medication.source_document_id == document.id,
-                Medication.deleted_at.is_(None),
-                Medication.user_updated_at.is_(None),
-            )
+            .where(Medication.source_document_id == document.id, Medication.deleted_at.is_(None))
             .values(deleted_at=document.deleted_at)
         )
-        # Follow-ups the user already added stay theirs; ones not yet added are withdrawn.
+        follow_ups = select(FollowUp.id).where(FollowUp.source_document_id == document.id)
+        self.session.execute(
+            update(Suggestion).where(Suggestion.result_entity_id.in_(follow_ups)).values(result_entity_id=None)
+        )
+        self.session.execute(delete(FollowUp).where(FollowUp.source_document_id == document.id))
         self.session.execute(
             update(Suggestion)
             .where(Suggestion.source_document_id == document.id, Suggestion.status == "pending")
             .values(status="superseded")
         )
+        alerts = select(Alert.id).where(Alert.source_document_id == document.id)
+        self.session.execute(delete(AlertEvent).where(AlertEvent.alert_id.in_(alerts)))
+        self.session.execute(delete(Alert).where(Alert.source_document_id == document.id))
         self.session.flush()
-        AlertService(self.session).try_sync(user_id)  # alerts from this document's results are resolved
+        AlertService(self.session).try_sync(user_id)
         self.audit.record("document.deleted", "success", user_id, {"document_id": str(document.id)})
         self.session.commit()
 

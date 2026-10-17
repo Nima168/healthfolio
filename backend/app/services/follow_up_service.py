@@ -7,12 +7,12 @@ from the due date, never stored (data_model_spec.md Section 5.6).
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import case, select
+from sqlalchemy import case, select, update
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
 from app.models.document import Document
-from app.models.prescription import FollowUp
+from app.models.prescription import FollowUp, Suggestion
 from app.repositories.auth import AuditRepository
 from app.schemas.follow_ups import FollowUpListResponse, FollowUpResponse, FollowUpUpdate
 
@@ -70,3 +70,18 @@ class FollowUpService:
         )
         self.session.commit()
         return self._response(follow_up, self._title(follow_up))
+
+    def delete(self, user_id: uuid.UUID, follow_up_id: uuid.UUID) -> None:
+        """Removed permanently (decision 2026-10-17). The document's suggestion stays accepted, so the same
+        follow-up is not offered again from that reading."""
+        follow_up = self.session.scalar(
+            select(FollowUp).where(FollowUp.id == follow_up_id, FollowUp.user_id == user_id)
+        )
+        if follow_up is None:
+            raise ApiError(404)
+        self.session.execute(
+            update(Suggestion).where(Suggestion.result_entity_id == follow_up.id).values(result_entity_id=None)
+        )
+        self.session.delete(follow_up)
+        self.audit.record("follow_up.deleted", "success", user_id, {"follow_up_id": str(follow_up_id)})
+        self.session.commit()

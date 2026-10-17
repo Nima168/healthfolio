@@ -196,8 +196,7 @@ def test_reviewed_suggestions_stay_reviewed_after_read_again_and_deletion(client
     client.delete(f"/api/v1/documents/{document_id}", headers=asha)
     body = profile(client, asha)
     assert body["suggestions"] == []
-    [kept] = body["conditions"]  # the accepted condition is the user's now
-    assert (kept["name"], kept["source_document_title"]) == (GASTRO, None)
+    assert body["conditions"] == []  # accepted from the document, so deleted with it (decision 2026-10-17)
 
 
 def test_accepting_a_condition_already_in_the_profile_does_not_duplicate_it(client, asha):

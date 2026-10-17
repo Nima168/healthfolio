@@ -173,7 +173,7 @@ Document-processing states match `api_contract_spec.md` Section 7:
 
 User-facing labels may be friendlier (e.g., "Processing" for `running`), but each label maps to exactly one state.
 
-Deleting a document requires an in-page confirmation that explains the file is removed permanently and that backup copies expire within 30 days.
+Deleting a document requires an in-page confirmation that explains the file is removed permanently, that everything linked to it is deleted too (results, medicines, conditions, follow-ups, and alerts, including ones the user confirmed or added; decision 2026-10-17), and that backup copies expire within 30 days.
 
 Failed processing must not cause the original uploaded document to disappear. Error messages should explain the issue without exposing internal paths, stack traces, secrets, or sensitive implementation details.
 
@@ -244,6 +244,8 @@ Users must be able to record checkup and follow-up dates manually.
 Where supported, the system may suggest dates extracted from uploaded records. Suggested dates must be confirmed by the user before being treated as confirmed entries.
 
 The interface should display upcoming, overdue, and past dates clearly. Automated reminder delivery is deferred (Section 20).
+
+Each follow-up can be deleted permanently, after an in-page confirmation ("Delete … permanently? It cannot be undone."); it then leaves the timeline, dashboard, search, and exports (decision 2026-10-17).
 
 ## 13. Notifications and Safety Messages
 

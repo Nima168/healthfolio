@@ -710,6 +710,13 @@ button {
   margin: 0;
   font-weight: 700;
 }
+/* The delete confirmation takes the row's full width, below its title and buttons. */
+.follow-up-delete {
+  flex-basis: 100%;
+}
+.follow-up-delete p {
+  margin: 0 0 8px;
+}
 .follow-up-closed .follow-up-title {
   color: var(--color-text-muted);
   font-weight: 400;

@@ -114,6 +114,7 @@ sequenceDiagram
    - Groq returns JSON that must match a strict schema for that document type: lab report, prescription, discharge summary, consultation note, imaging report, pathology report, specialist report, or other test report.
    - The model copies values exactly as written and lists anything it cannot read.
    - If it answers with nothing for a page that clearly has text, the request is sent up to two more times. After that, the reading fails with a clear message instead of "no results".
+   - Medicines are read row by row across a table's columns. If OCR text lost a column (a scan's Frequency or Duration), the page is read again as an image and those medicines are used when they are clearer (method `ocr+vision`).
 4. **Validation** (fixed code, below). Each result is stored with its findings and a "needs review" flag.
 5. **Summaries** are built by rules from the stored rows:
    - lab results: above, below, or within the range printed on the report, or invalid;
@@ -145,10 +146,10 @@ The AI only reads. Everything that could mislead is decided by deterministic cod
 
 | Suite | Size | Command |
 |---|---|---|
-| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 612 tests | `cd backend && uv run pytest` |
-| Backend without the database | 373 tests | `uv run pytest -m "not integration"` |
+| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 622 tests | `cd backend && uv run pytest` |
+| Backend without the database | 379 tests | `uv run pytest -m "not integration"` |
 | One real AI call on a synthetic report (costs a little) | 3 tests | `RUN_LIVE_AI=1 uv run pytest -m live` |
-| Frontend: components and pages (Vitest, Testing Library) | 165 tests in 19 files | `cd frontend && npm run test` |
+| Frontend: components and pages (Vitest, Testing Library) | 166 tests in 19 files | `cd frontend && npm run test` |
 | Lint and types | — | `uv run ruff check .`, `npm run lint` (oxlint), `npm run build` (`tsc -b` + Vite) |
 
 The backend tests use a scripted fake Groq client (`tests/ai_fakes.py`). Because every value is checked against its line in the document, each test PDF prints exactly what the fake AI returns (`printed_lines(...)`).

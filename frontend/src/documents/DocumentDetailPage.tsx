@@ -265,8 +265,9 @@ export function DocumentDetailPage() {
               <strong>Delete “{document.title}” permanently?</strong>
             </p>
             <p id="delete-explanation">
-              The file is removed now and cannot be recovered from the app. Backup copies are erased automatically
-              within 30 days.
+              The file is removed now and cannot be recovered from the app. Everything linked to it is deleted too:
+              its results, medicines, conditions, follow-ups, and alerts, including ones you confirmed or added. Backup
+              copies are erased automatically within 30 days.
             </p>
             <div className="button-row">
               <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={busy}>

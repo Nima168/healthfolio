@@ -27,7 +27,12 @@ from app.ai.extractor import (
     ExtractionError,
     GroqExtractor,
 )
-from app.ai.prescription_validation import ValidatedFollowUp, ValidatedMedication, validate_prescription
+from app.ai.prescription_validation import (
+    ValidatedFollowUp,
+    ValidatedMedication,
+    needs_second_look,
+    validate_prescription,
+)
 from app.ai.readability import NOT_IDENTIFIED
 from app.ai.reading import Ocr, PreparedDocument, ReadingError, prepare
 from app.ai.report_validation import (
@@ -200,6 +205,7 @@ class ExtractionRunner:
             )
             job.reading_method = prepared.method
             job.ocr_confidence = prepared.ocr_confidence
+            self._original = (content, document.media_type)  # for a second look at scanned pages
 
             # The user's chosen type decides; the AI classifies only when none was chosen.
             kind = document.category if document.category in DIRECT_KINDS else None
@@ -387,6 +393,10 @@ class ExtractionRunner:
         outcome = self.extractor.extract_discharge(prepared)
         self._add_usage(job, outcome.model, outcome.input_tokens, outcome.output_tokens)
         validated = validate_discharge(outcome.payload, prepared.page_count, SourceText.of(prepared))
+        second = self._second_look(job, prepared, outcome.payload.medications, self.extractor.extract_discharge)
+        if second is not None:
+            payload, source = second
+            validated.medications = validate_discharge(payload, prepared.page_count, source).medications
         header = validated.header
         job.document_date = header.discharged_on
         job.report_date_text = header.discharged_text
@@ -446,6 +456,30 @@ class ExtractionRunner:
             "warnings": bool(outcome.payload.warnings) or unclear > 0,
         }
 
+    def _second_look(self, job: ProcessingJob, prepared: PreparedDocument, medications: list, extract):
+        """Medicines read by OCR with a part printed but not read: read the pages again as images.
+
+        OCR text can lose a table's columns (a scan's Frequency and Duration), while the page image keeps them
+        (decision 2026-10-17). The image reading's medicines are used only when fewer of them need a second
+        look and none is missing; they are then checked like any value read from an image. Returns the
+        payload and its source, or None to keep the first reading.
+        """
+        if not any(page.source == "ocr" for page in prepared.texts):
+            return None
+        before = sum(needs_second_look(m) for m in medications)
+        if not before:
+            return None
+        content, media_type = self._original
+        images = prepare(content, media_type, "scanned", ocr=None)
+        jobs.heartbeat(self.session, job, "extracting_images")
+        outcome = extract(images)
+        self._add_usage(job, outcome.model, outcome.input_tokens, outcome.output_tokens)
+        after = outcome.payload.medications
+        if len(after) < len(medications) or sum(needs_second_look(m) for m in after) >= before:
+            return None
+        job.reading_method = "ocr+vision"
+        return outcome.payload, SourceText.of(images)
+
     def _add_medications(self, job: ProcessingJob, medications: list[ValidatedMedication]) -> None:
         """Save the medicines read; one the user already changed (kept by "Read again") is re-linked, not doubled.
 
@@ -475,6 +509,10 @@ class ExtractionRunner:
         header, medications, follow_ups = validate_prescription(
             outcome.payload, prepared.page_count, SourceText.of(prepared)
         )
+        second = self._second_look(job, prepared, outcome.payload.medications, self.extractor.extract_prescription)
+        if second is not None:
+            payload, source = second
+            _, medications, _ = validate_prescription(payload, prepared.page_count, source)
         job.report_date_text = header.date_text
         job.document_date = header.prescribed_on
         job.prescriber_name = header.prescriber_name

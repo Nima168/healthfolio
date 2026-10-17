@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from app.api.deps import CurrentUser, DbDep
 from app.schemas.follow_ups import FollowUpListResponse, FollowUpResponse, FollowUpUpdate
@@ -29,3 +29,9 @@ def update_follow_up(
     follow_up_id: uuid.UUID, body: FollowUpUpdate, user: CurrentUser, service: ServiceDep
 ) -> FollowUpResponse:
     return service.update(user.id, follow_up_id, body)
+
+
+@router.delete("/{follow_up_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_follow_up(follow_up_id: uuid.UUID, user: CurrentUser, service: ServiceDep) -> None:
+    """Removed permanently; it leaves Follow-ups, the timeline, the dashboard, search, and exports."""
+    service.delete(user.id, follow_up_id)

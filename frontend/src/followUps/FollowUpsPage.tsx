@@ -53,8 +53,17 @@ function groupByReport(items: FollowUp[]): ReportGroup[] {
     )
 }
 
-function FollowUpRow({ item, onChange }: { item: FollowUp; onChange: (status: FollowUpStatus) => void }) {
+function FollowUpRow({
+  item,
+  onChange,
+  onDelete,
+}: {
+  item: FollowUp
+  onChange: (status: FollowUpStatus) => void
+  onDelete: () => void
+}) {
   const closed = item.status !== 'scheduled'
+  const [confirming, setConfirming] = useState(false)
   return (
     <li className={`follow-up-row${item.overdue ? ' follow-up-overdue' : ''}${closed ? ' follow-up-closed' : ''}`}>
       <div>
@@ -80,7 +89,31 @@ function FollowUpRow({ item, onChange }: { item: FollowUp; onChange: (status: Fo
             </button>
           </>
         )}
+        <button
+          type="button"
+          className="button button-small button-secondary"
+          aria-label={`Delete ${item.title}`}
+          aria-expanded={confirming}
+          onClick={() => setConfirming(!confirming)}
+        >
+          Delete
+        </button>
       </div>
+      {confirming && (
+        <div role="alertdialog" aria-labelledby={`delete-${item.id}`} className="follow-up-delete">
+          <p id={`delete-${item.id}`}>
+            Delete <strong>{item.title}</strong> permanently? It cannot be undone.
+          </p>
+          <div className="button-row">
+            <button type="button" className="button button-small button-danger" onClick={onDelete}>
+              Delete
+            </button>
+            <button type="button" className="button button-small button-secondary" onClick={() => setConfirming(false)}>
+              Keep
+            </button>
+          </div>
+        </div>
+      )}
     </li>
   )
 }
@@ -111,6 +144,16 @@ export function FollowUpsPage() {
       setError(null)
     } catch (e) {
       setError(toFormErrors(e, 'The follow-up could not be updated.').general ?? null)
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await followUpsApi.remove(id)
+      setItems((current) => current?.filter((item) => item.id !== id) ?? null)
+      setError(null)
+    } catch (e) {
+      setError(toFormErrors(e, 'The follow-up could not be deleted.').general ?? null)
     }
   }
 
@@ -152,7 +195,12 @@ export function FollowUpsPage() {
               </h2>
               <ul className="follow-up-list">
                 {group.items.map((item) => (
-                  <FollowUpRow key={item.id} item={item} onChange={(status) => void change(item.id, status)} />
+                  <FollowUpRow
+                    key={item.id}
+                    item={item}
+                    onChange={(status) => void change(item.id, status)}
+                    onDelete={() => void remove(item.id)}
+                  />
                 ))}
               </ul>
             </section>

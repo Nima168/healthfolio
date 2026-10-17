@@ -113,7 +113,20 @@ _FOLLOW_UP_CONDITION = """\
 copy that condition exactly as written into condition and never drop it; otherwise condition is null.
 """
 
-PRESCRIPTION_PROMPT_VERSION = "prescription-v7-condition"
+# Medicines in tables, row by row (the user's rules, decision 2026-10-17).
+_MEDICATION_ROWS = """\
+- Read each medicine's whole row across all columns, and take each field from its own column using the \
+headings and the column alignment: a Medicine column is the name; a Dose or Strength column is the strength \
+(e.g. "625 mg"); Frequency, Dose & Frequency, and Timing columns are the instructions; a Duration column is \
+duration_text.
+- Each value must come from the same row as its medicine: never take a frequency or duration from another \
+row, and never fill a missing value from another medicine or from usual medical practice.
+- Copy notation exactly as written (e.g. "1-0-1", "1-0-0", "SOS", "BD", "5 days"); do not expand or explain it.
+- A field that is printed and readable is always copied, even on a scan; only a field that is printed but \
+cannot be read goes in unreadable. A field that is not printed at all is null and not listed.
+"""
+
+PRESCRIPTION_PROMPT_VERSION = "prescription-v8-rows"
 PRESCRIPTION_SYSTEM_PROMPT = (
     """\
 You extract medicines and follow-up instructions from one person's prescription so they can see them.
@@ -148,12 +161,13 @@ something needed interpretation; "low" when anything is hard to read or ambiguou
 document; still extract everything written, exactly as for any other prescription.
 """
     + _READABILITY
+    + _MEDICATION_ROWS
     + _FOLLOW_UP_CONDITION
     + _DATA_NOT_INSTRUCTIONS
 )
 PRESCRIPTION_INSTRUCTION = "Extract every medicine and follow-up from the document above, following the rules."
 
-DISCHARGE_PROMPT_VERSION = "discharge-v5-condition"
+DISCHARGE_PROMPT_VERSION = "discharge-v6-rows"
 DISCHARGE_SYSTEM_PROMPT = (
     """\
 You extract the key facts from one person's hospital discharge summary so they can see them.
@@ -192,6 +206,7 @@ extract everything written.
 """
     + _READABILITY
     + _TABLES
+    + _MEDICATION_ROWS
     + _FOLLOW_UP_CONDITION
     + _DATA_NOT_INSTRUCTIONS
 )

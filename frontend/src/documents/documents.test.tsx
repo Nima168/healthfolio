@@ -535,6 +535,7 @@ describe('Document detail page', () => {
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveTextContent('Delete “Blood test March” permanently?')
     expect(dialog).toHaveTextContent('Backup copies are erased automatically within 30 days')
+    expect(dialog).toHaveTextContent('Everything linked to it is deleted too')
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))

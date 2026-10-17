@@ -221,13 +221,12 @@ def test_read_again_keeps_changed_medicines_without_doubling_them(client, asha, 
     assert changed["name"] in [line["name"] for line in summary["medications"]]
 
 
-def test_deleting_the_document_keeps_only_changed_medicines(client, asha, settings):
+def test_deleting_the_document_deletes_its_medicines_even_changed_ones(client, asha, settings):
     document_id = read_prescription(client, asha, settings)
     items = medicines(client, asha)
     client.patch(f"{URL}/{items[0]['id']}", headers=asha, json={"status": "stopped"})
+    own = client.post(URL, headers=asha, json={"name": "Vitamin C"}).json()
 
     assert client.delete(f"/api/v1/documents/{document_id}", headers=asha).status_code == 204
 
-    [kept] = medicines(client, asha)
-    assert kept["id"] == items[0]["id"]
-    assert (kept["source_document_title"], kept["source_document_deleted"]) == (None, True)
+    assert [m["id"] for m in medicines(client, asha)] == [own["id"]]  # medicines added by hand stay

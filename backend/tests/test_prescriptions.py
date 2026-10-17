@@ -22,6 +22,7 @@ from app.ai.prescription_validation import (
     UNCLEAR_MEDICATION,
     UNREADABLE_DATE,
     add_months,
+    needs_second_look,
     validate_prescription,
 )
 from app.ai.readability import NOT_IDENTIFIED
@@ -179,6 +180,23 @@ def test_instructions_that_only_repeat_the_strength_are_not_identified(instructi
 
     assert (medicine.strength, medicine.instructions) == ("625 mg", NOT_IDENTIFIED)
     assert "instructions" in medicine.review_reason and "Check the original" in medicine.review_reason
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({}, False),  # name, strength, instructions, and duration all read
+        ({"duration_text": None}, False),  # no duration printed (e.g. "SOS"): nothing to look for
+        ({"strength": "625 mg", "instructions": "625 mg"}, True),  # the Frequency column was not read
+        ({"instructions": None}, True),
+        ({"unreadable": ["duration"], "duration_text": None}, True),
+        ({"instructions": "once daily �"}, True),  # garbled by OCR
+    ],
+)
+def test_which_medicines_need_a_second_look(overrides, expected):
+    payload = PrescriptionPayload.model_validate(prescription(medications=[medication(**overrides)]))
+
+    assert needs_second_look(payload.medications[0]) is expected
 
 
 # ---------- summary ----------

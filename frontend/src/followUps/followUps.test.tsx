@@ -51,12 +51,12 @@ describe('Checkups and Follow-ups page', () => {
 
     // Within a report: date order, each with its own status.
     expect(rowTexts(groups[0])).toEqual([
-      '01-Sep-2026 · HbA1cDoneTestUndo',
-      '01-Oct-2026 · Eye checkupOverdueTestMark doneCancel',
+      '01-Sep-2026 · HbA1cDoneTestUndoDelete',
+      '01-Oct-2026 · Eye checkupOverdueTestMark doneCancelDelete',
     ])
     expect(rowTexts(groups[1])).toEqual([
-      '04-Nov-2026 · Kidney function testTestMark doneCancel',
-      '07-Dec-2026 · CBCTestMark doneCancel',
+      '04-Nov-2026 · Kidney function testTestMark doneCancelDelete',
+      '07-Dec-2026 · CBCTestMark doneCancelDelete',
     ])
     expect(within(groups[2]).queryByRole('link')).not.toBeInTheDocument()
   })
@@ -78,6 +78,29 @@ describe('Checkups and Follow-ups page', () => {
     expect(within(group).getByRole('button', { name: 'Undo' })).toBeInTheDocument()
     const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/follow-ups/fu-1'))
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ status: 'completed' })
+  })
+
+  it('deletes a follow-up only after confirming', async () => {
+    const fetchMock = stubFetch({
+      ...LOGGED_IN,
+      'GET /follow-ups': () => jsonResponse(200, { items: [followUp(), followUp({ id: 'fu-2', title: 'CBC' })] }),
+      'DELETE /follow-ups/fu-1': () => new Response(null, { status: 204 }),
+    })
+    renderAt('/follow-ups')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete Kidney function test' }))
+    const dialog = screen.getByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Delete Kidney function test permanently? It cannot be undone.')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Kidney function test' }))
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByRole('heading', { name: /1 pending of 1/ })).toBeInTheDocument()
+    expect(screen.queryByText(/Kidney function test/)).not.toBeInTheDocument()
+    expect(screen.getByText(/CBC/)).toBeInTheDocument()
   })
 
   it('explains how to add follow-ups when there are none', async () => {

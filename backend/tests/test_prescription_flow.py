@@ -83,7 +83,7 @@ def test_prescription_summary(client, asha, db, settings):
     assert summary["reminders"] == "available"
 
     [job] = db.scalars(select(ProcessingJob)).all()
-    assert (job.document_kind, job.prompt_version) == ("prescription", "prescription-v7-condition")
+    assert (job.document_kind, job.prompt_version) == ("prescription", "prescription-v8-rows")
     # Never inferred as currently taken from a document.
     assert {m.status for m in db.scalars(select(Medication))} == {"unknown"}
 
@@ -139,7 +139,7 @@ def test_untyped_documents_are_classified_first(client, asha, db, settings):
     assert len(fake.requests) == 5  # nothing extracted after "other"
 
     versions = {job.document_kind: job.prompt_version for job in db.scalars(select(ProcessingJob))}
-    assert versions["prescription"] == "classify-v4-ocr+prescription-v7-condition"
+    assert versions["prescription"] == "classify-v4-ocr+prescription-v8-rows"
     assert versions["other"] == "classify-v4-ocr"
 
 
@@ -220,6 +220,26 @@ def test_other_users_cannot_see_or_change_follow_ups(client, asha, settings):
     assert follow_ups(client, ravi) == []
     assert client.patch(f"/api/v1/follow-ups/{item_id}", headers=ravi, json={"status": "cancelled"}).status_code == 404
     assert client.post(f"/api/v1/documents/{document_id}/follow-ups", headers=ravi).status_code == 404
+    assert client.delete(f"/api/v1/follow-ups/{item_id}", headers=ravi).status_code == 404
+    assert item_id in [f["id"] for f in follow_ups(client, asha)]
+
+
+def test_deleting_a_follow_up_removes_it_everywhere(client, asha, settings):
+    document_id = upload_prescription(client, asha)
+    run_worker(settings, response(prescription()))
+    client.post(f"/api/v1/documents/{document_id}/follow-ups", headers=asha)
+    before = follow_ups(client, asha)
+    item_id = before[0]["id"]
+
+    assert client.delete(f"/api/v1/follow-ups/{item_id}", headers=asha).status_code == 204
+
+    after = follow_ups(client, asha)
+    assert len(after) == len(before) - 1 and item_id not in [f["id"] for f in after]
+    timeline = client.get("/api/v1/timeline", headers=asha).json()["items"]
+    assert f"follow_ups:{item_id}" not in [entry["id"] for entry in timeline]
+    assert client.delete(f"/api/v1/follow-ups/{item_id}", headers=asha).status_code == 404
+    # Not offered again from the same reading of the document
+    assert client.post(f"/api/v1/documents/{document_id}/follow-ups", headers=asha).status_code == 409
 
 
 def test_deleting_the_prescription(client, asha, db, settings):
@@ -233,10 +253,9 @@ def test_deleting_the_prescription(client, asha, db, settings):
     client.delete(f"/api/v1/documents/{pending_id}", headers=asha)
     db.expire_all()
 
-    # Follow-ups the user added stay; the deleted document's name is no longer shown.
-    items = follow_ups(client, asha)
-    assert len(items) == 5 and {f["source_document_title"] for f in items} == {None}
-    assert db.scalar(select(FollowUp).limit(1)) is not None
+    # Follow-ups added from the document are deleted with it (decision 2026-10-17).
+    assert follow_ups(client, asha) == []
+    assert db.scalar(select(FollowUp).limit(1)) is None
     assert all(m.deleted_at is not None for m in db.scalars(select(Medication)))
     pending = db.scalars(select(Suggestion).where(Suggestion.status != "accepted")).all()
     assert pending and {s.status for s in pending} == {"superseded"}
