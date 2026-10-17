@@ -21,13 +21,21 @@ from app.schemas.observations import (
     ImagingSummaryResponse,
     LabSummaryResponse,
     ObservationResponse,
+    PathologySummaryResponse,
     PrescriptionSummaryResponse,
+    SpecialistSummaryResponse,
 )
 from app.services import jobs
 from app.services.discharge_summary import summarise_discharge
 from app.services.lab_summary import summarise
 from app.services.prescription_summary import addable, summarise_prescription
-from app.services.report_summaries import summarise_consultation, summarise_imaging, summarise_test_report
+from app.services.report_summaries import (
+    summarise_consultation,
+    summarise_imaging,
+    summarise_pathology,
+    summarise_specialist,
+    summarise_test_report,
+)
 
 
 class ObservationService:
@@ -85,7 +93,7 @@ class ObservationService:
         # Only the latest reading is shown; an earlier one replaced by "Read again" is not.
         job_id = job.id if job is not None else None
         observations = self._rows(Observation, user_id, document.id, job_id)
-        summary = prescription = discharge = consultation = imaging = test_report = None
+        summary = prescription = discharge = consultation = imaging = test_report = pathology = specialist = None
         if kind == "lab_report":
             summary = LabSummaryResponse.model_validate(summarise(observations, job.report_date_text))
         elif kind == "discharge_summary":
@@ -106,6 +114,12 @@ class ObservationService:
             imaging = ImagingSummaryResponse.model_validate(summarise_imaging(job))
         elif kind == "test_report":
             test_report = DiagnosticTestSummaryResponse.model_validate(summarise_test_report(job))
+        elif kind == "pathology_report":
+            pathology = PathologySummaryResponse.model_validate(summarise_pathology(job))
+        elif kind == "specialist_report":
+            specialist = SpecialistSummaryResponse.model_validate(
+                summarise_specialist(job, self._rows(Suggestion, user_id, document.id, job_id))
+            )
         elif kind == "prescription":
             prescription = PrescriptionSummaryResponse.model_validate(
                 summarise_prescription(
@@ -138,6 +152,8 @@ class ObservationService:
             consultation=consultation,
             imaging=imaging,
             test_report=test_report,
+            pathology=pathology,
+            specialist=specialist,
         )
 
     # ---------- actions ----------

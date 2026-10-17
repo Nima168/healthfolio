@@ -52,6 +52,44 @@ def test_values_are_compared_with_the_printed_range_exactly(value, range_text, e
     assert classify(obs(value_text=value, range_text=range_text)) == (expected, None)
 
 
+CHOLESTEROL = "Desirable < 200; Borderline 200-239; High >= 240"
+LDL = "Optimal < 100; Near optimal 100-129: Borderline 130-159"  # ":" between bands, as scanned
+HDL = "Low < 40; High >= 60"
+
+
+@pytest.mark.parametrize(
+    ("value", "range_text", "expected"),
+    [
+        ("190", CHOLESTEROL, "within"),  # Desirable
+        ("224", CHOLESTEROL, "above"),  # Borderline counts as above the range
+        ("250", CHOLESTEROL, "above"),  # High
+        ("90", LDL, "within"),  # Optimal
+        ("115", LDL, "within"),  # Near optimal
+        ("149", LDL, "above"),  # Borderline
+        ("182", "Normal < 150; Borderline 150-199; High 200-499", "above"),
+        ("39", HDL, "below"),  # Low
+        ("50", HDL, "within"),  # in no band, and every band printed is abnormal
+        ("65", HDL, "above"),  # High, as printed
+    ],
+)
+def test_a_tiered_range_is_judged_by_the_band_the_value_is_in(value, range_text, expected):
+    assert classify(obs(value_text=value, range_text=range_text, unit="mg/dL")) == (expected, None)
+
+
+@pytest.mark.parametrize(
+    ("value", "range_text", "reason"),
+    [
+        ("15", "Deficient < 20; Insufficient 20-29; Sufficient 30-100", 'The value is in the "Deficient" band'),
+        ("239.5", CHOLESTEROL, "could not be read"),  # between two bands
+        ("13.8", "Male: 13-17, Female: 12-15", "could not be read"),  # in two bands
+        ("224", "Desirable < 200 (fasting); Borderline 200-239", "could not be read"),  # other text: not read
+    ],
+)
+def test_a_tiered_range_that_cannot_be_settled_is_not_judged(value, range_text, reason):
+    status, why = classify(obs(value_text=value, range_text=range_text, unit="mg/dL"))
+    assert status == "invalid" and reason in why
+
+
 @pytest.mark.parametrize(
     ("observation", "reason"),
     [

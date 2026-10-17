@@ -100,6 +100,7 @@ The authentication flow must define:
 | POST | `/auth/password/forgot` | `{email}` | `202` (always) | `422`, `429` |
 | POST | `/auth/password/reset` | `{token, new_password}` | `204` | `400 INVALID_OR_EXPIRED_TOKEN`, `422`, `429` |
 | GET | `/users/me` | Bearer access token | `200` user | `401 UNAUTHENTICATED` |
+| PATCH | `/users/me` | `{display_name}` (the user's name, up to 100 characters; blank or `null` removes it; edited in Health Profile, decision 2026-10-17) | `200` user | `401`, `422` |
 
 Registration logs the user in immediately; there is no email-verification step.
 
@@ -177,12 +178,12 @@ All require a Bearer access token. Another user's document returns `404` on ever
 
 | Method | Path | Request | Success | Errors |
 |---|---|---|---|---|
-| POST | `/documents` | `multipart/form-data`: `file` and `title` (both required); optional `category`, `document_date` (`YYYY-MM-DD`), `document_date_precision`, `provider_name`, `copy_type` (`digital` or `scanned`; the app asks for it, and a photo is always `scanned`; detected from the file when absent) | `201` document | `409 DUPLICATE_DOCUMENT`, `413`, `415`, `422`, `429` |
+| POST | `/documents` | `multipart/form-data`: `file` and `title` (both required); optional `category`, `report_subtype`, `document_date` (`YYYY-MM-DD`), `document_date_precision`, `provider_name`, `copy_type` (`digital` or `scanned`; the app asks for it, and a photo is always `scanned`; detected from the file when absent) | `201` document | `409 DUPLICATE_DOCUMENT`, `413`, `415`, `422`, `429` |
 | GET | `/documents` | Query: `limit` (1–50, default 20), `cursor`, optional `category`, `date_from` and `date_to` (`YYYY-MM-DD`, on the report's own date; undated documents are left out when either is set), `provider` (matched ignoring case and extra spaces, never by similar spelling), `provider_missing=true` (documents with no hospital or clinic). Filters combine. | `200` page of documents, newest first | `422` (also when `date_to` is before `date_from`) |
 | GET | `/documents/providers` | — | `200` `{ items: [{name, document_count}], without_provider }`: the user's hospital and clinic names (case and spacing variants counted together, shown with the most used spelling), A to Z | — |
 | GET | `/documents/{id}` | — | `200` document | `404` |
 | GET | `/documents/{id}/file` | Query: `download=true` for a download, otherwise inline | `200` original bytes | `404` |
-| PATCH | `/documents/{id}` | JSON with any of `title`, `category`, `document_date`, `document_date_precision`, `provider_name` (`null` clears a field, except `title`) | `200` document | `404`, `422` |
+| PATCH | `/documents/{id}` | JSON with any of `title`, `category`, `report_subtype`, `document_date`, `document_date_precision`, `provider_name` (`null` clears a field, except `title`) | `200` document | `404`, `422` |
 | DELETE | `/documents/{id}` | — | `204` | `404` |
 
 **Document response:**
@@ -195,6 +196,7 @@ All require a Bearer access token. Another user's document returns `404` on ever
   "media_type": "application/pdf",
   "size_bytes": 182344,
   "category": "lab_report",
+  "report_subtype": "Lipid profile",
   "document_date": "2026-03-14",
   "document_date_precision": "day",
   "provider_name": "City Diagnostics",
@@ -207,7 +209,8 @@ All require a Bearer access token. Another user's document returns `404` on ever
 
 - `title`: the user's name for the document. Required, trimmed, 1–200 characters. A missing or blank title returns `422` with `{"field": "title", "issue": "Enter a name for this document."}`. It can be changed but not removed.
 - `original_filename`: the sanitised name of the uploaded file, kept for downloads.
-- `category`: `lab_report`, `prescription`, `discharge_summary`, `consultation_note`, `imaging_report`, `other`, `unknown` (default `unknown`).
+- `category`: `lab_report`, `prescription`, `discharge_summary`, `consultation_note`, `imaging_report`, `pathology_report`, `specialist_report`, `other`, `unknown` (default `unknown`). Shown as **Report type** (decision 2026-10-17): Laboratory reports, Text-based imaging reports, Clinical Documents (Prescription, Discharge summary, Consultation note), Other (Pathology reports, Specialist reports). `other` is no longer offered on upload but is still accepted and shown for documents that have it. Pathology and specialist reports, like `other`, are classified by the AI before reading.
+- `report_subtype`: shown as **Report sub-type** (decision 2026-10-17). Optional free text, up to 100 characters, for every report type (e.g. `Lipid profile`, `ECG`). Null for documents uploaded before it existed.
 - `document_date_precision`: `day`, `month`, `year`, `unknown`. For `month`/`year`, the date is stored as the first day of the period.
 - `processing_status` uses the job lifecycle (Section 7). New uploads are `pending` until extraction is introduced.
 - The list response follows Section 9: `{ "items": [...], "pagination": { "limit": 20, "next_cursor": "<opaque>" | null } }`.
@@ -248,9 +251,10 @@ All require a Bearer access token. Another user's document returns `404` on ever
 2. Values, units, and ranges are copied exactly as extracted; nothing is rounded.
 3. No range, a value that is not a single number (e.g. `<150`, `Positive`), a range that cannot be read (e.g. split by sex), or an unclear value/unit/range (low or medium confidence, missing unit, possible misread) goes to `invalid` (shown as "Invalid Records") instead of being judged.
 4. `< X`, `<= X`, `> X`, `>= X` are applied exactly as written; `a - b` includes both ends.
-5. No diagnosis, causes, or advice.
+5. A tiered range (`Desirable < 200; Borderline 200-239; High >= 240`) is judged by the one band the value is in: a High or Borderline band goes to `above`, a Low band to `below`, a Normal, Desirable, Optimal (or similar) band to `normal`. When every printed band is High, Borderline, or Low (`Low < 40; High >= 60`), a value in none of them is `normal`. Any other band (e.g. `Deficient`), any other value in no band, or a value in two bands goes to `invalid` (decision 2026-10-17).
+6. No diagnosis, causes, or advice.
 
-The client shows it as plain text: `Report Date`, `Values Above Range`, `Values Below Range`, `Normal Values` (each `None` when empty), then `Invalid Records` only when there are any. Invalid records are shown as written (value, unit, range), never judged. No closing line (removed 2026-10-11).
+The client shows it as plain text: `Report Date`, `Values Above Range`, `Values Below Range`, `Normal Values` (each `None` when empty), then `Invalid Records` only when there are any. Invalid records are shown as written (value, unit, range), never judged, each followed by its `reason` (2026-10-17). No closing line (removed 2026-10-11).
 - `error_category` values are safe codes (e.g. `ai_unavailable`, `ai_refused`, `image_too_large`, `unreadable_pdf`); clients map them to plain-language messages.
 
 Rules:
@@ -304,6 +308,9 @@ Decision 2026-10-12. Upload types `consultation_note` and `imaging_report` decid
 - `consultation`: `{ visit_date, visit_text, clinician_name, symptoms[], observations[], assessment[], plan[], follow_ups[], reminders }`.
 - `imaging`: `{ is_written_report, exam_name, report_id, facility_name, exam_date, exam_text, report_date, report_text, body_region, findings[], impression[], uncertainty[] }`.
 - `test_report` (e.g. ECG): `{ test_type, test_name, report_id, facility_name, report_form, test_date, test_text, measurements[{name, value_text, unit, reference_range_text, flag, unclear}], interpretations[{source, confirmed, text}], visual_content[] }`.
+- `pathology` (decision 2026-10-17; upload type `pathology_report` decides the reading directly): `{ test_name, specimen_label, report_id, facility_name, pathologist_name, collected_date, collected_text, received_date, received_text, reported_date, reported_text, specimen[], clinical_history[], gross_description[], microscopic_description[], diagnosis[], tumour_details[], special_tests[], comments[] }`. Each written diagnosis is stored like a discharge diagnosis: suggested in Health Profile and listed in Diagnoses and Conditions.
+- `specialist` (decision 2026-10-17; upload type `specialist_report`): `{ test_name, specialty, report_id, facility_name, reported_by, test_date, test_text, reason[], measurements[...as test_report], findings[], conclusions[{source, confirmed, text}], recommendations[], follow_ups[], reminders, visual_content[] }`. Measurements outside their printed range raise alerts; follow-ups count from the test date and can be added to Checkups and Follow-ups; conclusions are listed in Diagnoses and Conditions.
+- For pathology and specialist reports the client shows only what the report has: a header field that is null or a section that is empty is left out (no "Not mentioned"); a line printed but unreadable is shown as "Not identified".
 
 Rules (deterministic code; the AI only copies; `backend/app/ai/report_validation.py`, `backend/app/services/report_summaries.py`):
 
@@ -424,7 +431,7 @@ Decision 2026-10-13 (`backend/app/services/summary_service.py`, `summary_facts.p
 - **On request only.** Nothing is sent to the AI provider until the user asks. Off unless `EXTRACTION_ENABLED=true` (`503`); `409` when there are no records; `429` above `SUMMARY_RATE_LIMIT_PER_HOUR` (default 20); `503` with a user-safe message when the provider is unavailable, rate-limited, or nothing could be checked. Written during the request (typically 5–40 s), not in the job queue: the queue is per document.
 - **Facts.** The records are collected as numbered facts: Timeline entries (`F…`, newest first, at most 120) plus profile conditions, allergies, surgeries, hospitalizations, family history, BMI, sex and blood group; and gaps found by fixed rules (`C…`: open alerts, overdue follow-ups, unconfirmed medicines, diagnoses to review, follow-ups not added, unread or failed documents, no lab result in 12 months, missing profile details). Names, email, date of birth, and document titles are never sent.
 - **Model output** (strict JSON schema, reasoning hidden): sections `overview`, `conditions`, `medicines`, `results`, `follow_ups`, `gaps`, each a list of sentences `{text, kind (record | interpretation), fact_ids}`; and `explanations` `{term, text, fact_ids}` of general medical knowledge.
-- **Checking** (code): a sentence is kept only if it cites existing facts and every number (digits or number words) and month it states appears in the cited facts; at most 10 per section. An explanation is kept only if its term appears in a cited fact and it contains no numbers. Dropped items are counted and the user is told. A summary with nothing left fails.
+- **Checking** (code): a sentence is kept only if it cites existing facts and every number (digits or number words) and month it states appears in the cited facts; at most 10 per section. An explanation is kept only if its term appears in a cited fact and it contains no numbers. Dropped items are counted and stored for monitoring, not shown to the user (decision 2026-10-17). A summary with nothing left fails.
 - **Stored** in `ai_summaries` with sources, explanations, rule-based insights, `fingerprint` of the facts, `model_version`, `prompt_version`, and token counts. `stale` = the facts changed since. Deleting a document deletes its summary and every whole-history summary. Logs carry counts and timings only.
 - **Client:** "AI-generated" badge; "AI interpretation" label on interpretation sentences; numbered citations to a Sources list (record, date, document, and whether the user checked it); general information in a separate box with the doctor's-advice note; rule-based "Things to check" labelled as not from the AI; "not medical advice".
 
@@ -446,6 +453,12 @@ Decision 2026-10-13 (`backend/app/services/export_service.py`, `health_pdf.py`, 
 - **Change password** checks the current password and the password policy, refuses the current password, and signs out every other session (the session in the request's refresh cookie stays). The two account endpoints live under `/auth` so the refresh cookie is sent.
 - **Account deletion** is immediate and permanent: wrong password or confirmation → `422`, nothing changes. Stored files are removed first (a storage failure → `503`, nothing else changes), then every row the user owns (documents, jobs, results, medicines and their history, conditions, suggestions, follow-ups, alerts and their events, profile values and history, records, vitals, AI summaries, tokens, email deliveries) and the user. Audit events stay for their 90-day retention with `user_id` cleared, plus one `account.deleted` event without personal data. Database backups are not changed and expire within 30 days; the client says so and never claims they are erased. The email address can be registered again.
 
+
+### 6.14 Diagnoses and Conditions
+
+Decision 2026-10-17 (`backend/app/services/diagnosis_service.py`). `GET /api/v1/diagnoses` returns the health issues written in the user's documents, from each document's latest reading: diagnoses in discharge summaries (`diagnosis`), assessment statements in consultation notes (`assessment`), and impression statements in written imaging reports (`impression`). Text is exactly as written; nothing is inferred and no AI is used. The same wording (ignoring case, spacing, and a closing full stop) in several documents is one item.
+
+Response: `{ items: [{ name, kinds[], first_seen, last_seen, profile, condition_status, normal, mentions: [{ text, kind, document_id, document_title, date }] }] }`, most recently written first (undated last). `name` is the most recent wording; `mentions` are newest first; a mention's date is the visit or exam date, else the document's date. `profile` is `in_profile` (a Health Profile condition has the same wording; `condition_status` is its status), `to_review` (a discharge diagnosis suggested in Health Profile), or `not_in_profile`. The client page **Diagnoses and Conditions** lists them with a kind filter and adds an item to Health Profile through `POST /profile/conditions` with status `unknown` (a document does not say whether a condition is ongoing). Lab values outside their range are not diagnoses and stay in Alerts. `normal` marks a finding that reports nothing wrong ("Normal heart size.", "No acute fracture."); the page does not list them (decision 2026-10-17: shown in a closed section at first, then removed at the user's request). The rule is cautious: a statement with a contrast ("but", "however", ";"), a "No …" about a problem's course ("No improvement", "No new lesions"), or a positive statement naming a problem stays a health issue, and a written discharge diagnosis is never marked normal (decision 2026-10-17).
 ## 7. Asynchronous Processing and AI APIs
 
 Document extraction is the first asynchronous operation: the upload responds immediately, and progress is read from `GET /documents/{id}/observations` (clients poll every few seconds while the job is `pending` or `running`).

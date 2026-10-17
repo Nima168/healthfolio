@@ -24,12 +24,13 @@ from app.ai.prescription_validation import (
     add_months,
     validate_prescription,
 )
+from app.ai.readability import NOT_IDENTIFIED
 from app.ai.reading import prepare
 from app.ai.schema import PRESCRIPTION_SCHEMA, PrescriptionPayload
 from app.core.config import get_settings
 from app.models.extraction import ProcessingJob
 from app.models.prescription import Medication, Suggestion
-from app.services.prescription_summary import summarise_prescription
+from app.services.prescription_summary import addable, summarise_prescription
 from tests.ai_fakes import (
     SYNTHETIC_PRESCRIPTION_LINES,
     FakeGroq,
@@ -151,6 +152,35 @@ def test_unclear_medicines_need_review(medications, reasons):
     assert [m.review_reason for m in validated] == reasons
 
 
+@pytest.mark.parametrize(
+    ("instructions", "duration", "expected"),
+    [
+        ("1 tablet once daily, At night, 90 days", "90 days", "1 tablet once daily, At night"),
+        ("once weekly for 8 weeks", "8 weeks", "once weekly"),
+        ("once daily; 60 Days.", "60 days", "once daily"),
+        ("once daily, At night", "90 days", "once daily, At night"),  # no copy: unchanged
+        ("take for 90 days", None, "take for 90 days"),  # no separate duration: nothing removed
+        ("90 days", "90 days", "90 days"),  # nothing else written: kept rather than emptied
+        ("once daily x 190 days", "90 days", "once daily x 190 days"),  # part of another number
+    ],
+)
+def test_duration_is_not_repeated_in_instructions(instructions, duration, expected):
+    _, validated, _ = _validate(medications=[medication(instructions=instructions, duration_text=duration)])
+
+    assert (validated[0].instructions, validated[0].duration_text) == (expected, duration)
+
+
+@pytest.mark.parametrize("instructions", ["625mg", "Dose: 625 mg", "dosage - 625 MG"])
+def test_instructions_that_only_repeat_the_strength_are_not_identified(instructions):
+    # A scan whose Frequency column OCR missed: the model filled instructions with the dose.
+    _, [medicine], _ = _validate(
+        medications=[medication(strength="625 mg", instructions=instructions, duration_text=None)]
+    )
+
+    assert (medicine.strength, medicine.instructions) == ("625 mg", NOT_IDENTIFIED)
+    assert "instructions" in medicine.review_reason and "Check the original" in medicine.review_reason
+
+
 # ---------- summary ----------
 
 
@@ -174,6 +204,7 @@ def _rows(**overrides):
             suggested_value=f.description,
             due_date=f.due_date,
             original_text=f.date_text,
+            condition_text=f.condition,
             review_reason=f.review_reason,
             status="pending",
         )
@@ -230,6 +261,37 @@ def test_reminder_state():
 
     job, meds, _ = _rows()
     assert summarise_prescription(job, meds, []).reminders == "none"
+
+
+SOS_REVIEW = follow_up(
+    description="Review",
+    kind="appointment",
+    date_text="after 5 days",
+    relative_amount=5,
+    relative_unit="days",
+    condition="if not better/SOS",
+    source_text="Review after 5 days if not better/SOS",
+)
+
+
+def test_a_conditional_follow_up_keeps_its_condition_and_is_never_dated():
+    _, _, [review] = _validate(follow_ups=[SOS_REVIEW])
+
+    # Only if needed: no calculated date, so it can never show as an overdue appointment.
+    assert (review.condition, review.due_date, review.review_reason) == ("if not better/SOS", None, None)
+
+
+def test_a_conditional_follow_up_is_shown_as_only_if_needed_and_not_added():
+    job, meds, suggestions = _rows(follow_ups=[SOS_REVIEW, follow_up()])
+    summary = summarise_prescription(job, meds, suggestions)
+
+    lines = {line.description: line for line in summary.follow_ups}
+    assert (lines["Review"].condition, lines["Review"].when_text, lines["Review"].unclear) == (
+        "if not better/SOS",
+        "after 5 days",
+        False,
+    )
+    assert [addable(s) for s in suggestions] == [False, True]  # only the dated follow-up can be added
 
 
 # ---------- requests ----------

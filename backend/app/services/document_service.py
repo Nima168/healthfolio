@@ -38,6 +38,7 @@ class UploadMetadata:
     document_date_precision: str | None = None
     provider_name: str | None = None
     copy_type: str | None = None  # "digital" or "scanned"; photos are always scanned
+    report_subtype: str | None = None
 
 
 def _not_found() -> ApiError:
@@ -96,6 +97,7 @@ class DocumentService:
             size_bytes=size,
             sha256=sha256,
             category=metadata.category or "unknown",
+            report_subtype=metadata.report_subtype,
             provider_name=metadata.provider_name,
             document_date=document_date,
             document_date_precision=precision,
@@ -203,6 +205,8 @@ class DocumentService:
             document.title = changes.title
         if "category" in fields:
             document.category = changes.category or "unknown"
+        if "report_subtype" in fields:
+            document.report_subtype = changes.report_subtype
         if "provider_name" in fields:
             document.provider_name = changes.provider_name
         if "document_date" in fields:
@@ -226,6 +230,7 @@ class DocumentService:
         document.original_filename = None
         document.sha256 = None
         document.provider_name = None
+        document.report_subtype = None
         document.document_date = None
         document.document_date_precision = None
         # Extracted results go with their document, and any queued extraction is cancelled.

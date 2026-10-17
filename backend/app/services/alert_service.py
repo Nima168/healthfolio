@@ -22,7 +22,7 @@ from app.models.document import Document
 from app.models.extraction import Observation, ProcessingJob
 from app.repositories.auth import AuditRepository
 from app.services.lab_summary import classify
-from app.services.report_summaries import summarise_test_report
+from app.services.report_summaries import summarise_specialist, summarise_test_report
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +151,13 @@ class AlertService:
                 found[candidate.key] = candidate
 
         for document_id, job in completed.items():
-            if job.document_kind != "test_report":
+            # Measurements in other test reports and specialist reports, against their printed range.
+            if job.document_kind == "test_report":
+                summary = summarise_test_report(job)
+            elif job.document_kind == "specialist_report":
+                summary = summarise_specialist(job, [])
+            else:
                 continue
-            summary = summarise_test_report(job)
             for index, measurement in enumerate(summary.measurements):
                 if measurement.flag not in ("high", "low") or not measurement.reference_range_text:
                     continue

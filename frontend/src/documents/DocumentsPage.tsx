@@ -13,15 +13,18 @@ import {
   type MedicalDocument,
   type ProviderList,
 } from './documentsApi'
-import { CATEGORY_LABELS, formatBytes, formatDocumentDate, formatTimestamp, typeLabel } from './format'
+import { CATEGORY_LABELS, formatBytes, formatDocumentDate, formatTimestamp, REPORT_TYPE_OPTIONS, typeLabel } from './format'
 import { GROUPING_LABELS, GROUPINGS, groupDocuments, hasFilters, matchesFilters, type Grouping } from './grouping'
 import { UploadPanel } from './UploadPanel'
 import { HelperNote } from '../components/HelperNote'
 
+/** Documents are grouped by report type unless another grouping (or none) is chosen (decision 2026-10-17). */
+const DEFAULT_GROUPING: Grouping = 'type'
+
 /** Filters and grouping live in the address (?type=&from=&to=&hospital=&nohospital=1&group=), so refresh and Back keep them. */
 function readSettings(params: URLSearchParams): { filters: DocumentFilters; grouping: Grouping } {
   const type = params.get('type') ?? ''
-  const group = params.get('group') ?? 'none'
+  const group = params.get('group') ?? DEFAULT_GROUPING
   return {
     filters: {
       category: (CATEGORIES as readonly string[]).includes(type) ? (type as Category) : '',
@@ -29,7 +32,7 @@ function readSettings(params: URLSearchParams): { filters: DocumentFilters; grou
       dateTo: params.get('to') ?? '',
       provider: params.get('nohospital') === '1' ? NO_PROVIDER : (params.get('hospital') ?? ''),
     },
-    grouping: (GROUPINGS as readonly string[]).includes(group) ? (group as Grouping) : 'none',
+    grouping: (GROUPINGS as readonly string[]).includes(group) ? (group as Grouping) : DEFAULT_GROUPING,
   }
 }
 
@@ -40,7 +43,7 @@ function writeSettings(filters: DocumentFilters, grouping: Grouping): URLSearchP
   if (filters.dateTo) params.set('to', filters.dateTo)
   if (filters.provider === NO_PROVIDER) params.set('nohospital', '1')
   else if (filters.provider) params.set('hospital', filters.provider)
-  if (grouping !== 'none') params.set('group', grouping)
+  if (grouping !== DEFAULT_GROUPING) params.set('group', grouping)
   return params
 }
 
@@ -55,7 +58,8 @@ function DocumentTable({ documents, caption, busy }: { documents: MedicalDocumen
         <thead>
           <tr>
             <th scope="col">Name</th>
-            <th scope="col">Type</th>
+            <th scope="col">Report type</th>
+            <th scope="col">Report sub-type</th>
             <th scope="col">Document date</th>
             <th scope="col">Hospital, lab, or clinic</th>
             <th scope="col">File</th>
@@ -71,6 +75,7 @@ function DocumentTable({ documents, caption, busy }: { documents: MedicalDocumen
                 </Link>
               </th>
               <td>{CATEGORY_LABELS[document.category]}</td>
+              <td>{document.report_subtype ?? '—'}</td>
               <td>{formatDocumentDate(document)}</td>
               <td>{document.provider_name ?? '—'}</td>
               <td className="mono document-file">
@@ -183,10 +188,14 @@ export function DocumentsPage() {
 
       <div className="card document-filters" role="search" aria-label="Filter and group documents">
         <SelectField
-          label="Type"
+          label="Report type"
           value={filters.category}
           onChange={(e) => change({ category: e.target.value as Category | '' })}
-          options={[{ value: '', label: 'All types' }, ...CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))]}
+          options={[
+            { value: '', label: 'All types' },
+            ...REPORT_TYPE_OPTIONS,
+            { value: 'unknown', label: CATEGORY_LABELS.unknown },
+          ]}
         />
         <FormField
           label="Report date from"
@@ -218,7 +227,7 @@ export function DocumentsPage() {
           onChange={(e) => change({}, e.target.value as Grouping)}
           options={GROUPINGS.map((g) => ({ value: g, label: GROUPING_LABELS[g] }))}
         />
-        {(filtered || grouping !== 'none') && (
+        {(filtered || grouping !== DEFAULT_GROUPING) && (
           <button
             type="button"
             className="button button-secondary filters-clear"

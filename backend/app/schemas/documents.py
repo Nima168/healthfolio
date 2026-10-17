@@ -7,7 +7,15 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, StringConstraints, model_validator
 
 Category = Literal[
-    "lab_report", "prescription", "discharge_summary", "consultation_note", "imaging_report", "other", "unknown"
+    "lab_report",
+    "prescription",
+    "discharge_summary",
+    "consultation_note",
+    "imaging_report",
+    "pathology_report",
+    "specialist_report",
+    "other",
+    "unknown",
 ]
 DatePrecision = Literal["day", "month", "year", "unknown"]
 CopyType = Literal["digital", "scanned"]
@@ -22,6 +30,10 @@ def empty_to_none(value: object) -> object:
 
 # The length limit sits on the text type itself, so a missing value (None) is never length-checked.
 ProviderName = Annotated[Annotated[str, StringConstraints(max_length=200)] | None, BeforeValidator(empty_to_none)]
+
+
+# Optional free text for every report type, e.g. "Lipid profile".
+ReportSubtype = Annotated[Annotated[str, StringConstraints(max_length=100)] | None, BeforeValidator(empty_to_none)]
 
 
 TITLE_MAX_LENGTH = 200
@@ -61,6 +73,7 @@ class DocumentResponse(BaseModel):
     media_type: str
     size_bytes: int
     category: Category
+    report_subtype: str | None
     document_date: date | None
     document_date_precision: DatePrecision | None
     provider_name: str | None
@@ -97,6 +110,7 @@ class DocumentUpdate(BaseModel):
 
     title: DocumentTitle | None = None
     category: Category | None = None
+    report_subtype: ReportSubtype = None
     document_date: Annotated[date | None, BeforeValidator(empty_to_none)] = None
     document_date_precision: DatePrecision | None = None
     provider_name: ProviderName = None

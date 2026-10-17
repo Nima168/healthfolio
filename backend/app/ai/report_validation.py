@@ -1,4 +1,4 @@
-"""Validate consultation notes, imaging reports, and other test reports (AI_spec.md Sections 4.5, 9.2).
+"""Validate consultation notes, imaging, pathology, specialist, and other test reports (AI_spec.md 4.5, 9.2).
 
 Deterministic code only; everything is kept exactly as written (decision 2026-10-12). The result is a
 JSON-safe `details` dict stored on the processing job, plus follow-ups for consultation notes, which
@@ -9,7 +9,8 @@ import re
 from typing import Any
 
 from app.ai.prescription_validation import PrescriptionHeader, ValidatedFollowUp, _clean, _follow_up, header_date
-from app.ai.schema import ConsultationPayload, ImagingPayload, OtherReportPayload
+from app.ai.readability import NOT_IDENTIFIED, garbled_text
+from app.ai.schema import ConsultationPayload, ImagingPayload, OtherReportPayload, PathologyPayload, SpecialistPayload
 from app.ai.validation import parse_number
 
 _PLAIN_NUMBER = re.compile(r"^\s*[-+]?\d[\d,]*(?:\.\d+)?\s*$")
@@ -120,3 +121,88 @@ def validate_test_report(payload: OtherReportPayload) -> dict[str, Any]:
 def plain_number(value_text: str):
     """Only a plain number is compared with a range; "<5", "+38°", or text are not."""
     return parse_number(value_text) if _PLAIN_NUMBER.match(value_text) else None
+
+
+def _printed_texts(items: list[str], limit: int = 500) -> list[str]:
+    """As _texts, but a line with a character that could not be read is "Not identified", never a guess."""
+    return [NOT_IDENTIFIED if garbled_text(text) else text for text in _texts(items, limit)]
+
+
+def validate_pathology(payload: PathologyPayload) -> dict[str, Any]:
+    """Every section exactly as written; sections the report does not have stay empty (and are not shown)."""
+    return {
+        "test_name": _clean(payload.test_name, 200),
+        "specimen_label": _clean(payload.specimen_label, 200),
+        "report_id": _clean(payload.report_id, 100),
+        "facility_name": _clean(payload.facility_name, 200),
+        "pathologist_name": _clean(payload.pathologist_name, 200),
+        "collected_date": _iso(payload.collected_date, payload.collected_date_text),
+        "collected_text": _clean(payload.collected_date_text, 100),
+        "received_date": _iso(payload.received_date, payload.received_date_text),
+        "received_text": _clean(payload.received_date_text, 100),
+        "reported_date": _iso(payload.reported_date, payload.reported_date_text),
+        "reported_text": _clean(payload.reported_date_text, 100),
+        "specimen": _printed_texts(payload.specimen),
+        "clinical_history": _printed_texts(payload.clinical_history),
+        "gross_description": _printed_texts(payload.gross_description, 1000),
+        "microscopic_description": _printed_texts(payload.microscopic_description, 1000),
+        "diagnosis": _printed_texts(payload.diagnosis, 300),
+        "tumour_details": _printed_texts(payload.tumour_details),
+        "special_tests": _printed_texts(payload.special_tests),
+        "comments": _printed_texts(payload.comments, 1000),
+    }
+
+
+def validate_specialist(
+    payload: SpecialistPayload, page_count: int | None
+) -> tuple[dict[str, Any], list[ValidatedFollowUp]]:
+    """Measurements and conclusions as for other test reports; follow-ups count from the test date."""
+    test_text = _clean(payload.test_date_text, 100)
+    test_on, test_ambiguous = header_date(payload.test_date, test_text)
+    measurements = validate_test_report(
+        OtherReportPayload(
+            test_type=None,
+            test_name=None,
+            report_id=None,
+            facility_name=None,
+            report_form="unknown",
+            test_date_text=None,
+            test_date=None,
+            measurements=payload.measurements,
+            interpretations=payload.conclusions,
+            visual_content=[],
+            warnings=[],
+        )
+    )
+    for item in measurements["measurements"]:
+        for part in ("value_text", "unit", "reference_range_text"):
+            if garbled_text(item[part]):
+                item[part], item["unclear"] = NOT_IDENTIFIED, True
+    details = {
+        "test_name": _clean(payload.test_name, 200),
+        "specialty": _clean(payload.specialty, 100),
+        "report_id": _clean(payload.report_id, 100),
+        "facility_name": _clean(payload.facility_name, 200),
+        "reported_by": _clean(payload.reported_by, 200),
+        "test_date": test_on.isoformat() if test_on else None,
+        "test_text": test_text,
+        "reason": _printed_texts(payload.reason),
+        "measurements": measurements["measurements"],
+        "findings": _printed_texts(payload.findings, 1000),
+        "conclusions": [
+            {**item, "text": NOT_IDENTIFIED if garbled_text(item["text"]) else item["text"]}
+            for item in measurements["interpretations"]
+        ],
+        "recommendations": _printed_texts(payload.recommendations, 1000),
+        "visual_content": _texts(payload.visual_content, 200),
+    }
+    base = PrescriptionHeader(test_on, test_text, None, test_ambiguous)  # "after 12 months" counts from the test
+    follow_ups: list[ValidatedFollowUp] = []
+    seen: set[tuple[str, object]] = set()
+    for item in payload.follow_ups:
+        follow_up = _follow_up(item, base, page_count)
+        key = (follow_up.description.casefold(), follow_up.due_date or follow_up.date_text)
+        if key not in seen:
+            seen.add(key)
+            follow_ups.append(follow_up)
+    return details, follow_ups

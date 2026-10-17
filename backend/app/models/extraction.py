@@ -40,7 +40,7 @@ class ProcessingJob(TimestampMixin, Base):
         CheckConstraint(_in("status", PROCESSING_STATUSES), name="ck_processing_jobs_status"),
         CheckConstraint(
             "document_kind IS NULL OR document_kind IN ('lab_report', 'prescription', 'discharge_summary', "
-            "'consultation_note', 'imaging_report', 'test_report', 'other')",
+            "'consultation_note', 'imaging_report', 'test_report', 'pathology_report', 'specialist_report', 'other')",
             name="ck_processing_jobs_document_kind",
         ),
         # At most one waiting/running job of a kind per document.

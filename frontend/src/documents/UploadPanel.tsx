@@ -24,6 +24,7 @@ function toMetadata(title: string, values: MetadataValues, copyType: CopyType | 
     title: title.trim(),
     copy_type: copyType || null,
     category: values.category || null,
+    report_subtype: values.report_subtype.trim() || null,
     document_date: values.document_date || null,
     document_date_precision: values.document_date ? values.document_date_precision || 'day' : null,
     provider_name: values.provider_name.trim() || null,
@@ -71,7 +72,7 @@ export function UploadPanel({ onUploaded }: { onUploaded: (document: MedicalDocu
     const missing: FormErrors = { fields: {} }
     if (!file) missing.general = 'Choose a file to upload.'
     if (!title.trim()) missing.fields.title = 'Enter a name for this document.'
-    if (!metadata.category) missing.fields.category = 'Choose the document type.'
+    if (!metadata.category) missing.fields.category = 'Choose the report type.'
     if (!metadata.document_date) missing.fields.document_date = 'Enter the date on the document.'
     if (!metadata.provider_name.trim()) missing.fields.provider_name = 'Enter the hospital, lab, or clinic.'
     if (!copyType) missing.fields.copy_type = 'Choose whether this is a digital PDF or a scanned copy.'

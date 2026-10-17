@@ -44,12 +44,13 @@ The authenticated application should provide the following primary sections:
 1. **Dashboard**
 2. **Health Timeline**
 3. **Medical Documents**
-4. **Medications**
-5. **Checkups and Follow-ups**
-6. **AI Summaries and Insights**
-7. **Alerts**
-8. **Health Profile**
-9. **Account and Privacy Settings**
+4. **Diagnoses and Conditions** (added 2026-10-17: health issues written in documents, tracked across them; `api_contract_spec.md` Section 6.14)
+5. **Medications**
+6. **Checkups and Follow-ups**
+7. **AI Summaries and Insights**
+8. **Alerts**
+9. **Health Profile** (includes the user's name, editable)
+10. **Account and Privacy Settings**
 
 Navigation should remain consistent across pages and adapt to smaller screens.
 
@@ -153,7 +154,7 @@ The document interface must support:
 - Clear upload progress and completion feedback.
 - File type and size validation (20 MB limit, `api_contract_spec.md` Section 6.1), checked before upload.
 - Duplicate or conflicting-document feedback where supported.
-- Document lists with relevant metadata.
+- Document lists with relevant metadata, including report type and report sub-type. The list is grouped by report type by default; it can be grouped by month or hospital, or not grouped, and the choice is kept in the page address (decision 2026-10-17).
 - Document details and authorized original-file viewing or downloading. The preview loads the file through the authenticated API into a temporary in-browser (blob) URL; documents never have public URLs.
 - Processing status and extraction results.
 - User-initiated retry after eligible failures.
@@ -223,6 +224,8 @@ AI-generated content must:
 Statements about the user's health come only from the user's authorized records. Explanations of medical terms may use general medical knowledge (`AI_spec.md` Section 6.1); the interface must label them as general information, not from the user's records, and show a note that a doctor's advice is needed.
 
 If there is insufficient information, the interface should state that clearly rather than manufacture a conclusion.
+
+The page's helper text says what a summary is built from: the details read from the user's documents and what the user entered in Health Profile, Medications, Follow-ups, and Vitals (decision 2026-10-17).
 
 ## 12. Medications, Prescriptions, Checkups, and Follow-ups
 

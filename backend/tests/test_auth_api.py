@@ -386,3 +386,16 @@ def test_logs_never_contain_passwords_tokens_or_emails(client, db, mail_dir, cap
     assert output, "expected log output"
     for secret in (PASSWORD, access, EMAIL, reset_token_from_mail(mail_dir)):
         assert secret not in output
+
+
+def test_the_name_can_be_changed_and_removed(client, db):
+    register(client, display_name="Asha")
+    headers = {"Authorization": f"Bearer {login(client).json()['access_token']}"}
+    change = lambda body: client.patch("/api/v1/users/me", headers=headers, json=body)  # noqa: E731
+
+    assert change({"display_name": "  Asha Rao "}).json()["display_name"] == "Asha Rao"
+    assert client.get("/api/v1/users/me", headers=headers).json()["display_name"] == "Asha Rao"
+    assert change({"display_name": "   "}).json()["display_name"] is None
+    assert change({"display_name": "x" * 101}).status_code == 422
+    assert change({"email": "other@example.com"}).status_code == 422  # only the name can be changed here
+    assert client.patch("/api/v1/users/me", json={"display_name": "X"}).status_code == 401

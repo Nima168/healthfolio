@@ -6,7 +6,7 @@ import { FormField } from '../components/FormField'
 import { HelperNote } from '../components/HelperNote'
 import { TrashIcon } from '../components/icons'
 import { SelectField } from '../components/SelectField'
-import { formatDayMonthYear, formatTimestamp, NOT_MENTIONED } from '../documents/format'
+import { explainDosing, formatDayMonthYear, formatTimestamp, NOT_MENTIONED } from '../documents/format'
 import {
   medicationsApi,
   type HistoryField,
@@ -322,7 +322,7 @@ function MedicationRow({
           {dates && <p className="document-meta">{dates}</p>}
           {medication.notes && <p className="document-meta">{medication.notes}</p>}
         </th>
-        <td>{medication.dosage_text ?? NOT_MENTIONED}</td>
+        <td>{medication.dosage_text ? explainDosing(medication.dosage_text) : NOT_MENTIONED}</td>
         <td>{medication.duration_text ?? NOT_MENTIONED}</td>
         <td>{medication.prescriber_name ?? NOT_MENTIONED}</td>
         <td>

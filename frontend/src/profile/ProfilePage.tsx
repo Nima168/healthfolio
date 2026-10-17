@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
+import { useAuth } from '../auth/AuthContext'
 import { toFormErrors, type FormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
 import { HelperNote } from '../components/HelperNote'
 import { TrashIcon } from '../components/icons'
 import { SelectField } from '../components/SelectField'
-import { formatDayMonthYear, formatTimestamp } from '../documents/format'
+import { explainDosing, formatDayMonthYear, formatTimestamp } from '../documents/format'
 import {
   PERSONAL_FIELDS,
   profileApi,
@@ -300,6 +301,9 @@ function RecordList({
 // ---------- page ----------
 
 export function ProfilePage() {
+  const { user, changeName } = useAuth()
+  // The account name: one name for the whole app (shown top-left too).
+  const [name, setName] = useState(user?.display_name ?? '')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [values, setValues] = useState<Values | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -351,6 +355,7 @@ export function ProfilePage() {
     )
     setSaved(false)
     try {
+      if (name.trim() !== (user?.display_name ?? '')) await changeName(name.trim())
       show(await profileApi.updateValues(changed))
       setValueErrors({ fields: {} })
       setSaved(true)
@@ -460,6 +465,14 @@ export function ProfilePage() {
             </p>
           )}
           <div className="profile-grid">
+            <FormField
+              label="Name"
+              autoComplete="name"
+              maxLength={100}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              error={valueErrors.fields.display_name}
+            />
             <FormField label="Date of birth" type="date" value={values.date_of_birth} onChange={set('date_of_birth')} error={valueErrors.fields.date_of_birth} />
             <SelectField label="Sex" value={values.sex} onChange={set('sex')} options={SEX_OPTIONS} error={valueErrors.fields.sex} />
             <SelectField
@@ -656,7 +669,7 @@ export function ProfilePage() {
                 <li key={medicine.id}>
                   <span>
                     <strong>{[medicine.name, medicine.strength].filter(Boolean).join(' ')}</strong>
-                    {medicine.dosage_text && ` — ${medicine.dosage_text}`}
+                    {medicine.dosage_text && ` — ${explainDosing(medicine.dosage_text)}`}
                     <span className="medication-tag medication-tag-kind">{MEDICINE_KIND_LABELS[medicine.kind]}</span>
                   </span>
                 </li>

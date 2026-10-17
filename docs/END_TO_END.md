@@ -104,14 +104,14 @@ sequenceDiagram
     API-->>B: summary built by fixed rules
 ```
 
-1. **Upload.** The user picks the document type and says whether it is a digital PDF or a scanned copy. Photos and scans are checked for blur, darkness, blank pages, and size; unclear copies are sent back. A job is queued.
+1. **Upload.** The user picks the report type (Laboratory reports, Text-based imaging reports, Clinical Documents, or Other: Pathology or Specialist reports), optionally a free-text sub-type, and says whether it is a digital PDF or a scanned copy. Photos and scans are checked for blur, darkness, blank pages, and size; unclear copies are sent back. A job is queued.
 2. **Getting the text** (`ai/reading.py`):
    - Digital PDFs: PyMuPDF reads the text layer.
    - Scans: Tesseract OCR at 300 DPI, after cleanup, with table rows kept together.
    - A page below 85% average OCR confidence is sent to the AI as an image instead.
    - Each reading records how it was read and its OCR confidence.
 3. **Structuring** (`ai/extractor.py`):
-   - Groq returns JSON that must match a strict schema for that document type: lab report, prescription, discharge summary, consultation note, imaging report, or other test report.
+   - Groq returns JSON that must match a strict schema for that document type: lab report, prescription, discharge summary, consultation note, imaging report, pathology report, specialist report, or other test report.
    - The model copies values exactly as written and lists anything it cannot read.
    - If it answers with nothing for a page that clearly has text, the request is sent up to two more times. After that, the reading fails with a clear message instead of "no results".
 4. **Validation** (fixed code, below). Each result is stored with its findings and a "needs review" flag.
@@ -119,7 +119,7 @@ sequenceDiagram
    - lab results: above, below, or within the range printed on the report, or invalid;
    - prescriptions: medicines and follow-ups;
    - discharge summaries: the stay, key results, and medicines;
-   - consultation notes, imaging reports, and other test reports.
+   - consultation notes, imaging, pathology, specialist, and other test reports (sections the report does not have are left out for pathology and specialist reports).
 
    **Alerts** use the same range rule. **AI summaries** of a whole history work only from already-extracted records, given as numbered facts. Code removes any sentence whose numbers, months, or sources do not match.
 6. **Refresh analysis.** Any document can be read again, also switching a PDF between the digital and scanned routes.
@@ -145,10 +145,10 @@ The AI only reads. Everything that could mislead is decided by deterministic cod
 
 | Suite | Size | Command |
 |---|---|---|
-| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 546 tests | `cd backend && uv run pytest` |
-| Backend without the database | 318 tests | `uv run pytest -m "not integration"` |
+| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 608 tests | `cd backend && uv run pytest` |
+| Backend without the database | 369 tests | `uv run pytest -m "not integration"` |
 | One real AI call on a synthetic report (costs a little) | 3 tests | `RUN_LIVE_AI=1 uv run pytest -m live` |
-| Frontend: components and pages (Vitest, Testing Library) | 138 tests in 17 files | `cd frontend && npm run test` |
+| Frontend: components and pages (Vitest, Testing Library) | 165 tests in 19 files | `cd frontend && npm run test` |
 | Lint and types | — | `uv run ruff check .`, `npm run lint` (oxlint), `npm run build` (`tsc -b` + Vite) |
 
 The backend tests use a scripted fake Groq client (`tests/ai_fakes.py`). Because every value is checked against its line in the document, each test PDF prints exactly what the fake AI returns (`printed_lines(...)`).

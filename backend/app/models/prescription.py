@@ -137,6 +137,8 @@ class Suggestion(TimestampMixin, Base):
     suggested_value: Mapped[str] = mapped_column(String(300), nullable=False)  # e.g. "Kidney function test"
     kind: Mapped[str | None] = mapped_column(String(20))
     original_text: Mapped[str | None] = mapped_column(String(200))  # the timing as written
+    # A written condition ("if not better / SOS"): only if needed, so never dated or added as an appointment.
+    condition_text: Mapped[str | None] = mapped_column(String(200))
     due_date: Mapped[date | None] = mapped_column(Date)
     due_date_basis: Mapped[str | None] = mapped_column(String(20))
     confidence: Mapped[str | None] = mapped_column(String(10))

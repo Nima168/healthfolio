@@ -16,6 +16,7 @@ const SECTION_PATHS: Record<string, string[]> = {
   '/': ['M3 3h7v9H3z', 'M14 3h7v5h-7z', 'M14 12h7v9h-7z', 'M3 16h7v5H3z'],
   '/timeline': ['M12 7v5l3 2', 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
   '/documents': ['M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z', 'M14 3v5h5', 'M9 13h6M9 17h4'],
+  '/diagnoses': ['M9 3h6v4H9z', 'M7 5H5v16h14V5h-2', 'M12 10v6M9 13h6'],
   '/medications': ['M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7z', 'M8.5 8.5l7 7'],
   '/follow-ups': ['M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z', 'M16 2v4M8 2v4M4 10h16', 'M9 15l2 2 4-4'],
   '/summaries': ['M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z', 'M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z'],

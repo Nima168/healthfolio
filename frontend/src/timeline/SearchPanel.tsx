@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom'
 import { toFormErrors, type FormErrors } from '../auth/formErrors'
 import { FormField } from '../components/FormField'
 import { SelectField } from '../components/SelectField'
-import { CATEGORIES } from '../documents/documentsApi'
-import { CATEGORY_LABELS, formatDayMonthYear } from '../documents/format'
+import { formatDayMonthYear, REPORT_TYPE_OPTIONS } from '../documents/format'
 import { searchApi, type RecordType, type SearchCriteria, type SearchResult } from './searchApi'
 
 const TYPE_LABELS: Record<RecordType, string> = {
@@ -22,10 +21,7 @@ const TYPE_LABELS: Record<RecordType, string> = {
   family_history: 'Family history',
 }
 
-const DOCUMENT_TYPES = [
-  ...CATEGORIES.filter((c) => c !== 'unknown').map((c) => ({ value: c, label: CATEGORY_LABELS[c] })),
-  { value: 'test_report', label: 'Test report (ECG etc.)' },
-]
+const DOCUMENT_TYPES = [...REPORT_TYPE_OPTIONS, { value: 'test_report', label: 'Test report (ECG etc.)' }]
 
 const EMPTY = { query: '', document_type: '', provider: '', condition: '', date_from: '', date_to: '' }
 
@@ -124,7 +120,7 @@ export function SearchPanel({ onActiveChange }: { onActiveChange: (active: boole
           <summary>More filters</summary>
           <div className="profile-grid">
             <SelectField
-              label="Document type"
+              label="Report type"
               value={form.document_type}
               onChange={set('document_type')}
               options={[{ value: '', label: 'Any type' }, ...DOCUMENT_TYPES]}

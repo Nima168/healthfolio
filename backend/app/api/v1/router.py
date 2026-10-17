@@ -5,6 +5,7 @@ from app.api.v1 import (
     alerts,
     auth,
     dashboard,
+    diagnoses,
     documents,
     follow_ups,
     health,
@@ -29,6 +30,7 @@ api_router.include_router(medications.router)
 api_router.include_router(timeline.router)
 api_router.include_router(alerts.router)
 api_router.include_router(profile.router)
+api_router.include_router(diagnoses.router)
 api_router.include_router(vitals.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(search.router)

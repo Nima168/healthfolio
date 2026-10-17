@@ -219,6 +219,45 @@ def _scan_pages(pdf: pymupdf.Document) -> list[tuple[int, Image.Image]]:
     return pages
 
 
+def _horizontal(line: dict) -> bool:
+    dx, dy = line["dir"]
+    return dx > 0 and abs(dy) < 0.01
+
+
+def page_text(page: pymupdf.Page) -> str:
+    """A digital page's text, top to bottom, with each table row on one line.
+
+    Rotated text is left out: a diagonal watermark ("SYNTHETIC TEST DATA", "SAMPLE") crosses the table, and
+    reading it with the page would glue its letters onto values ("DATA1.50 – 4.10"). Pages without rotated
+    text are read exactly as before (decision 2026-10-17).
+    """
+    lines = [line for block in page.get_text("dict")["blocks"] for line in block.get("lines", [])]
+    if all(_horizontal(line) for line in lines):
+        # sort=True follows the page from top to bottom, so a table row stays on one line.
+        return page.get_text("text", sort=True).strip()
+
+    spans = [span for line in lines if _horizontal(line) for span in line["spans"] if span["text"].strip()]
+    # Spans whose baselines are within half a line of each other form one row, as on the printed page.
+    rows: list[list[dict]] = []
+    for span in sorted(spans, key=lambda s: (s["origin"][1], s["origin"][0])):
+        if rows and abs(span["origin"][1] - rows[-1][0]["origin"][1]) <= span["size"] * 0.5:
+            rows[-1].append(span)
+        else:
+            rows.append([span])
+    text_rows = []
+    for row in rows:
+        row.sort(key=lambda s: s["bbox"][0])
+        text, right = "", None
+        for span in row:
+            if right is not None:
+                gap = span["bbox"][0] - right
+                text += " " * max(1, round(gap / max(span["size"] * 0.5, 1)))  # column gaps kept as spaces
+            text += span["text"]
+            right = span["bbox"][2]
+        text_rows.append(text.rstrip())
+    return "\n".join(text_rows).strip()
+
+
 def prepare(
     content: bytes,
     media_type: str,
@@ -249,8 +288,7 @@ def prepare(
             raise ReadingError("unreadable_pdf")
 
         if copy_type != "scanned":
-            # sort=True follows the page from top to bottom, so a table row stays on one line.
-            stored = [page.get_text("text", sort=True).strip() for page in pdf]
+            stored = [page_text(page) for page in pdf]
             total_chars = sum(len(text) for text in stored)
             if total_chars / page_count >= MIN_TEXT_CHARS_PER_PAGE:
                 if total_chars > MAX_TEXT_CHARS:

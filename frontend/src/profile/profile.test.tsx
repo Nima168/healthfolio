@@ -101,6 +101,29 @@ describe('Health profile', () => {
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ weight: '61' })
   })
 
+  it('changes the name, shown across the app', async () => {
+    const fetchMock = stubFetch({
+      ...LOGGED_IN,
+      ...NO_READINGS,
+      'GET /profile': () => jsonResponse(200, profile()),
+      'PATCH /profile/values': () => jsonResponse(200, profile()),
+      'PATCH /users/me': () =>
+        jsonResponse(200, { id: 'user-1', email: 'asha@example.com', display_name: 'Asha Rao', created_at: '2026-10-01T00:00:00Z' }),
+    })
+    renderAt('/profile')
+
+    const name = await screen.findByLabelText('Name')
+    expect(name).toHaveValue('Asha') // the account name
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Asha Rao')
+    await userEvent.click(screen.getByRole('button', { name: 'Save details' }))
+
+    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    const call = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/users/me') && init?.method === 'PATCH')
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ display_name: 'Asha Rao' })
+    expect(screen.getByText('Asha Rao', { selector: '.account-name' })).toBeInTheDocument() // top-left updates at once
+  })
+
   it('shows the change history', async () => {
     stubFetch({
       ...LOGGED_IN,

@@ -1,13 +1,16 @@
 /** Filtering and grouping the documents list (frontend side of api_contract_spec.md Section 6.1.1). */
-import { CATEGORIES, NO_PROVIDER, type DocumentFilters, type MedicalDocument } from './documentsApi'
-import { CATEGORY_LABELS } from './format'
+import { NO_PROVIDER, type DocumentFilters, type MedicalDocument } from './documentsApi'
+import { CATEGORY_LABELS, REPORT_TYPE_OPTIONS } from './format'
+
+// Report types in the order the upload form offers them; then "Other" (older documents) and "Not set".
+const TYPE_ORDER: string[] = [...REPORT_TYPE_OPTIONS.map((option) => option.value), 'other', 'unknown']
 
 export const GROUPINGS = ['none', 'type', 'date', 'hospital'] as const
 export type Grouping = (typeof GROUPINGS)[number]
 
 export const GROUPING_LABELS: Record<Grouping, string> = {
   none: 'None',
-  type: 'Type',
+  type: 'Report type',
   date: 'Date (month)',
   hospital: 'Hospital or clinic',
 }
@@ -81,7 +84,7 @@ export function groupDocuments(documents: MedicalDocument[], grouping: Grouping)
   }
 
   const order = (group: DocumentGroup): [number, string] => {
-    if (grouping === 'type') return [CATEGORIES.indexOf(group.key as (typeof CATEGORIES)[number]), '']
+    if (grouping === 'type') return [TYPE_ORDER.indexOf(group.key), '']
     return [group.key === 'none' ? 1 : 0, group.key]
   }
   return [...groups.values()].sort((a, b) => {

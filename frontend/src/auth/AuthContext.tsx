@@ -16,6 +16,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, displayName?: string) => Promise<void>
   logout: () => Promise<void>
+  /** Save the user's name; the app shows the new name at once. */
+  changeName: (displayName: string) => Promise<void>
   /** Forget the session here without calling the server (the account was deleted). */
   endSession: () => void
 }
@@ -76,9 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearSession])
 
+  const changeName = useCallback(async (displayName: string) => setUser(await authApi.updateName(displayName)), [])
+
   const value = useMemo(
-    () => ({ status, user, login, register, logout, endSession: clearSession }),
-    [status, user, login, register, logout, clearSession],
+    () => ({ status, user, login, register, logout, changeName, endSession: clearSession }),
+    [status, user, login, register, logout, changeName, clearSession],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

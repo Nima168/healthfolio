@@ -12,7 +12,7 @@ from decimal import Decimal, InvalidOperation
 from app.ai.dates import ambiguous
 from app.ai.readability import NOT_IDENTIFIED, REPLACEMENT_CHARACTER, check_result, not_a_result
 from app.ai.schema import ExtractedResult, ExtractionPayload
-from app.ai.source_check import SourceText, check_all, near
+from app.ai.source_check import SourceText, beside_unreadable, check_all, near
 
 _NUMBER = re.compile(r"[-+]?\d+(?:,\d{3})*(?:[.,]\d+)?")
 _THOUSANDS = re.compile(r"[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?")
@@ -140,6 +140,15 @@ def _validate_one(
     value_text, unit, reference_text, not_identified = check_result(
         value_text, unit, reference_text, list(result.unreadable)
     )
+    # A part printed next to an unrecognised character was not fully read, even if the model dropped it.
+    if source is not None:
+        for part, text in (("value", value_text), ("unit", unit), ("range", reference_text)):
+            if text and part not in not_identified and beside_unreadable(source, name, text, result.page):
+                not_identified.append(part)
+        value_text, unit, reference_text = (
+            NOT_IDENTIFIED if part in not_identified else text
+            for part, text in (("value", value_text), ("unit", unit), ("range", reference_text))
+        )
     findings.extend(f"{part}_not_identified" for part in not_identified)
 
     # Checked against the line it was printed on: a value from another test's row is not this test's value.

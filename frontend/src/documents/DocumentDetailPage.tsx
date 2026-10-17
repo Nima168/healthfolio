@@ -58,6 +58,7 @@ function DocumentPreview({ document }: { document: MedicalDocument }) {
 function toValues(document: MedicalDocument): MetadataValues {
   return {
     category: document.category === 'unknown' ? '' : document.category,
+    report_subtype: document.report_subtype ?? '',
     document_date: document.document_date ?? '',
     document_date_precision: document.document_date_precision === 'day' ? '' : (document.document_date_precision ?? ''),
     provider_name: document.provider_name ?? '',
@@ -115,6 +116,7 @@ export function DocumentDetailPage() {
       const updated = await documentsApi.update(documentId, {
         title: titleValue.trim(),
         category: values.category || 'unknown',
+        report_subtype: values.report_subtype.trim() || null,
         document_date: values.document_date || null,
         document_date_precision: values.document_date ? values.document_date_precision || 'day' : null,
         provider_name: values.provider_name.trim() || null,
@@ -209,8 +211,10 @@ export function DocumentDetailPage() {
         ) : (
           <>
             <dl className="detail-list">
-              <dt>Document type</dt>
+              <dt>Report type</dt>
               <dd>{CATEGORY_LABELS[document.category]}</dd>
+              <dt>Report sub-type</dt>
+              <dd>{document.report_subtype ?? 'Not set'}</dd>
               <dt>Document date</dt>
               <dd>
                 {formatDocumentDate(document)}

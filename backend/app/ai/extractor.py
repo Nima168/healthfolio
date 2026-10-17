@@ -28,7 +28,9 @@ from app.ai.schema import (
     DISCHARGE_SCHEMA,
     EXTRACTION_SCHEMA,
     IMAGING_SCHEMA,
+    PATHOLOGY_SCHEMA,
     PRESCRIPTION_SCHEMA,
+    SPECIALIST_SCHEMA,
     TEST_REPORT_SCHEMA,
     ClassificationPayload,
     ConsultationPayload,
@@ -38,7 +40,9 @@ from app.ai.schema import (
     ExtractionPayload,
     ImagingPayload,
     OtherReportPayload,
+    PathologyPayload,
     PrescriptionPayload,
+    SpecialistPayload,
 )
 from app.core.config import Settings
 
@@ -103,7 +107,13 @@ same date exactly as printed into report_date_text.
 
 USER_INSTRUCTION = "Extract every lab test result from the document above, following the rules."
 
-PRESCRIPTION_PROMPT_VERSION = "prescription-v5-readability"
+# Follow-ups that depend on a condition are kept as such (decision 2026-10-17).
+_FOLLOW_UP_CONDITION = """\
+- If a follow-up depends on a condition (e.g. "if not better", "SOS", "if needed", "if symptoms worsen"), \
+copy that condition exactly as written into condition and never drop it; otherwise condition is null.
+"""
+
+PRESCRIPTION_PROMPT_VERSION = "prescription-v7-condition"
 PRESCRIPTION_SYSTEM_PROMPT = (
     """\
 You extract medicines and follow-up instructions from one person's prescription so they can see them.
@@ -114,7 +124,8 @@ translate abbreviations, or fill in anything that is not written.
 - Copy medicine names, strengths, instructions, and durations exactly as written. name is the \
 medicine name without the strength; put the strength in strength. instructions combine everything \
 written about how and when to take it, in the document's order: dose, frequency, and timing (for a \
-table with separate columns, join them with ", ", e.g. "1 tablet once daily, At night").
+table with separate columns, join them with ", ", e.g. "1 tablet once daily, At night"). The \
+duration goes only in duration_text, never in instructions.
 - A follow-up is a written instruction to have a test, investigation, checkup, or doctor visit later. \
 kind is "investigation" for tests, "appointment" for doctor visits, "checkup" otherwise.
 - Put a calendar date in a follow-up's date only if one is written. If the timing is written relative \
@@ -137,11 +148,12 @@ something needed interpretation; "low" when anything is hard to read or ambiguou
 document; still extract everything written, exactly as for any other prescription.
 """
     + _READABILITY
+    + _FOLLOW_UP_CONDITION
     + _DATA_NOT_INSTRUCTIONS
 )
 PRESCRIPTION_INSTRUCTION = "Extract every medicine and follow-up from the document above, following the rules."
 
-DISCHARGE_PROMPT_VERSION = "discharge-v4-readability"
+DISCHARGE_PROMPT_VERSION = "discharge-v5-condition"
 DISCHARGE_SYSTEM_PROMPT = (
     """\
 You extract the key facts from one person's hospital discharge summary so they can see them.
@@ -180,11 +192,12 @@ extract everything written.
 """
     + _READABILITY
     + _TABLES
+    + _FOLLOW_UP_CONDITION
     + _DATA_NOT_INSTRUCTIONS
 )
 DISCHARGE_INSTRUCTION = "Extract the key facts from the discharge summary above, following the rules."
 
-CONSULTATION_PROMPT_VERSION = "consultation-v2-ocr"
+CONSULTATION_PROMPT_VERSION = "consultation-v3-condition"
 CONSULTATION_SYSTEM_PROMPT = (
     """\
 You extract the key facts from one person's doctor consultation note so they can see them.
@@ -210,6 +223,7 @@ relative to the consultation (e.g. "after 4 weeks") gives relative_amount and re
 calculate a date yourself. kind is "investigation" for tests, "appointment" for doctor visits.
 - confidence: "high" when the item is clearly legible and unambiguous, otherwise "medium" or "low".
 """
+    + _FOLLOW_UP_CONDITION
     + _DATA_NOT_INSTRUCTIONS
 )
 CONSULTATION_INSTRUCTION = "Extract the key facts from the consultation note above, following the rules."
@@ -269,6 +283,72 @@ written. Never interpret charts, tracings, or images.
     + _DATA_NOT_INSTRUCTIONS
 )
 TEST_REPORT_INSTRUCTION = "Extract the key facts from the test report above, following the rules."
+
+_REPORT_RULES = """\
+- Extract only what is explicitly written. Do not infer, calculate, interpret, convert, reword, or \
+fill in anything that is not written. Copy every text exactly as written.
+- Use null or empty lists for anything not written or not legible. Never guess.
+- Read the whole document and fill every section that is present in it. Never skip a section or stop early.
+- Do not explain, judge, or add medical advice. Never call a result benign, malignant, normal, or \
+abnormal unless those words are written.
+- Notes such as "synthetic test data" or "not a real medical record" are part of the document; still \
+extract everything written.
+- Dates as YYYY-MM-DD, and exactly as printed in the *_text fields.
+"""
+
+PATHOLOGY_PROMPT_VERSION = "pathology-v1"
+PATHOLOGY_SYSTEM_PROMPT = (
+    """\
+You extract the key facts from one person's pathology report (histopathology, biopsy, cytology, \
+FNAC, Pap smear, frozen section).
+
+Rules:
+"""
+    + _REPORT_RULES
+    + """\
+- test_name: the kind of examination as written. specimen_label: a short specimen name and site as \
+written (e.g. "Skin biopsy (left forearm)").
+- Copy each section's lines into its own list, one line per item, exactly as written: specimen, \
+clinical_history, gross_description, microscopic_description, diagnosis (the diagnosis, final \
+diagnosis, or conclusion), tumour_details (only grade, size, margins, invasion, or stage lines that \
+are written), special_tests (immunohistochemistry, special stains, molecular results), comments \
+(comments, notes, recommendations).
+- A line belongs to one section only. Never move a microscopic finding into diagnosis.
+"""
+    + _DATA_NOT_INSTRUCTIONS
+)
+PATHOLOGY_INSTRUCTION = "Extract the key facts from the pathology report above, following the rules."
+
+SPECIALIST_PROMPT_VERSION = "specialist-v2-condition"
+SPECIALIST_SYSTEM_PROMPT = (
+    """\
+You extract the key facts from one person's specialist test report (e.g. ECG, echocardiogram, \
+spirometry, EEG, treadmill test, audiometry, endoscopy, nerve conduction study).
+
+Rules:
+"""
+    + _REPORT_RULES
+    + """\
+- test_name as written. specialty only if it is written (e.g. "Cardiology"); never infer it from the test.
+- reason: the reason for the test, indication, or clinical history, as written.
+- measurements: each reported measurement with its value, unit, and printed normal range exactly as \
+written (null when no range is printed). value_text is only the value.
+- findings: each finding or observation as written.
+- conclusions: every conclusion, impression, or interpretation, each as a separate item, as written. \
+A computer, machine, or automated interpretation and a physician's are always separate items; include \
+both when both are written. source is "machine" for automated statements, "physician" for a doctor's, \
+otherwise "other". confirmed is true only if the report says it was confirmed, verified, or signed.
+- recommendations: each recommendation or advice item as written.
+- follow_ups: each written repeat test or visit with a timing. Timing relative to the test (e.g. \
+"after 12 months") gives relative_amount and relative_unit; never calculate a date yourself; copy the \
+timing into date_text. kind is "investigation" for tests, "appointment" for doctor visits.
+- visual_content: each chart, tracing, or image present, named as written. Never interpret them.
+- confidence: "high" when the item is clearly legible and unambiguous, otherwise "medium" or "low".
+"""
+    + _FOLLOW_UP_CONDITION
+    + _DATA_NOT_INSTRUCTIONS
+)
+SPECIALIST_INSTRUCTION = "Extract the key facts from the specialist report above, following the rules."
 
 CLASSIFY_PROMPT_VERSION = "classify-v4-ocr"
 CLASSIFY_SYSTEM_PROMPT = (
@@ -335,8 +415,30 @@ TEST_REPORT_TASK = Task(
     TEST_REPORT_SCHEMA,
     OtherReportPayload,
 )
+PATHOLOGY_TASK = Task(
+    "pathology_report",
+    PATHOLOGY_PROMPT_VERSION,
+    PATHOLOGY_SYSTEM_PROMPT,
+    PATHOLOGY_INSTRUCTION,
+    PATHOLOGY_SCHEMA,
+    PathologyPayload,
+)
+SPECIALIST_TASK = Task(
+    "specialist_report",
+    SPECIALIST_PROMPT_VERSION,
+    SPECIALIST_SYSTEM_PROMPT,
+    SPECIALIST_INSTRUCTION,
+    SPECIALIST_SCHEMA,
+    SpecialistPayload,
+)
 # Tasks whose output is merged field by field (lists joined, first value found kept).
-REPORT_TASKS = {"consultation_note": CONSULTATION_TASK, "imaging_report": IMAGING_TASK, "test_report": TEST_REPORT_TASK}
+REPORT_TASKS = {
+    "consultation_note": CONSULTATION_TASK,
+    "imaging_report": IMAGING_TASK,
+    "test_report": TEST_REPORT_TASK,
+    "pathology_report": PATHOLOGY_TASK,
+    "specialist_report": SPECIALIST_TASK,
+}
 CLASSIFY_TASK = Task(
     "document_type",
     CLASSIFY_PROMPT_VERSION,
@@ -480,6 +582,8 @@ _ITEM_FIELDS = {
     "consultation_note": ("symptoms", "observations", "assessment", "plan", "follow_ups"),
     "imaging_report": ("findings", "impression"),
     "test_report": ("measurements", "interpretations"),
+    "pathology_report": ("specimen", "microscopic_description", "diagnosis"),
+    "specialist_report": ("measurements", "findings", "conclusions"),
 }
 # Less text than this (headers only, a blank form) may truly hold nothing to read.
 MIN_CONTENT_CHARS = 200

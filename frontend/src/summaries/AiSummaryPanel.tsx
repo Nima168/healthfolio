@@ -111,13 +111,6 @@ function SummaryBody({ summary }: { summary: AiSummary }) {
           })}
         </ol>
       </div>
-
-      {summary.dropped_count > 0 && (
-        <p className="document-meta">
-          {summary.dropped_count} AI statement{summary.dropped_count === 1 ? ' was' : 's were'} left out because{' '}
-          {summary.dropped_count === 1 ? 'it' : 'they'} could not be matched to your records.
-        </p>
-      )}
     </>
   )
 }

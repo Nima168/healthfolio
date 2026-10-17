@@ -19,15 +19,24 @@ from app.ai.extractor import (
     CONSULTATION_PROMPT_VERSION,
     DISCHARGE_PROMPT_VERSION,
     IMAGING_PROMPT_VERSION,
+    PATHOLOGY_PROMPT_VERSION,
     PRESCRIPTION_PROMPT_VERSION,
     PROMPT_VERSION,
+    SPECIALIST_PROMPT_VERSION,
     TEST_REPORT_PROMPT_VERSION,
     ExtractionError,
     GroqExtractor,
 )
 from app.ai.prescription_validation import ValidatedFollowUp, ValidatedMedication, validate_prescription
+from app.ai.readability import NOT_IDENTIFIED
 from app.ai.reading import Ocr, PreparedDocument, ReadingError, prepare
-from app.ai.report_validation import validate_consultation, validate_imaging, validate_test_report
+from app.ai.report_validation import (
+    validate_consultation,
+    validate_imaging,
+    validate_pathology,
+    validate_specialist,
+    validate_test_report,
+)
 from app.ai.source_check import SourceText
 from app.ai.validation import ValidatedResult, validate_payload
 from app.core.config import Settings
@@ -48,9 +57,32 @@ TASK_VERSIONS = {
     "consultation_note": CONSULTATION_PROMPT_VERSION,
     "imaging_report": IMAGING_PROMPT_VERSION,
     "test_report": TEST_REPORT_PROMPT_VERSION,
+    "pathology_report": PATHOLOGY_PROMPT_VERSION,
+    "specialist_report": SPECIALIST_PROMPT_VERSION,
 }
 # Upload types that decide the reading directly; anything else ("other", "not set") is classified first.
-DIRECT_KINDS = ("lab_report", "prescription", "discharge_summary", "consultation_note", "imaging_report")
+DIRECT_KINDS = (
+    "lab_report",
+    "prescription",
+    "discharge_summary",
+    "consultation_note",
+    "imaging_report",
+    "pathology_report",
+    "specialist_report",
+)
+REPORT_KINDS = ("consultation_note", "imaging_report", "test_report", "pathology_report", "specialist_report")
+
+
+PATHOLOGY_SECTIONS = (
+    "specimen",
+    "clinical_history",
+    "gross_description",
+    "microscopic_description",
+    "diagnosis",
+    "tumour_details",
+    "special_tests",
+    "comments",
+)
 
 
 class JobCancelled(Exception):
@@ -116,6 +148,7 @@ def _to_suggestion(job: ProcessingJob, item: ValidatedFollowUp, position: int) -
         suggested_value=item.description,
         kind=item.kind,
         original_text=item.date_text,
+        condition_text=item.condition,
         due_date=item.due_date,
         due_date_basis=item.due_date_basis,
         confidence=item.confidence,
@@ -193,7 +226,7 @@ class ExtractionRunner:
                 counts = self._prescription(job, prepared)
             elif kind == "discharge_summary":
                 counts = self._discharge(job, prepared)
-            elif kind in ("consultation_note", "imaging_report", "test_report"):
+            elif kind in REPORT_KINDS:
                 counts = self._report(job, prepared, kind)
             else:  # not a supported kind of document: nothing to extract
                 jobs.heartbeat(self.session, job, "validating")
@@ -285,7 +318,7 @@ class ExtractionRunner:
         }
 
     def _report(self, job: ProcessingJob, prepared: PreparedDocument, kind: str) -> dict:
-        """Consultation note, imaging report, or other test report: kept exactly as written in job.details."""
+        """Consultation note, imaging, pathology, specialist, or other test report: kept as written in job.details."""
         outcome = self.extractor.extract_report(prepared, kind)
         self._add_usage(job, outcome.model, outcome.input_tokens, outcome.output_tokens)
         follow_ups = []
@@ -301,6 +334,21 @@ class ExtractionRunner:
             date_value = details["exam_date"]
             unclear = 0 if details["is_written_report"] else 1  # scan images only: nothing read
             items = len(details["findings"]) + len(details["impression"])
+        elif kind == "pathology_report":
+            details = validate_pathology(outcome.payload)
+            # Dated by the report (when the diagnosis was written), else by the collection date.
+            dated = "reported" if details["reported_date"] or not details["collected_date"] else "collected"
+            job.report_date_text = details[f"{dated}_text"]
+            date_value = details[f"{dated}_date"]
+            unclear = sum(NOT_IDENTIFIED in details[key] for key in PATHOLOGY_SECTIONS)
+            items = sum(len(details[key]) for key in PATHOLOGY_SECTIONS)
+        elif kind == "specialist_report":
+            details, follow_ups = validate_specialist(outcome.payload, prepared.page_count)
+            job.report_date_text = details["test_text"]
+            date_value = details["test_date"]
+            unclear = sum(m["unclear"] for m in details["measurements"])
+            unclear += sum(item.review_reason is not None for item in follow_ups)
+            items = len(details["measurements"]) + len(details["findings"]) + len(details["conclusions"])
         else:
             details = validate_test_report(outcome.payload)
             job.report_date_text = details["test_text"]
@@ -314,6 +362,21 @@ class ExtractionRunner:
         self._live_document(job)  # deleted while we were waiting for the model?
         for position, follow_up in enumerate(follow_ups):
             self.session.add(_to_suggestion(job, follow_up, position))
+        if kind == "pathology_report":
+            # Each written diagnosis, as for discharge summaries: suggested in Health Profile and listed in
+            # Diagnoses and Conditions. A line that could not be read is never suggested.
+            for position, name in enumerate(d for d in details["diagnosis"] if d != NOT_IDENTIFIED):
+                self.session.add(
+                    Condition(
+                        position=position,
+                        user_id=job.user_id,
+                        source_document_id=job.document_id,
+                        processing_job_id=job.id,
+                        name=name,
+                        status="unknown",
+                        origin="document_extracted",
+                    )
+                )
         return {
             "results": items + len(follow_ups),
             "needs_review": unclear,

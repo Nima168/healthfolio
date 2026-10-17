@@ -1,4 +1,4 @@
-"""Summaries for consultation notes, imaging reports, and other test reports (e.g. ECG).
+"""Summaries for consultation notes, imaging, pathology, specialist, and other test reports (e.g. ECG).
 
 Built from the processing job's `details` (exactly as written) and, for consultation notes, the
 follow-up suggestions. Test-report measurements outside their printed range are flagged high/low with
@@ -137,24 +137,130 @@ def summarise_test_report(job: ProcessingJob) -> DiagnosticTestSummary:
         report_form=details.get("report_form") or "unknown",
         test_date=_date(details.get("test_date")),
         test_text=details.get("test_text"),
-        measurements=[
-            Measurement(
-                m["name"],
-                m["value_text"],
-                m.get("unit"),
-                m.get("reference_range_text"),
-                _flag(m["value_text"], m.get("reference_range_text")),
-                bool(m.get("unclear")),
-            )
-            for m in details.get("measurements") or []
-        ],
-        # Machine first, then physician, then other (stable within each), as in the agreed format.
-        interpretations=sorted(
-            (
-                Interpretation(item["source"], bool(item.get("confirmed")), item["text"])
-                for item in details.get("interpretations") or []
-            ),
-            key=lambda item: _SOURCE_ORDER.get(item.source, 2),
-        ),
+        measurements=_measurements(details.get("measurements")),
+        interpretations=_interpretations(details.get("interpretations")),
+        visual_content=list(details.get("visual_content") or []),
+    )
+
+
+def _measurements(items: list[dict] | None) -> list[Measurement]:
+    return [
+        Measurement(
+            m["name"],
+            m["value_text"],
+            m.get("unit"),
+            m.get("reference_range_text"),
+            _flag(m["value_text"], m.get("reference_range_text")),
+            bool(m.get("unclear")),
+        )
+        for m in items or []
+    ]
+
+
+def _interpretations(items: list[dict] | None) -> list[Interpretation]:
+    """Machine first, then physician, then other (stable within each), as in the agreed format."""
+    return sorted(
+        (Interpretation(item["source"], bool(item.get("confirmed")), item["text"]) for item in items or []),
+        key=lambda item: _SOURCE_ORDER.get(item.source, 2),
+    )
+
+
+@dataclass
+class PathologySummary:
+    """Exactly as written. Header fields are None and sections empty when the report does not have them."""
+
+    test_name: str | None
+    specimen_label: str | None
+    report_id: str | None
+    facility_name: str | None
+    pathologist_name: str | None
+    collected_date: date | None
+    collected_text: str | None
+    received_date: date | None
+    received_text: str | None
+    reported_date: date | None
+    reported_text: str | None
+    specimen: list[str] = field(default_factory=list)
+    clinical_history: list[str] = field(default_factory=list)
+    gross_description: list[str] = field(default_factory=list)
+    microscopic_description: list[str] = field(default_factory=list)
+    diagnosis: list[str] = field(default_factory=list)
+    tumour_details: list[str] = field(default_factory=list)
+    special_tests: list[str] = field(default_factory=list)
+    comments: list[str] = field(default_factory=list)
+
+
+_PATHOLOGY_TEXTS = (
+    "test_name",
+    "specimen_label",
+    "report_id",
+    "facility_name",
+    "pathologist_name",
+    "collected_text",
+    "received_text",
+    "reported_text",
+)
+_PATHOLOGY_LISTS = (
+    "specimen",
+    "clinical_history",
+    "gross_description",
+    "microscopic_description",
+    "diagnosis",
+    "tumour_details",
+    "special_tests",
+    "comments",
+)
+
+
+def summarise_pathology(job: ProcessingJob) -> PathologySummary:
+    details = job.details or {}
+    return PathologySummary(
+        **{name: details.get(name) for name in _PATHOLOGY_TEXTS},
+        collected_date=_date(details.get("collected_date")),
+        received_date=_date(details.get("received_date")),
+        reported_date=_date(details.get("reported_date")),
+        **{name: list(details.get(name) or []) for name in _PATHOLOGY_LISTS},
+    )
+
+
+@dataclass
+class SpecialistSummary:
+    """Exactly as written. Header fields are None and sections empty when the report does not have them."""
+
+    test_name: str | None
+    specialty: str | None
+    report_id: str | None
+    facility_name: str | None
+    reported_by: str | None
+    test_date: date | None
+    test_text: str | None
+    reason: list[str] = field(default_factory=list)
+    measurements: list[Measurement] = field(default_factory=list)
+    findings: list[str] = field(default_factory=list)
+    conclusions: list[Interpretation] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+    follow_ups: list[FollowUpLine] = field(default_factory=list)
+    reminders: str = "none"
+    visual_content: list[str] = field(default_factory=list)
+
+
+def summarise_specialist(job: ProcessingJob, suggestions: list[Suggestion]) -> SpecialistSummary:
+    details = job.details or {}
+    follow_ups = summarise_prescription(job, [], suggestions)
+    return SpecialistSummary(
+        test_name=details.get("test_name"),
+        specialty=details.get("specialty"),
+        report_id=details.get("report_id"),
+        facility_name=details.get("facility_name"),
+        reported_by=details.get("reported_by"),
+        test_date=_date(details.get("test_date")),
+        test_text=details.get("test_text"),
+        reason=list(details.get("reason") or []),
+        measurements=_measurements(details.get("measurements")),
+        findings=list(details.get("findings") or []),
+        conclusions=_interpretations(details.get("conclusions")),
+        recommendations=list(details.get("recommendations") or []),
+        follow_ups=follow_ups.follow_ups,
+        reminders=follow_ups.reminders,
         visual_content=list(details.get("visual_content") or []),
     )

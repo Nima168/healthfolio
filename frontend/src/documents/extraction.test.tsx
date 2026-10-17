@@ -10,7 +10,9 @@ import type {
   DocumentExtraction,
   ImagingSummary,
   Observation,
+  PathologySummary,
   PrescriptionSummary,
+  SpecialistSummary,
   TestReportSummary,
 } from './extractionApi'
 
@@ -21,6 +23,7 @@ const DOCUMENT: MedicalDocument = {
   media_type: 'application/pdf',
   size_bytes: 1000,
   category: 'lab_report',
+  report_subtype: null,
   document_date: null,
   document_date_precision: null,
   provider_name: null,
@@ -170,8 +173,8 @@ describe('Extracted lab results', () => {
       'Normal Values:',
       '- Haemoglobin: 13.8 g/dL (Reference: 12.0 - 15.5)',
       'Invalid Records:',
-      '- HbA1c: 6.1 (Reference: 4.0 - 5.6)',
-      '- Vitamin B12: <150 pg/mL (Reference: 200 - 900)',
+      '- HbA1c: 6.1 (Reference: 4.0 - 5.6) – The unit is missing or unclear.',
+      '- Vitamin B12: <150 pg/mL (Reference: 200 - 900) – The value "<150" is not a single number, so it was not compared.',
     ])
     // No closing line and no Needs Review section in the lab format.
     expect(within(section).queryByText(/qualified healthcare professional/)).not.toBeInTheDocument()
@@ -208,7 +211,7 @@ describe('Extracted lab results', () => {
     const line = (await screen.findByText(/^MCV:/)).closest('li')!
     expect(within(line).getAllByText('Not identified')).toHaveLength(2)
     expect(within(line).getAllByText('Not identified')[0]).toHaveClass('not-identified')
-    expect(line).toHaveTextContent('– check the original')
+    expect(line).toHaveTextContent('– Part of this result could not be read (Not identified). Check it against the original.')
   })
 
   it('leaves out Invalid Records when there are none', async () => {
@@ -369,10 +372,28 @@ describe('Prescription summary', () => {
     expect(metformin).toHaveTextContent('Metformin 500 mg: once daily after dinner, 90 days (unclear – check original)')
     expect(within(metformin).getByText(/unclear/)).toHaveAttribute('title', reason)
     expect(within(section).getByText('Date not mentioned').closest('li')).toHaveTextContent(
-      'Date not mentioned: Eye checkup (unclear – check original)',
+      'Date not mentioned: Eye checkup (unclear: No follow-up date or timing is written.)', // the reason, written out
     )
     expect(within(section).getByText('after 4 weeks').closest('li')).toHaveTextContent('(date has passed)')
     expect(within(section).getByText('on 07-Dec-2026').closest('li')).not.toHaveTextContent('(date has passed)')
+    expect(within(section).queryByRole('button', { name: 'Add to Checkups and Follow-ups' })).not.toBeInTheDocument()
+  })
+
+  it('shows a conditional follow-up as only if needed, never as a dated appointment', async () => {
+    setup(
+      prescriptionState({
+        follow_ups: [
+          { due_date: null, description: 'Review', unclear: false, reason: null, when_text: 'after 5 days', calculated: false, condition: 'if not better/SOS' },
+        ],
+        reminders: 'none',
+      }),
+    )
+    renderAt('/documents/doc-1')
+
+    const section = await screen.findByRole('region', { name: 'Prescription summary' })
+    const review = (await within(section).findByText('after 5 days')).closest('li') as HTMLElement
+    expect(review).toHaveTextContent(/^after 5 days: Review \(only if needed: if not better\/SOS\)$/)
+    expect(review).not.toHaveTextContent(/unclear|no exact date/)
     expect(within(section).queryByRole('button', { name: 'Add to Checkups and Follow-ups' })).not.toBeInTheDocument()
   })
 
@@ -391,6 +412,15 @@ describe('Prescription summary', () => {
     )
     expect(within(section).getByText(/Added to/)).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/documents/doc-1/follow-ups'))).toBe(true)
+  })
+
+  it('shows the duration once when the instructions already end with it', async () => {
+    const medication = { ...PRESCRIPTION.medications[0], instructions: '1 tablet once daily, At night, 90 days' }
+    setup(prescriptionState({ medications: [medication] }))
+    renderAt('/documents/doc-1')
+
+    const line = (await screen.findByText('Atorvastatin 10 mg')).closest('li')!
+    expect(line).toHaveTextContent(/^Atorvastatin 10 mg: 1 tablet once daily, At night, 90 days$/)
   })
 
   it('offers to try again when a prescription reading found nothing', async () => {
@@ -745,5 +775,104 @@ describe('Consultation, imaging, and other test reports', () => {
       'Visual Content',
       '- Lead II rhythm strip: not extracted (image only)',
     ])
+  })
+})
+
+describe('Pathology and specialist reports', () => {
+  const PATHOLOGY: PathologySummary = {
+    test_name: 'Histopathology',
+    specimen_label: 'Skin biopsy (left forearm)',
+    report_id: 'HP-26-1182',
+    facility_name: 'Sampleville Pathology Lab',
+    pathologist_name: 'Dr. Sample Pathologist',
+    collected_date: '2026-10-02',
+    collected_text: '02-Oct-2026',
+    received_date: null,
+    received_text: null,
+    reported_date: '2026-10-06',
+    reported_text: '06-Oct-2026',
+    specimen: ['Skin punch biopsy, left forearm, 4 mm, in formalin'],
+    clinical_history: [],
+    gross_description: [],
+    microscopic_description: ['Nests of melanocytes at the dermo-epidermal junction'],
+    diagnosis: ['Compound melanocytic naevus, completely excised', 'Not identified'],
+    tumour_details: [],
+    special_tests: ['SOX10: positive'],
+    comments: [],
+  }
+
+  const SPECIALIST: SpecialistSummary = {
+    test_name: 'Echocardiogram',
+    specialty: 'Cardiology',
+    report_id: null,
+    facility_name: 'Sampleville Heart Centre',
+    reported_by: 'Dr. Sample Cardiologist',
+    test_date: '2026-10-09',
+    test_text: '09-Oct-2026',
+    reason: ['Breathlessness on exertion'],
+    measurements: [
+      { name: 'LVEF', value_text: '58', unit: '%', reference_range_text: '55–70', flag: null, unclear: false },
+      { name: 'LA diameter', value_text: '4.3', unit: 'cm', reference_range_text: '2.7–3.8', flag: 'high', unclear: false },
+    ],
+    findings: [],
+    conclusions: [{ source: 'physician', confirmed: true, text: 'Mild LVH with preserved systolic function' }],
+    recommendations: ['Control blood pressure'],
+    follow_ups: [{ due_date: '2027-10-09', description: 'Repeat echo', unclear: false, reason: null, when_text: 'after 12 months', calculated: true }],
+    reminders: 'available',
+    visual_content: [],
+  }
+
+  it('shows a pathology report in the agreed format, leaving out what the report does not have', async () => {
+    setup(completed({ document_kind: 'pathology_report', pathology: PATHOLOGY }))
+    renderAt('/documents/doc-1')
+
+    const section = await screen.findByRole('region', { name: 'Pathology summary' })
+    await within(section).findByText(/PATHOLOGY SUMMARY/)
+    expect(textLines(section)).toEqual([
+      'PATHOLOGY SUMMARY — Histopathology, Skin biopsy (left forearm)',
+      'Source: Report HP-26-1182 (Sampleville Pathology Lab)',
+      'Dates: Collected 02-Oct-2026 · Reported 06-Oct-2026', // no "Received": not printed
+      'Pathologist: Dr. Sample Pathologist',
+      'Specimen',
+      '- Skin punch biopsy, left forearm, 4 mm, in formalin',
+      'Microscopic Description',
+      '- Nests of melanocytes at the dermo-epidermal junction',
+      'Diagnosis',
+      '- Compound melanocytic naevus, completely excised',
+      'Special Tests',
+      '- SOX10: positive',
+    ])
+    expect(within(section).queryByText(/Not mentioned/)).not.toBeInTheDocument()
+    // A diagnosis line printed but unreadable is marked, never left out or guessed.
+    const unreadable = within(section).getByText('Not identified')
+    expect(unreadable).toHaveClass('not-identified')
+    expect(unreadable.closest('li')?.previousElementSibling).toHaveTextContent('Compound melanocytic naevus')
+  })
+
+  it('shows a specialist report in the agreed format, with follow-ups to add', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-17T09:00:00Z'))
+    setup(completed({ document_kind: 'specialist_report', specialist: SPECIALIST }))
+    renderAt('/documents/doc-1')
+
+    const section = await screen.findByRole('region', { name: 'Specialist report summary' })
+    await within(section).findByText(/SPECIALIST REPORT/)
+    expect(textLines(section)).toEqual([
+      'SPECIALIST REPORT — Echocardiogram (Cardiology)',
+      'Source: Sampleville Heart Centre',
+      'Date: 09-Oct-2026',
+      'Reported by: Dr. Sample Cardiologist',
+      'Reason for Test: Breathlessness on exertion',
+      'Reported Measurements',
+      '- LVEF 58 % (reference 55–70)',
+      '- LA diameter 4.3 cm (reference 2.7–3.8) — high',
+      'Conclusion',
+      '- Physician (confirmed): Mild LVH with preserved systolic function',
+      'Recommendations and Follow-Up',
+      '- Control blood pressure',
+      '- after 12 months (due 09-Oct-2027, calculated): Repeat echo',
+    ])
+    expect(within(section).getByRole('button', { name: 'Add to Checkups and Follow-ups' })).toBeInTheDocument()
+    expect(within(section).queryByText(/Findings|Visual Content|Not mentioned/)).not.toBeInTheDocument()
   })
 })

@@ -62,6 +62,8 @@ export interface FollowUpLine {
   when_text: string | null
   /** due_date was counted from the document date ("after 4 weeks"), not printed. */
   calculated: boolean
+  /** A written condition ("if not better / SOS"): only if needed, so never dated or added. */
+  condition?: string | null
 }
 
 /** Medicines, follow-ups grouped by date, and what needs review (backend rules; the AI only reads). */
@@ -160,6 +162,54 @@ export interface TestReportSummary {
   visual_content: string[]
 }
 
+export interface Conclusion {
+  source: 'machine' | 'physician' | 'other'
+  confirmed: boolean
+  text: string
+}
+
+/** Pathology report, exactly as written. Null fields and empty sections are not in the report (not shown). */
+export interface PathologySummary {
+  test_name: string | null
+  specimen_label: string | null
+  report_id: string | null
+  facility_name: string | null
+  pathologist_name: string | null
+  collected_date: string | null
+  collected_text: string | null
+  received_date: string | null
+  received_text: string | null
+  reported_date: string | null
+  reported_text: string | null
+  specimen: string[]
+  clinical_history: string[]
+  gross_description: string[]
+  microscopic_description: string[]
+  diagnosis: string[]
+  tumour_details: string[]
+  special_tests: string[]
+  comments: string[]
+}
+
+/** Specialist report (ECG, echo, spirometry, ...), exactly as written. Empty parts are not shown. */
+export interface SpecialistSummary {
+  test_name: string | null
+  specialty: string | null
+  report_id: string | null
+  facility_name: string | null
+  reported_by: string | null
+  test_date: string | null
+  test_text: string | null
+  reason: string[]
+  measurements: Measurement[]
+  findings: string[]
+  conclusions: Conclusion[]
+  recommendations: string[]
+  follow_ups: FollowUpLine[]
+  reminders: 'available' | 'added' | 'none'
+  visual_content: string[]
+}
+
 export type DocumentKind =
   | 'lab_report'
   | 'prescription'
@@ -167,6 +217,8 @@ export type DocumentKind =
   | 'consultation_note'
   | 'imaging_report'
   | 'test_report'
+  | 'pathology_report'
+  | 'specialist_report'
   | 'other'
 
 /** How the text was obtained: the PDF's own text, OCR, OCR with some pages read from the image, or only images. */
@@ -196,6 +248,8 @@ export interface DocumentExtraction {
   consultation: ConsultationSummary | null
   imaging: ImagingSummary | null
   test_report: TestReportSummary | null
+  pathology?: PathologySummary | null
+  specialist?: SpecialistSummary | null
 }
 
 const documentPath = (id: string) => `/documents/${encodeURIComponent(id)}`

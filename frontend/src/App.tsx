@@ -11,6 +11,7 @@ import { RegisterPage } from './pages/auth/RegisterPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { DocumentDetailPage } from './documents/DocumentDetailPage'
 import { DocumentsPage } from './documents/DocumentsPage'
+import { DiagnosesPage } from './diagnoses/DiagnosesPage'
 import { FollowUpsPage } from './followUps/FollowUpsPage'
 import { MedicationsPage } from './medications/MedicationsPage'
 import { ComingSoon, NotFound } from './pages/ComingSoon'
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/diagnoses" element={<DiagnosesPage />} />
           <Route path="/medications" element={<MedicationsPage />} />
           <Route path="/follow-ups" element={<FollowUpsPage />} />
           <Route path="/summaries" element={<SummariesPage />} />

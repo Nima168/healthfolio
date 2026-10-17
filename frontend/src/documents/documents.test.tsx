@@ -21,6 +21,7 @@ function makeDocument(overrides: Partial<MedicalDocument> = {}): MedicalDocument
     media_type: 'application/pdf',
     size_bytes: 182_344,
     category: 'lab_report',
+    report_subtype: null,
     document_date: '2026-03-01',
     document_date_precision: 'month',
     provider_name: 'City Diagnostics',
@@ -39,7 +40,7 @@ const pdfFile = (name = 'new-report.pdf') => new File(['%PDF-1.4 synthetic'], na
 
 /** Upload details are all required. */
 async function fillDetails(category = 'lab_report', copyType: RegExp = /Digital PDF/) {
-  await userEvent.selectOptions(screen.getByLabelText('Document type (required)'), category)
+  await userEvent.selectOptions(screen.getByLabelText('Report type (required)'), category)
   fireEvent.change(screen.getByLabelText('Document date (required)'), { target: { value: '2026-03-14' } })
   await userEvent.type(screen.getByLabelText('Hospital, lab, or clinic (required)'), 'City Diagnostics')
   await userEvent.click(screen.getByRole('radio', { name: copyType }))
@@ -47,13 +48,14 @@ async function fillDetails(category = 'lab_report', copyType: RegExp = /Digital 
 
 describe('Documents page', () => {
   it('lists documents with their details, showing only as much of the date as is known', async () => {
-    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([makeDocument()]) })
-    renderAt('/documents')
+    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([makeDocument({ report_subtype: 'Lipid profile' })]) })
+    renderAt('/documents?group=none')
 
     const table = await screen.findByRole('table', { name: 'Your documents' })
     expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual([
       'Name',
-      'Type',
+      'Report type',
+      'Report sub-type',
       'Document date',
       'Hospital, lab, or clinic',
       'File',
@@ -61,14 +63,14 @@ describe('Documents page', () => {
     ])
     const row = within(table).getByRole('link', { name: 'Blood test March' }).closest('tr') as HTMLElement
     const cells = within(row).getAllByRole('cell').map((td) => td.textContent)
-    expect(cells.slice(0, 3)).toEqual(['Lab report', 'March 2026', 'City Diagnostics'])
-    expect(cells[3]).toBe('blood-test.pdfPDF · 178 KB')
+    expect(cells.slice(0, 4)).toEqual(['Laboratory reports', 'Lipid profile', 'March 2026', 'City Diagnostics'])
+    expect(cells[4]).toBe('blood-test.pdfPDF · 178 KB')
     expect(within(row).queryByText('Queued for extraction')).not.toBeInTheDocument() // no processing status shown
   })
 
   it('shows your documents above the upload panel, with a link down to it', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([makeDocument()]) })
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     const listHeading = await screen.findByRole('heading', { name: 'Your documents' })
     const uploadHeading = screen.getByRole('heading', { name: 'Upload a document' })
@@ -78,10 +80,10 @@ describe('Documents page', () => {
 
   it('asks for only one page of a discharge summary, due to AI limits', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
-    const type = screen.getByLabelText('Document type (required)')
+    const type = screen.getByLabelText('Report type (required)')
     expect(screen.queryByText(/only one page of the discharge summary/)).not.toBeInTheDocument()
 
     await userEvent.selectOptions(type, 'discharge_summary')
@@ -94,14 +96,14 @@ describe('Documents page', () => {
   it('explains what is missing when Upload is clicked with nothing chosen', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
     const requests = stubUploads(() => ({ status: 201, body: {} }))
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     await userEvent.click(await screen.findByRole('button', { name: 'Upload' }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a file to upload.')
     expect(screen.getByText('Enter a name for this document.')).toBeInTheDocument()
     expect(screen.getByLabelText('Name (required)')).toHaveAttribute('aria-invalid', 'true')
-    expect(screen.getByText('Choose the document type.')).toBeInTheDocument()
+    expect(screen.getByText('Choose the report type.')).toBeInTheDocument()
     expect(screen.getByText('Enter the date on the document.')).toBeInTheDocument()
     expect(screen.getByText('Enter the hospital, lab, or clinic.')).toBeInTheDocument()
     expect(screen.getByLabelText('Hospital, lab, or clinic (required)')).toHaveAttribute('aria-invalid', 'true')
@@ -111,7 +113,7 @@ describe('Documents page', () => {
 
   it('asks whether a PDF is digital or scanned, and treats a photo as scanned', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
-    renderAt('/documents')
+    renderAt('/documents?group=none')
     const digital = await screen.findByRole('radio', { name: /Digital PDF/ })
     const scanned = screen.getByRole('radio', { name: /Scanned copy or photo/ })
 
@@ -128,7 +130,7 @@ describe('Documents page', () => {
   it('requires a name even when a file is chosen', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
     const requests = stubUploads(() => ({ status: 201, body: {} }))
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
     await userEvent.type(screen.getByLabelText('Name (required)'), '   ')
@@ -141,7 +143,7 @@ describe('Documents page', () => {
 
   it('shows a helpful empty state', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     expect(await screen.findByText('No documents yet.')).toBeInTheDocument()
   })
@@ -152,7 +154,7 @@ describe('Documents page', () => {
       status: 201,
       body: makeDocument({ id: 'doc-new', title: 'Thyroid panel', original_filename: 'new-report.pdf' }),
     }))
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
     await userEvent.type(screen.getByLabelText('Name (required)'), '  Thyroid panel ')
@@ -173,10 +175,66 @@ describe('Documents page', () => {
     expect(request.body.get('copy_type')).toBe('digital')
   })
 
+  it('offers the report types with clinical documents under one heading', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
+    renderAt('/documents?group=none')
+
+    const type = await screen.findByLabelText('Report type (required)')
+    expect(within(type).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Choose a type',
+      'Laboratory reports',
+      'Text-based imaging reports',
+      'Prescription',
+      'Discharge summary',
+      'Consultation note',
+      'Pathology reports',
+      'Specialist reports',
+    ])
+    const groups = [...type.querySelectorAll('optgroup')].map((group) => [
+      group.getAttribute('label'),
+      within(group as HTMLElement).getAllByRole('option').map((o) => o.textContent),
+    ])
+    expect(groups).toEqual([
+      ['Clinical Documents', ['Prescription', 'Discharge summary', 'Consultation note']],
+      ['Other', ['Pathology reports', 'Specialist reports']],
+    ])
+  })
+
+  it('sends an optional free-text sub-type', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
+    const requests = stubUploads(() => ({ status: 201, body: makeDocument({ id: 'doc-new' }) }))
+    renderAt('/documents?group=none')
+
+    await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
+    await userEvent.type(screen.getByLabelText('Name (required)'), 'Lipids')
+    await fillDetails('lab_report')
+    await userEvent.type(screen.getByLabelText('Report sub-type (optional)'), 'Lipid profile')
+    await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
+
+    await screen.findByRole('status')
+    expect(requests[0].body.get('report_subtype')).toBe('Lipid profile')
+  })
+
+  it('uploads a specialist report with an optional sub-type', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
+    const requests = stubUploads(() => ({ status: 201, body: makeDocument({ id: 'doc-new', category: 'specialist_report' }) }))
+    renderAt('/documents?group=none')
+
+    await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
+    await userEvent.type(screen.getByLabelText('Name (required)'), 'ECG')
+    await fillDetails('specialist_report')
+    await userEvent.type(screen.getByLabelText('Report sub-type (optional)'), 'ECG')
+    await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
+
+    await screen.findByRole('status')
+    expect(requests[0].body.get('category')).toBe('specialist_report')
+    expect(requests[0].body.get('report_subtype')).toBe('ECG')
+  })
+
   it('rejects unsupported and oversized files before uploading', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents': () => page([]) })
     const requests = stubUploads(() => ({ status: 201, body: {} }))
-    renderAt('/documents')
+    renderAt('/documents?group=none')
     const input = await screen.findByLabelText('Choose a file')
 
     fireEvent.change(input, { target: { files: [new File(['hello'], 'notes.txt', { type: 'text/plain' })] } })
@@ -201,7 +259,7 @@ describe('Documents page', () => {
         error: { code: 'VALIDATION_ERROR', message: 'Invalid input.', details: [{ field: 'file', issue }], request_id: 'r1' },
       },
     }))
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
     await userEvent.type(screen.getByLabelText('Name (required)'), 'Blood test')
@@ -224,7 +282,7 @@ describe('Documents page', () => {
         },
       },
     }))
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     await userEvent.upload(await screen.findByLabelText('Choose a file'), pdfFile())
     await userEvent.type(screen.getByLabelText('Name (required)'), 'Copy')
@@ -242,13 +300,13 @@ describe('Documents page', () => {
       'GET /documents?cursor=cursor-2': () => page([makeDocument({ id: 'doc-2', title: 'Older report' })]),
       'GET /documents?category=prescription': () => page([]),
     })
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     await userEvent.click(await screen.findByRole('button', { name: 'Load more' }))
     expect(await screen.findByRole('link', { name: 'Older report' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'prescription')
+    await userEvent.selectOptions(screen.getByLabelText('Report type'), 'prescription')
     expect(await screen.findByText('No documents match these filters.')).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/documents?category=prescription'))).toBe(true)
   })
@@ -320,12 +378,27 @@ describe('Filtering and grouping documents', () => {
     expect(groupTitles(/October 2026/)).toEqual(['CBC', 'Prescription Oct'])
   })
 
+  it('opens grouped by report type', async () => {
+    stubFetch({ ...LOGGED_IN, 'GET /documents/providers': providers, 'GET /documents?limit=50': () => page(LIBRARY) })
+    renderAt('/documents')
+
+    await screen.findByRole('region', { name: /Laboratory reports/ })
+    expect(screen.getByLabelText('Group by')).toHaveValue('type')
+    expect(groupHeadings()[0]).toBe('Laboratory reports (2)')
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument() // the default view
+  })
+
   it('groups by type in the usual type order', async () => {
     stubFetch({ ...LOGGED_IN, 'GET /documents/providers': providers, 'GET /documents?limit=50': () => page(LIBRARY) })
     renderAt('/documents?group=type')
 
-    await screen.findByRole('region', { name: /Lab report/ })
-    expect(groupHeadings()).toEqual(['Lab report (2)', 'Prescription (1)', 'Imaging report (1)', 'Other (1)'])
+    await screen.findByRole('region', { name: /Laboratory reports/ })
+    expect(groupHeadings()).toEqual([
+      'Laboratory reports (2)',
+      'Text-based imaging reports (1)',
+      'Prescription (1)',
+      'Other (1)',
+    ])
   })
 
   it('loads every page when grouped, so groups are complete', async () => {
@@ -346,17 +419,18 @@ describe('Filtering and grouping documents', () => {
       ...LOGGED_IN,
       'GET /documents/providers': providers,
       'GET /documents': () => page(LIBRARY),
+      'GET /documents?limit=50': () => page(LIBRARY), // cleared: back to the default, grouped by report type
       'GET /documents?category=lab_report': () => page(LIBRARY.slice(0, 2)),
       'GET /documents?category=lab_report&provider=Apollo+Hospitals': () => page(LIBRARY.slice(0, 2)),
       'GET /documents?category=lab_report&provider_missing=true': () => page([]),
     })
-    renderAt('/documents')
+    renderAt('/documents?group=none')
 
     const hospital = await screen.findByLabelText('Hospital or clinic')
     expect(await within(hospital).findByRole('option', { name: 'Apollo Hospitals (2)' })).toBeInTheDocument()
     expect(within(hospital).getByRole('option', { name: 'No hospital given (1)' })).toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'lab_report')
+    await userEvent.selectOptions(screen.getByLabelText('Report type'), 'lab_report')
     await userEvent.selectOptions(hospital, 'Apollo Hospitals')
     expect(await screen.findByRole('link', { name: 'Lipids' })).toBeInTheDocument()
     const called = (suffix: string) => fetchMock.mock.calls.some(([url]) => String(url).endsWith(suffix))
@@ -368,7 +442,7 @@ describe('Filtering and grouping documents', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(await screen.findByRole('link', { name: 'Undated note' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Type')).toHaveValue('')
+    expect(screen.getByLabelText('Report type')).toHaveValue('')
   })
 
   it('reads filters from the address and filters by report date', async () => {
@@ -377,7 +451,7 @@ describe('Filtering and grouping documents', () => {
       'GET /documents/providers': providers,
       'GET /documents?date_from=2026-09-01&date_to=2026-10-31': () => page([LIBRARY[0], LIBRARY[2]]),
     })
-    renderAt('/documents?from=2026-09-01&to=2026-10-31')
+    renderAt('/documents?from=2026-09-01&to=2026-10-31&group=none')
 
     expect(await screen.findByRole('link', { name: 'CBC' })).toBeInTheDocument()
     expect(screen.getByLabelText('Report date from')).toHaveValue('2026-09-01')
@@ -386,7 +460,7 @@ describe('Filtering and grouping documents', () => {
 
   it('does not load when the end date is before the start date', async () => {
     const fetchMock = stubFetch({ ...LOGGED_IN, 'GET /documents/providers': providers })
-    renderAt('/documents?from=2026-10-01&to=2026-09-01')
+    renderAt('/documents?from=2026-10-01&to=2026-09-01&group=none')
 
     expect(await screen.findByText('The end date cannot be before the start date.')).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('date_from'))).toBe(false)
@@ -414,7 +488,7 @@ describe('Document detail page', () => {
       ...LOGGED_IN,
       'GET /documents/doc-1': () => jsonResponse(200, makeDocument()),
       'GET /documents/doc-1/file': () => new Response(new Blob(['%PDF'])),
-      'PATCH /documents/doc-1': () => jsonResponse(200, makeDocument({ title: 'Blood test (repeat)', provider_name: 'General Hospital' })),
+      'PATCH /documents/doc-1': () => jsonResponse(200, makeDocument({ title: 'Blood test (repeat)', provider_name: 'General Hospital', report_subtype: 'Lipid profile' })),
     })
     renderAt('/documents/doc-1')
 
@@ -429,14 +503,17 @@ describe('Document detail page', () => {
     const provider = screen.getByLabelText('Hospital, lab, or clinic')
     await userEvent.clear(provider)
     await userEvent.type(provider, 'General Hospital')
+    await userEvent.type(screen.getByLabelText('Report sub-type (optional)'), 'Lipid profile')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('General Hospital')).toBeInTheDocument()
+    expect(screen.getByText('Report sub-type').nextElementSibling).toHaveTextContent('Lipid profile')
     expect(screen.getByRole('heading', { level: 1, name: 'Blood test (repeat)' })).toBeInTheDocument()
     const patch = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
     expect(JSON.parse(String(patch?.[1]?.body))).toEqual({
       title: 'Blood test (repeat)',
       category: 'lab_report',
+      report_subtype: 'Lipid profile',
       document_date: '2026-03-01',
       document_date_precision: 'month',
       provider_name: 'General Hospital',

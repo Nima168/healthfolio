@@ -130,7 +130,8 @@ Email bodies are not stored.
 | media_type | `application/pdf`, `image/jpeg`, `image/png` |
 | size_bytes | ≤ `MAX_UPLOAD_MB` |
 | sha256 | Duplicate detection: unique per user **among non-deleted rows** (partial unique index), so a deleted file can be uploaded again. Null on a tombstone. |
-| category | `lab_report`, `prescription`, `discharge_summary`, `consultation_note`, `imaging_report`, `other`, `unknown` |
+| category | `lab_report`, `prescription`, `discharge_summary`, `consultation_note`, `imaging_report`, `pathology_report`, `specialist_report` (migration 0019, 2026-10-17), `other` (no longer offered on upload), `unknown` |
+| report_subtype | Nullable free text, up to 100 characters (migration 0018, 2026-10-17), e.g. `Lipid profile`. Null for documents uploaded before it existed. Null on a tombstone. |
 | provider_name | Nullable (hospital, lab, clinic, clinician) |
 | document_date, document_date_precision | |
 | processing_status | Job lifecycle (Section 5.2). New uploads start as `pending`. |
@@ -138,7 +139,7 @@ Email bodies are not stored.
 | search_vector | `tsvector` over category, provider, and extracted text (added with the search feature) |
 | created_at, updated_at, deleted_at | |
 
-**Tombstone:** deleting a document removes the stored file and clears `storage_key`, `title`, `original_filename`, `sha256`, `provider_name`, and `document_date`. The row keeps only `id`, `user_id`, `media_type`, `size_bytes`, `category`, timestamps, and `deleted_at` for audit integrity, and it is excluded from every query.
+**Tombstone:** deleting a document removes the stored file and clears `storage_key`, `title`, `original_filename`, `sha256`, `provider_name`, `report_subtype`, and `document_date`. The row keeps only `id`, `user_id`, `media_type`, `size_bytes`, `category`, timestamps, and `deleted_at` for audit integrity, and it is excluded from every query.
 
 ### 5.2 processing_jobs
 | Field | Notes |
@@ -153,7 +154,7 @@ Email bodies are not stored.
 | reading_method | How the text was obtained: `digital`, `ocr`, `ocr+vision` (some pages read from the image), `vision` |
 | ocr_confidence | Average Tesseract confidence over the OCR pages (0–100); null when no page was read by OCR |
 | report_date_text | The report or prescription date exactly as printed |
-| document_kind | `lab_report`, `prescription`, `other`: what the document was read as |
+| document_kind | What the document was read as: `lab_report`, `prescription`, `discharge_summary`, `consultation_note`, `imaging_report`, `test_report`, `pathology_report`, `specialist_report` (migration 0020, 2026-10-17), `other` |
 | document_date, prescriber_name | From a prescription, for its summary |
 | idempotency_key | Unique; prevents duplicate jobs (`extraction:{document_id}`, plus a suffix for user-requested retries) |
 | run_after | Earliest time the job may run (retry backoff) |
@@ -209,7 +210,7 @@ Extracted lab results are shown as read, with no confirm/correct/reject step (de
 `id`, `user_id`, `title`, `kind` (`checkup`, `investigation`, `appointment`), `due_at`, `timezone`, `recurrence_rule` (nullable RRULE), `status` (`scheduled`, `completed`, `cancelled`), `completed_at`, `origin`, `suggestion_id`, `source_document_id`, timestamps. "Overdue" is computed (`status = scheduled` and `due_at` in the past), not stored.
 
 ### 5.7 suggestions
-As `backend_spec.md` Section 5.3: `id`, `user_id`, `suggestion_type` (`profile_value`, `follow_up`), `target_field`, `suggested_value`, `unit`, `original_text`, `source_document_id`, `source_location`, `confidence`, `validation_findings`, `status` (`pending`, `accepted`, `corrected`, `rejected`, `superseded`), `reviewed_at`, `corrected_value`, `result_entity_id`, `processing_job_id`, `created_at`.
+As `backend_spec.md` Section 5.3: `id`, `user_id`, `suggestion_type` (`profile_value`, `follow_up`), `target_field`, `suggested_value`, `unit`, `original_text`, `condition_text` (a follow-up's written condition such as "if not better / SOS"; migration 0021, 2026-10-17), `source_document_id`, `source_location`, `confidence`, `validation_findings`, `status` (`pending`, `accepted`, `corrected`, `rejected`, `superseded`), `reviewed_at`, `corrected_value`, `result_entity_id`, `processing_job_id`, `created_at`.
 
 ### 5.8 safety_rules and alerts
 **safety_rules:** `id`, `code`, `version`, `description`, `criteria` (JSON, deterministic), `severity` (`info`, `warning`, `urgent`), `source_reference` (validated source), `approved_by`, `approved_at`, `active`. Unique (`code`, `version`). Rules are global, not user-owned, and change only through controlled change management.

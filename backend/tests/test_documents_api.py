@@ -342,6 +342,41 @@ def test_patch_validation(client, asha, body):
     assert client.patch(f"{URL}/{document_id}", headers=asha, json=body).status_code == 422
 
 
+# ---------- report sub-type ----------
+
+
+def test_report_subtype_is_optional_free_text(client, asha):
+    plain = upload(client, asha, content=synthetic_pdf("plain"), category="lab_report")
+    named = upload(
+        client, asha, content=synthetic_pdf("named"), category="lab_report", report_subtype=" Lipid profile "
+    )
+
+    assert plain.status_code == 201 and plain.json()["report_subtype"] is None
+    assert named.status_code == 201 and named.json()["report_subtype"] == "Lipid profile"
+
+
+@pytest.mark.parametrize("category", ["pathology_report", "specialist_report"])
+def test_pathology_and_specialist_reports_are_report_types(client, asha, category):
+    response = upload(client, asha, category=category, report_subtype="ECG")
+
+    assert response.status_code == 201
+    assert (response.json()["category"], response.json()["report_subtype"]) == (category, "ECG")
+    assert (
+        client.get(URL, headers=asha, params={"category": category}).json()["items"][0]["id"] == response.json()["id"]
+    )
+
+
+def test_report_subtype_on_edit(client, asha):
+    document_id = upload(client, asha, category="lab_report", report_subtype="Lipid profile").json()["id"]
+    patch = lambda body: client.patch(f"{URL}/{document_id}", headers=asha, json=body)  # noqa: E731
+
+    assert patch({"report_subtype": "CBC"}).json()["report_subtype"] == "CBC"
+    moved = patch({"category": "specialist_report"}).json()
+    assert (moved["category"], moved["report_subtype"]) == ("specialist_report", "CBC")  # the sub-type is kept
+    assert patch({"report_subtype": None}).json()["report_subtype"] is None
+    assert patch({"report_subtype": "x" * 101}).status_code == 422
+
+
 # ---------- delete ----------
 
 

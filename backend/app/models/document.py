@@ -15,7 +15,9 @@ DOCUMENT_CATEGORIES = (
     "discharge_summary",
     "consultation_note",
     "imaging_report",
-    "other",
+    "pathology_report",
+    "specialist_report",
+    "other",  # no longer offered on upload (2026-10-17); kept for documents and API clients that use it
     "unknown",
 )
 DATE_PRECISIONS = ("day", "month", "year", "unknown")
@@ -60,6 +62,8 @@ class Document(TimestampMixin, Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     sha256: Mapped[str | None] = mapped_column(String(64))
     category: Mapped[str] = mapped_column(String(32), default="unknown", nullable=False)
+    # Shown as "Report sub-type": optional free text, e.g. "Lipid profile".
+    report_subtype: Mapped[str | None] = mapped_column(String(100))
     provider_name: Mapped[str | None] = mapped_column(String(200))
     document_date: Mapped[date | None] = mapped_column(Date)
     document_date_precision: Mapped[str | None] = mapped_column(String(10))

@@ -7,10 +7,15 @@ export const CATEGORIES = [
   'discharge_summary',
   'consultation_note',
   'imaging_report',
+  'pathology_report',
+  'specialist_report',
   'other',
   'unknown',
 ] as const
 export type Category = (typeof CATEGORIES)[number]
+
+/** The optional free-text report sub-type, e.g. "Lipid profile". */
+export const SUBTYPE_MAX_LENGTH = 100
 
 export const DATE_PRECISIONS = ['day', 'month', 'year', 'unknown'] as const
 export type DatePrecision = (typeof DATE_PRECISIONS)[number]
@@ -25,6 +30,7 @@ export interface MedicalDocument {
   media_type: 'application/pdf' | 'image/jpeg' | 'image/png'
   size_bytes: number
   category: Category
+  report_subtype: string | null
   document_date: string | null
   document_date_precision: DatePrecision | null
   provider_name: string | null
@@ -61,6 +67,7 @@ export interface ProviderList {
 export interface DocumentMetadata {
   title?: string
   category?: Category | null
+  report_subtype?: string | null
   document_date?: string | null
   document_date_precision?: DatePrecision | null
   provider_name?: string | null

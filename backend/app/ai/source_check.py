@@ -16,6 +16,7 @@ Outcomes, per result:
 
 import difflib
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from app.ai.reading import PreparedDocument
@@ -73,15 +74,46 @@ def contains(line: str, text: str) -> bool:
 
     A number must stand alone: "5" is not found in "15" or "5.4".
     """
+    pattern = _pattern(text)
+    return pattern is None or re.search(pattern, line.casefold()) is not None
+
+
+def _pattern(text: str) -> str | None:
     pieces = _PIECE.findall(text.casefold())
     if not pieces:
-        return True
+        return None
     pattern = r"\s*".join(re.escape(piece) for piece in pieces)
     if pieces[0][0].isdigit():
         pattern = r"(?<![\d.])" + pattern
     if pieces[-1][-1].isdigit():
         pattern += r"(?!\.?\d)"
-    return re.search(pattern, line.casefold()) is not None
+    return pattern
+
+
+def _stray(char: str) -> bool:
+    """A character OCR produces for a symbol it misread: unrecognised (U+FFFD), or a currency or other
+    symbol never part of a value or range ("£35" for "≤ 3.5"). Comparison and flag marks (< ≤ = ± *) are not."""
+    return char == "�" or (char != "°" and unicodedata.category(char) in ("Sc", "Sk", "So"))
+
+
+def beside_unreadable(source: SourceText, name: str, text: str, page: int | None) -> bool:
+    """On the test's line, the text touches a stray symbol ("£35" returned as "35").
+
+    The model may drop the character the OCR misread; what is left is then not what was printed.
+    """
+    pattern = _pattern(text)
+    lines = source.lines(page)
+    if pattern is None or not lines:
+        return False
+    # Directly touching; one space is allowed before ("£ 3.5"), none after: a character after a gap
+    # belongs to the next column.
+    touching = re.compile(rf"(?P<before>\S) ?{pattern}|{pattern}(?P<after>\S)")
+    rows = [index for index, line in enumerate(lines) if names(name, line)]
+    return any(
+        _stray(match.group("before") or match.group("after"))
+        for index in rows
+        for match in touching.finditer(" ".join(lines[index : index + 2]).casefold())
+    )
 
 
 def check(source: SourceText, name: str, value: str, page: int | None, other_names: list[str]) -> str | None:

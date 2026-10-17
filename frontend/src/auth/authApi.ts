@@ -1,5 +1,5 @@
 /** Auth endpoints (api_contract_spec.md Section 5.1.1). */
-import { apiGet, apiPost } from '../api/client'
+import { apiGet, apiPatch, apiPost } from '../api/client'
 
 export interface User {
   id: string
@@ -31,6 +31,8 @@ export const authApi = {
   resetPassword: (token: string, newPassword: string) =>
     apiPost<void>('/auth/password/reset', { token, new_password: newPassword }, anonymous),
   me: () => apiGet<User>('/users/me'),
+  /** The user's name; empty removes it. */
+  updateName: (displayName: string) => apiPatch<User>('/users/me', { display_name: displayName || null }),
   changePassword: (currentPassword: string, newPassword: string) =>
     apiPost<void>('/auth/password/change', { current_password: currentPassword, new_password: newPassword }),
   deleteAccount: (password: string, confirmation: string) =>

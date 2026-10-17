@@ -124,6 +124,12 @@ _FOLLOW_UP_PROPERTIES: dict[str, dict] = {
         {"type": "integer", "description": "Only for timing relative to the prescription, e.g. 4 for 'after 4 weeks'."}
     ),
     "relative_unit": _nullable({"type": "string", "enum": ["days", "weeks", "months"]}),
+    "condition": _nullable(
+        {
+            "type": "string",
+            "description": "A condition the follow-up depends on, exactly as written, e.g. 'if not better', 'SOS'.",
+        }
+    ),
     "page": _nullable({"type": "integer", "description": "1-based page where the follow-up appears."}),
     "source_text": {"type": "string", "description": "The exact line the follow-up was read from."},
     "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
@@ -192,6 +198,7 @@ class ExtractedFollowUp(BaseModel):
     date_text: str | None
     relative_amount: int | None
     relative_unit: Literal["days", "weeks", "months"] | None
+    condition: str | None = None
     page: int | None
     source_text: str
     confidence: Literal["high", "medium", "low"]
@@ -498,5 +505,111 @@ class OtherReportPayload(BaseModel):
     test_date: str | None
     measurements: list[ExtractedMeasurement]
     interpretations: list[ExtractedInterpretation]
+    visual_content: list[str]
+    warnings: list[str]
+
+
+def _report(properties: dict[str, dict]) -> dict:
+    """A report schema where every field is required (null or [] when not written)."""
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties),
+        "additionalProperties": False,
+    }
+
+
+def _printed(description: str) -> dict:
+    return _nullable({"type": "string", "description": description})
+
+
+PATHOLOGY_SCHEMA: dict = _report(
+    {
+        "test_name": _printed("Kind of examination as written, e.g. 'Histopathology', 'Cytology (FNAC)'."),
+        "specimen_label": _printed("Short specimen name and site as written, e.g. 'Skin biopsy (left forearm)'."),
+        "report_id": _printed("Report, lab, or accession number as written."),
+        "facility_name": _printed("Laboratory or hospital as written."),
+        "pathologist_name": _printed("Reporting pathologist's name as written, including 'Dr.'."),
+        "collected_date_text": _printed("Collection date exactly as printed."),
+        "collected_date": _printed("The collection date as YYYY-MM-DD."),
+        "received_date_text": _printed("Date received exactly as printed."),
+        "received_date": _printed("The received date as YYYY-MM-DD."),
+        "reported_date_text": _printed("Report date exactly as printed."),
+        "reported_date": _printed("The report date as YYYY-MM-DD."),
+        "specimen": _texts("One specimen line exactly as written (type, site, size, fixative)."),
+        "clinical_history": _texts("One clinical history or indication line exactly as written."),
+        "gross_description": _texts("One gross (macroscopic) description line exactly as written."),
+        "microscopic_description": _texts("One microscopic description line exactly as written."),
+        "diagnosis": _texts("One diagnosis or final diagnosis line exactly as written."),
+        "tumour_details": _texts("One written tumour detail (grade, size, margins, invasion, stage) as written."),
+        "special_tests": _texts("One immunohistochemistry, special stain, or molecular result as written."),
+        "comments": _texts("One comment, note, or recommendation exactly as written."),
+        "warnings": {"type": "array", "items": {"type": "string"}},
+    }
+)
+
+
+class PathologyPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    test_name: str | None
+    specimen_label: str | None
+    report_id: str | None
+    facility_name: str | None
+    pathologist_name: str | None
+    collected_date_text: str | None
+    collected_date: str | None
+    received_date_text: str | None
+    received_date: str | None
+    reported_date_text: str | None
+    reported_date: str | None
+    specimen: list[str]
+    clinical_history: list[str]
+    gross_description: list[str]
+    microscopic_description: list[str]
+    diagnosis: list[str]
+    tumour_details: list[str]
+    special_tests: list[str]
+    comments: list[str]
+    warnings: list[str]
+
+
+SPECIALIST_SCHEMA: dict = _report(
+    {
+        "test_name": _printed("Test name as written, e.g. 'Echocardiogram', 'ECG', 'Spirometry'."),
+        "specialty": _printed("The specialty only if it is written, e.g. 'Cardiology'; otherwise null."),
+        "report_id": _printed("Report number as written."),
+        "facility_name": _printed("Clinic, centre, or hospital as written."),
+        "reported_by": _printed("Name of the doctor or specialist who reported it, as written."),
+        "test_date_text": _printed("Test date (and time) exactly as printed."),
+        "test_date": _printed("The test date as YYYY-MM-DD."),
+        "reason": _texts("One reason for the test, indication, or clinical history line exactly as written."),
+        "measurements": _items(_MEASUREMENT_PROPERTIES),
+        "findings": _texts("One finding exactly as written."),
+        "conclusions": _items(_INTERPRETATION_PROPERTIES),
+        "recommendations": _texts("One recommendation or advice item exactly as written."),
+        "follow_ups": _items(_FOLLOW_UP_PROPERTIES),
+        "visual_content": _texts("A chart, tracing, or image in the document, named as written."),
+        "warnings": {"type": "array", "items": {"type": "string"}},
+    }
+)
+
+
+class SpecialistPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    test_name: str | None
+    specialty: str | None
+    report_id: str | None
+    facility_name: str | None
+    reported_by: str | None
+    test_date_text: str | None
+    test_date: str | None
+    reason: list[str]
+    measurements: list[ExtractedMeasurement]
+    findings: list[str]
+    conclusions: list[ExtractedInterpretation]
+    recommendations: list[str]
+    follow_ups: list[ExtractedFollowUp]
     visual_content: list[str]
     warnings: list[str]

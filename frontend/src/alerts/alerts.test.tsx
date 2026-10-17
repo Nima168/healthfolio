@@ -100,7 +100,7 @@ describe('Alerts page', () => {
     expect(within(type).getAllByRole('option').map((o) => o.textContent)).toEqual([
       'All types',
       'Discharge summary',
-      'Lab report',
+      'Laboratory reports',
       'Test report (ECG etc.)',
     ])
     expect(within(row(/HbA1c/)).getByText('07-Oct-2026')).toBeInTheDocument()

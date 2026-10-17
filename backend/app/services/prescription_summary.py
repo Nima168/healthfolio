@@ -30,6 +30,7 @@ class FollowUpLine:
     reason: str | None = None
     when_text: str | None = None  # the timing exactly as written ("after 4 weeks", "02/09/26")
     calculated: bool = False  # the due date was counted from the document date, not written
+    condition: str | None = None  # "if not better / SOS": only if needed
 
 
 @dataclass
@@ -43,8 +44,13 @@ class PrescriptionSummary:
 
 
 def addable(suggestion: Suggestion) -> bool:
-    """A follow-up that may be added to Checkups and Follow-ups: clear, dated, and not yet added."""
-    return suggestion.status == "pending" and suggestion.review_reason is None and suggestion.due_date is not None
+    """A follow-up that may be added to Checkups and Follow-ups: clear, dated, not conditional, not yet added."""
+    return (
+        suggestion.status == "pending"
+        and suggestion.review_reason is None
+        and suggestion.due_date is not None
+        and not suggestion.condition_text
+    )
 
 
 def summarise_prescription(
@@ -76,8 +82,15 @@ def summarise_prescription(
                 )
             )
             continue
-        if suggestion.due_date is None:  # approximate, e.g. "mid-January 2027"
-            unclear.append(FollowUpLine(None, suggestion.suggested_value, when_text=suggestion.original_text))
+        if suggestion.due_date is None:  # approximate ("mid-January 2027") or only if needed ("if not better")
+            unclear.append(
+                FollowUpLine(
+                    None,
+                    suggestion.suggested_value,
+                    when_text=suggestion.original_text,
+                    condition=suggestion.condition_text,
+                )
+            )
             continue
         descriptions = by_date.setdefault(suggestion.due_date, [])
         written.setdefault(suggestion.due_date, (suggestion.original_text, suggestion.due_date_basis == "calculated"))

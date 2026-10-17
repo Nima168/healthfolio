@@ -10,6 +10,7 @@ export const SECTIONS: Section[] = [
   { path: '/', label: 'Dashboard', description: 'An overview of your records, follow-ups, and items to review.', available: true },
   { path: '/timeline', label: 'Health Timeline', description: 'Your records in date order, with filters.', available: true },
   { path: '/documents', label: 'Medical Documents', description: 'Upload and view reports, prescriptions, and summaries.', available: true },
+  { path: '/diagnoses', label: 'Diagnoses and Conditions', description: 'Health issues written in your documents, tracked over time.', available: true },
   { path: '/medications', label: 'Medications', description: 'Add, edit, and review your medication records.', available: true },
   { path: '/follow-ups', label: 'Checkups and Follow-ups', description: 'Record checkups and see what is upcoming or overdue.', available: true },
   { path: '/summaries', label: 'AI Summaries and Insights', description: 'Plain-language summaries of your records, with sources.', available: true },

@@ -58,7 +58,7 @@ describe('Record search', () => {
     renderAt('/timeline')
 
     await userEvent.click(await screen.findByText('More filters'))
-    await userEvent.selectOptions(screen.getByLabelText('Document type'), 'discharge_summary')
+    await userEvent.selectOptions(screen.getByLabelText('Report type'), 'discharge_summary')
     await userEvent.type(screen.getByLabelText(/^Condition/), 'kidney')
     await userEvent.click(screen.getByRole('button', { name: 'Search' }))
 

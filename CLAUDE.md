@@ -80,7 +80,7 @@ Extraction completeness: read page by page, detect printed result lines no extra
 ## Repository rules
 
 - Commit only as `snimadolma95@gmail.com`; commit/push only when asked. Stage by explicit path.
-- Never commit `sample medical reports/` or `groud truths/` (untracked on purpose; they were removed from history before the repo went public).
+- Never commit `sample medical reports/` (untracked on purpose; removed from history before the repo went public).
 - When a change alters decided behaviour, configuration (env vars), the data model, or deployment, update the matching `spec/` section, `backend/.env.example`, and the README in the same change.
 - Execution reports go in `project_reports/` (git-ignored).
 - Secrets (`GROQ_API_KEY`, `JWT_SECRET`, DB passwords, AWS keys) live only in `backend/.env` or the hosting console; the user enters them.

@@ -46,23 +46,24 @@ Diagram source: [`docs/architecture/healthfolio-architecture.json`](docs/archite
 
 | Step | What happens |
 |---|---|
-| **1. Upload** | You choose the document type, and whether it is a **digital PDF** or a **scanned copy**. Blurry, dark, blank, or tiny scans are sent back for a clearer copy. |
+| **1. Upload** | You choose the report type (and optional sub-type), and whether it is a **digital PDF** or a **scanned copy**. Blurry, dark, blank, or tiny scans are sent back for a clearer copy. |
 | **2. Queue** | The upload is saved and a reading job is queued. The worker picks it up within seconds. |
 | **3. Get text** | Digital PDF: **PyMuPDF** reads the text layer. Scan: **Tesseract OCR** at 300 DPI, cleaned up, table rows kept together. A page under 85% OCR confidence goes to the AI as an **image** instead. |
 | **4. Groq AI** | Returns the fields in a **strict JSON schema** for that document type, copying values exactly as written. An empty answer for a page with text is read again, up to 3 times. |
 | **5. Check rules** | Code, not AI, checks every value (see the table below). Anything doubtful is marked for review. |
 | **6. Summary** | A plain-language summary built by rules, with each value linked to its source. **Refresh analysis** reads the document again. |
 
-### What each document type gives you
+### What each report type gives you
 
 | Document | Summary on the document page |
 |---|---|
-| 🧪 **Lab report** | Values **above**, **below**, and **within** the range printed on the report, plus **invalid records** (no range, not a single number, or unclear), shown as written and never judged |
-| 💊 **Prescription** | Date and doctor; each medicine with instructions and duration; follow-ups by date ("after 4 weeks" is calculated by code and labelled) |
+| 🧪 **Laboratory reports** | Values **above**, **below**, and **within** the range printed on the report, plus **invalid records** (no range, not a single number, or unclear), shown as written and never judged |
+| 💊 **Prescription** | Date and doctor; each medicine with instructions and duration, with dosing notation explained ("1-0-1" → morning and night); follow-ups by date ("after 4 weeks" is calculated by code and labelled); "only if needed" follow-ups ("review if not better / SOS") are shown but never dated |
 | 🏥 **Discharge summary** (one page) | Hospital, stay and number of days, diagnoses as written, key results (first → last), discharge medicines, follow-ups, when to return to the emergency department |
 | 🩺 **Consultation note** | Symptoms, observations, assessment, plan, follow-ups |
-| 🩻 **Imaging report** | Findings, impression, and the report's own uncertainty statements (written reports only; scan images are not read yet) |
-| 📈 **Other test report** (e.g. ECG) | Measurements against their printed ranges; machine and physician interpretations kept apart |
+| 🩻 **Text-based imaging reports** | Findings, impression, and the report's own uncertainty statements (written reports only; scan images are not read yet) |
+| 🔬 **Pathology reports** | Specimen, clinical history, gross and microscopic description, diagnosis, tumour details, special tests, and comments, exactly as written; the diagnosis is suggested for your Health Profile |
+| 📈 **Specialist reports** (ECG, echo, spirometry, ...) | Measurements against their printed ranges; findings; machine and physician conclusions kept apart; recommendations and follow-ups to add |
 
 ### The rules that keep results honest
 
@@ -75,20 +76,22 @@ Diagram source: [`docs/architecture/healthfolio-architecture.json`](docs/archite
 | `Total Protein 162 g/dL (6.4 – 8.3)` | Above range, with *"Unusually far outside the range: check the original"* | More than 10× outside a printed range suggests a misread |
 | `CRP 5.0 (< 5.0)` | Above range | Printed ranges are applied exactly; the AI never decides |
 | A medicine on a prescription | *Not confirmed* | Never marked as "taking" until you confirm it |
+| A scanned table where the instructions column was not read ("625 mg" again) | **Not identified** – check the original | Instructions that only repeat the strength are not shown as if read |
 
 ## Features
 
 | Feature | What it does |
 |---|---|
-| **Health Profile** | Body measurements (height, weight, calculated BMI with its adult category); medical history (conditions, surgeries, hospital stays, including stays from discharge summaries); vital signs as dated readings (blood pressure and heart rate, never labelled high or low); medications (prescription, over-the-counter, supplements); allergies with type and reaction (shown first); family history. Every change is kept in a history. Diagnoses read from discharge summaries join the profile only when you accept or correct them. |
+| **Diagnoses and Conditions** | Health issues written in your documents (discharge and pathology diagnoses, consultation assessments, imaging impressions), exactly as written, tracked across documents with first and last date; one click adds one to Health Profile. The app does not diagnose. |
+| **Health Profile** | Your name; body measurements (height, weight, calculated BMI with its adult category); medical history (conditions, surgeries, hospital stays, including stays from discharge summaries); vital signs as dated readings (blood pressure and heart rate, never labelled high or low); medications (prescription, over-the-counter, supplements); allergies with type and reaction (shown first); family history. Every change is kept in a history. Diagnoses read from discharge summaries and pathology reports join the profile only when you accept or correct them. |
 | **Dashboard** | One page with open and urgent alerts, items to review, overdue and upcoming follow-ups, recent documents and their reading status, profile completeness, allergies, BMI, latest vital signs, and recent activity. |
 | **Health Timeline** | All records in date order, with lab results grouped per report date. Each entry shows its source and whether you confirmed or changed it. Results from different dates are never combined. It can be filtered by category and date. |
 | **Search** | Finds any word across tests, medicines, diagnoses, report text, allergies, and history, with the matching field highlighted. It can be narrowed by type, hospital, condition, and dates. The search text is never put in the address or the logs. |
-| **Medical Documents** | Filter by type, date range, and hospital; group by type, month, or hospital, with counts. The choices are kept in the page address. |
+| **Medical Documents** | Listed by report type (with report sub-type) by default; filter by type, date range, and hospital; group by type, month, or hospital, or not at all, with counts. The choices are kept in the page address. |
 | **Medications** | Grouped as taking now, not confirmed, or stopped. You can edit, mark taking or stopped, or remove a medicine, and each keeps a full change history. Medicines you changed are kept when a document is read again. |
 | **Checkups and Follow-ups** | Follow-ups from prescriptions and reports, added when you choose; each can be marked done or cancelled. |
 | **Alerts** | Fixed, documented rules, never AI. A result outside its printed range is flagged as something to review with a doctor, not a diagnosis. Each alert explains why it was raised, what to do next, and its source. Alerts can be acknowledged and resolved, and keep their history. Emergency guidance is always shown. |
-| **AI Summaries and Insights** | Only when you ask. The AI works from your extracted records as numbered facts and must cite them; code removes any sentence whose numbers, months, or sources do not match. Interpretations and general information are labelled. Your name, email, and date of birth are never sent. |
+| **AI Summaries and Insights** | Only when you ask. The AI works from the details read from your documents and what you entered in Health Profile, Medications, Follow-ups, and Vitals, given as numbered facts it must cite; code removes any sentence whose numbers, months, or sources do not match. Interpretations and general information are labelled. Your name, email, and date of birth are never sent. |
 | **Account and Privacy** | Change your password (other devices are signed out). Export a PDF health summary, JSON or CSV records, or a ZIP of your originals; each is prepared on request and never stored. Deleting your account needs your password and the word DELETE, and removes everything at once. |
 | **Welcome page** | A public introduction (`/welcome`) with a screenshot tour of each step. |
 
@@ -297,7 +300,7 @@ Every response carries an `X-Request-ID` header for troubleshooting.
 
 ## Testing
 
-546 backend tests (unit and integration, with a fake AI client) and 138 frontend tests.
+608 backend tests (unit and integration, with a fake AI client) and 165 frontend tests.
 
 ```bash
 # Backend (integration tests need the database running)

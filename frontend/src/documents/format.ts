@@ -1,14 +1,28 @@
 import type { Category, CopyType, DatePrecision, MedicalDocument } from './documentsApi'
 
+/** Report type names. The stored values are unchanged, so documents already uploaded keep their type. */
 export const CATEGORY_LABELS: Record<Category, string> = {
-  lab_report: 'Lab report',
+  lab_report: 'Laboratory reports',
   prescription: 'Prescription',
   discharge_summary: 'Discharge summary',
   consultation_note: 'Consultation note',
-  imaging_report: 'Imaging report',
-  other: 'Other',
+  imaging_report: 'Text-based imaging reports',
+  pathology_report: 'Pathology reports',
+  specialist_report: 'Specialist reports',
+  other: 'Other', // no longer offered on upload; documents may still have it
   unknown: 'Not set',
 }
+
+/** The report types in the order they are offered; clinical documents and the other reports under headings. */
+export const REPORT_TYPE_OPTIONS: { value: Exclude<Category, 'unknown' | 'other'>; label: string; group?: string }[] = [
+  { value: 'lab_report', label: CATEGORY_LABELS.lab_report },
+  { value: 'imaging_report', label: CATEGORY_LABELS.imaging_report },
+  { value: 'prescription', label: CATEGORY_LABELS.prescription, group: 'Clinical Documents' },
+  { value: 'discharge_summary', label: CATEGORY_LABELS.discharge_summary, group: 'Clinical Documents' },
+  { value: 'consultation_note', label: CATEGORY_LABELS.consultation_note, group: 'Clinical Documents' },
+  { value: 'pathology_report', label: CATEGORY_LABELS.pathology_report, group: 'Other' },
+  { value: 'specialist_report', label: CATEGORY_LABELS.specialist_report, group: 'Other' },
+]
 
 export const PRECISION_LABELS: Record<DatePrecision, string> = {
   day: 'Exact day',
@@ -73,4 +87,23 @@ export function todayIso(): string {
 export const COPY_TYPE_LABELS: Record<CopyType, string> = {
   digital: 'Digital PDF',
   scanned: 'Scanned copy or photo',
+}
+
+const DOSE_TIMES = ['morning', 'afternoon', 'night'] as const
+// "1-0-1": morning, afternoon, night; 1 = take it then, 0 = don't (dosing notation agreed 2026-10-17).
+const DOSE_PATTERN = /(?<![\d.-]\s*)([01])\s*-\s*([01])\s*-\s*([01])(?!\s*-?\s*[\d.])/g
+
+/** "1-0-1 after food" → "1-0-1 (morning and night) after food". Text is otherwise kept exactly as written. */
+export function explainDosing(text: string): string {
+  return text.replace(DOSE_PATTERN, (match, ...digits: string[]) => {
+    const times = DOSE_TIMES.filter((_, index) => digits[index] === '1')
+    if (times.length === 0) return match
+    const meaning =
+      times.length === 1
+        ? `${times[0]} only`
+        : times.length === 2
+          ? `${times[0]} and ${times[1]}`
+          : 'morning, afternoon, and night'
+    return `${match} (${meaning})`
+  })
 }

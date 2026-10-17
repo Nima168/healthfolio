@@ -83,7 +83,8 @@ describe('AI Summaries page', () => {
     const source = document.getElementById('source-F1') as HTMLElement
     expect(source).toHaveTextContent('Lab results: 2 tests · 14-Mar-2026 · From Blood test March (read from a document, not checked by you)')
     expect(within(source).getByRole('link', { name: 'Blood test March' })).toHaveAttribute('href', '/documents/doc-1')
-    expect(screen.getByText(/1 AI statement was left out because it could not be matched to your records/)).toBeInTheDocument()
+    // Statements that could not be matched are removed without a notice.
+    expect(screen.queryByText(/AI statement/)).not.toBeInTheDocument()
   })
 
   it('says when the records changed and offers a refresh', async () => {

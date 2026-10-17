@@ -6,6 +6,11 @@ Deterministic rules, never the AI (AI_spec.md Section 9.1: rules decide):
 3. No range, a value that is not a single number, an unreadable range, or an unclear
    value/unit/range goes to "Invalid Records" instead of being judged (shown as written, with the reason).
 4. "< X", "<= X", "> X", ">= X" are applied exactly as written; "a - b" includes both ends.
+5. A tiered range ("Desirable < 200; Borderline 200-239; High >= 240") is judged by the one band the
+   value falls in: a High or Borderline band is above the range, a Low band below it, a Normal,
+   Desirable, Optimal (or similar) band within it. A value in none of the bands is within the range
+   when every band printed is High, Borderline, or Low ("Low < 40; High >= 60"). Any other band, any
+   other value in no band, or a value in two bands is not judged (decision 2026-10-17).
 """
 
 import re
@@ -19,6 +24,12 @@ _NUMBER = r"\d+(?:,\d{3})*(?:\.\d+)?|\d+,\d+"
 # Trailing text without digits (a unit, "(adult)") is allowed; anything with more numbers is not read.
 _BETWEEN = re.compile(rf"^\s*({_NUMBER})\s*(?:-|–|—|to)\s*({_NUMBER})\s*[^\d]*$", re.IGNORECASE)
 _BOUND = re.compile(rf"^\s*(<=|>=|≤|≥|<|>)\s*({_NUMBER})\s*[^\d]*$")
+# One labelled band of a tiered range: "Desirable < 200", "Borderline 200-239", "Near optimal: 100-129".
+_BAND = re.compile(
+    rf"([A-Za-z][A-Za-z ]*?)\s*:?\s*((?:<=|>=|≤|≥|<|>)\s*(?:{_NUMBER})|(?:{_NUMBER})\s*(?:-|–|—|to)\s*(?:{_NUMBER}))"
+)
+# Band names that mean the value is in the normal range (rule 5).
+_NORMAL_BANDS = {"normal", "desirable", "optimal", "sufficient", "acceptable", "ideal", "negative"}
 
 # Validation findings that mean the value, unit, or range is unclear (rule 3).
 _UNCLEAR = {
@@ -65,8 +76,42 @@ class LabSummary:
     invalid: list[InvalidLine] = field(default_factory=list)
 
 
+def _band_status(label: str) -> str | None:
+    words = set(re.findall(r"[a-z]+", label.casefold()))
+    if "low" in words and "high" not in words:
+        return "below"  # "Low", "Borderline low"
+    if words & {"high", "borderline"}:
+        return "above"  # "High", "Very high", "Borderline", "Borderline high"
+    if words & _NORMAL_BANDS:
+        return "within"
+    return None  # e.g. "Deficient", "Toxic": not judged
+
+
+def band(value: Decimal, range_text: str) -> tuple[str | None, str] | None:
+    """(status, label) of the labelled band the value falls in, for a tiered range
+    ("Desirable < 200; Borderline 200-239; High >= 240"); None when the text is not such a range
+    or the value is in no band, or in more than one."""
+    bands, end = [], 0
+    for match in _BAND.finditer(range_text):
+        if range_text[end : match.start()].strip(" ;:,."):
+            return None  # other text between the bands: not read
+        bands.append(match)
+        end = match.end()
+    if len(bands) < 2 or range_text[end:].strip(" ;:,."):
+        return None
+    hits = [match for match in bands if range_check(value, match.group(2)) == "within"]
+    if not hits and all(_band_status(match.group(1)) in ("above", "below") for match in bands):
+        return "within", ""  # every printed band is abnormal ("Low < 40; High >= 60") and the value is in none
+    if len(hits) != 1:
+        return None
+    label = hits[0].group(1).strip()
+    return _band_status(label), label
+
+
 def range_check(value: Decimal, range_text: str) -> str | None:
     """ "above", "below", or "within" for a readable printed range; None when it cannot be read."""
+    if (found := band(value, range_text)) is not None:
+        return found[0]
     if match := _BETWEEN.match(range_text):
         low, high = parse_number(match.group(1)), parse_number(match.group(2))
         if low is None or high is None or low > high:
@@ -122,6 +167,9 @@ def classify(observation: Observation) -> tuple[str, str | None]:
         return "invalid", reason
     status = range_check(observation.value_numeric, range_text)
     if status is None:
+        found = band(observation.value_numeric, range_text)
+        if found is not None:
+            return "invalid", f'The value is in the "{found[1]}" band, which is not judged as normal, low, or high.'
         return "invalid", f'The reference range "{range_text}" could not be read.'
     return status, None
 

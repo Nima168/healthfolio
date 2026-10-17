@@ -270,6 +270,25 @@ def test_a_value_nowhere_on_its_line_is_flagged_and_not_compared():
     assert judged(items["AST (SGOT)"])[0] == "invalid"
 
 
+@pytest.mark.parametrize("stray", ["�", "£", "£ "])
+def test_a_part_printed_beside_a_stray_symbol_is_not_identified(stray):
+    # OCR misread "≤" in "≤ 3.5" and lost the decimal point; the model dropped the symbol and returned "35".
+    scan = text_document(
+        f"LDL / HDL Ratio    3.8 H*    ratio    {stray}35",
+        "Total Cholesterol / HDL Ratio    5.7    ratio    < 5.0",
+    )
+    items = read(
+        scan,
+        lab("LDL / HDL Ratio", "3.8", "ratio", "35", value_text="3.8 H"),
+        lab("Total Cholesterol / HDL Ratio", "5.7", "ratio", "< 5.0"),
+    )
+
+    ratio = items["LDL / HDL Ratio"]
+    assert ratio.reference_range_text == NOT_IDENTIFIED and ratio.value_text == "3.8 H"
+    assert "range_not_identified" in ratio.findings and judged(ratio)[0] == "invalid"
+    assert judged(items["Total Cholesterol / HDL Ratio"]) == ("above", None)  # nothing unreadable on its line
+
+
 def test_a_unit_or_range_off_the_line_is_flagged_for_review_only():
     items = read(REPORT, lab("Ferritin", "311", "ng/mL", "12.0 - 15.5"))
 

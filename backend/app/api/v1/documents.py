@@ -24,6 +24,7 @@ from app.schemas.documents import (
     ProviderList,
     ProviderName,
     ProviderOption,
+    ReportSubtype,
     check_title,
     empty_to_none,
 )
@@ -51,6 +52,7 @@ FormCategory = Annotated[Category | None, BeforeValidator(empty_to_none), Form()
 FormDate = Annotated[date | None, BeforeValidator(empty_to_none), Form()]
 FormPrecision = Annotated[DatePrecision | None, BeforeValidator(empty_to_none), Form()]
 FormProvider = Annotated[ProviderName, Form()]
+FormSubtype = Annotated[ReportSubtype, Form()]
 FormCopyType = Annotated[CopyType | None, BeforeValidator(empty_to_none), Form()]
 
 
@@ -69,6 +71,7 @@ def upload_document(
     # Optional here only so a missing and a blank name give the same friendly message below.
     title: Annotated[str | None, Form()] = None,
     category: FormCategory = None,
+    report_subtype: FormSubtype = None,
     document_date: FormDate = None,
     document_date_precision: FormPrecision = None,
     provider_name: FormProvider = None,
@@ -80,7 +83,9 @@ def upload_document(
     except ValueError as exc:
         raise ApiError(422, details=[{"field": "title", "issue": str(exc)}]) from None
     check_user_rate_limit("upload", user.id, settings.upload_rate_limit_per_hour, 3600)
-    metadata = UploadMetadata(title, category, document_date, document_date_precision, provider_name, copy_type)
+    metadata = UploadMetadata(
+        title, category, document_date, document_date_precision, provider_name, copy_type, report_subtype
+    )
     document = service.upload(user.id, file.file, file.filename, metadata)
     return DocumentResponse.model_validate(document)
 

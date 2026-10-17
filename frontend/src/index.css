@@ -2248,3 +2248,26 @@ a.brand:hover {
   border-radius: 4px;
   padding: 0 4px;
 }
+
+/* Diagnoses and Conditions */
+.issue-filters {
+  max-width: 320px;
+}
+.issue-row {
+  align-items: flex-start;
+}
+.issue-main {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.issue-kind {
+  margin-right: 6px;
+}
+.issue-mentions summary {
+  cursor: pointer;
+  color: var(--color-accent);
+}
+.issue-mentions ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}

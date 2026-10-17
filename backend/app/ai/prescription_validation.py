@@ -7,6 +7,7 @@ Deterministic code only. The model copies what is written; this module decides:
 """
 
 import calendar
+import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -15,7 +16,15 @@ from app.ai.readability import NOT_IDENTIFIED, garbled_text
 from app.ai.schema import ExtractedFollowUp, ExtractedMedication, PrescriptionPayload
 from app.ai.source_check import SourceText, check_all
 
-LIMITS = {"name": 200, "strength": 100, "instructions": 300, "duration": 100, "description": 300, "date_text": 200}
+LIMITS = {
+    "name": 200,
+    "strength": 100,
+    "instructions": 300,
+    "duration": 100,
+    "description": 300,
+    "date_text": 200,
+    "condition": 200,
+}
 MAX_RELATIVE = {"days": 730, "weeks": 104, "months": 24}  # beyond two years is treated as unclear
 
 UNCLEAR_MEDICATION = "The name, strength, or instructions were not clearly legible."
@@ -68,6 +77,7 @@ class ValidatedFollowUp:
     confidence: str
     notes: str | None
     review_reason: str | None
+    condition: str | None = None  # "if not better / SOS": only if needed, never a fixed date
 
 
 def _clean(value: str | None, limit: int) -> str | None:
@@ -104,6 +114,24 @@ def calculate_due_date(base: date, amount: int, unit: str) -> date:
     return add_months(base, amount)
 
 
+_DOSE_LABEL = re.compile(r"^\s*(dose|dosage|strength)\s*[:\-]\s*", re.IGNORECASE)
+
+
+def _same_text(instructions: str, strength: str) -> bool:
+    """The instructions only repeat the strength, ignoring case, spaces, and a "Dose:" label ("Dose: 625mg")."""
+    bare = _DOSE_LABEL.sub("", instructions)
+    return "".join(bare.split()).casefold() == "".join(strength.split()).casefold()
+
+
+def without_duration(instructions: str | None, duration: str | None) -> str | None:
+    """Instructions without a trailing copy of the duration ("…, At night, 90 days" with duration "90 days")."""
+    if not instructions or not duration:
+        return instructions
+    pattern = rf"(?:\s*[,;]\s*|\s+)(?:for\s+)?{re.escape(duration)}\s*\.?\s*$"
+    trimmed = re.sub(pattern, "", instructions, flags=re.IGNORECASE)
+    return trimmed or instructions
+
+
 def _page(page: int | None, page_count: int | None) -> int | None:
     return page if page is not None and page >= 1 and (page_count is None or page <= page_count) else None
 
@@ -115,6 +143,8 @@ def _medication(
     strength = _clean(item.strength, LIMITS["strength"])
     instructions = _clean(item.instructions, LIMITS["instructions"])
     duration = _clean(item.duration_text, LIMITS["duration"])
+    # A table's columns are joined into instructions; the duration is shown from duration_text only.
+    instructions = without_duration(instructions, duration)
 
     # Printed but unreadable details become "Not identified", never a guess (app/ai/readability.py).
     unreadable = [
@@ -126,6 +156,10 @@ def _medication(
     # is not this one's.
     if located == "value_in_other_row" and "strength" not in unreadable:
         unreadable.insert(0, "strength")
+    # Instructions that are only the strength again ("625 mg" for 625 mg): the how-to-take column was not
+    # read (e.g. an OCR scan that missed the table's Frequency column), so it is not shown as if it were.
+    if instructions and strength and _same_text(instructions, strength) and "instructions" not in unreadable:
+        unreadable.append("instructions")
     strength = NOT_IDENTIFIED if "strength" in unreadable else strength
     instructions = NOT_IDENTIFIED if "instructions" in unreadable else instructions
     duration = NOT_IDENTIFIED if "duration" in unreadable else duration
@@ -159,7 +193,12 @@ def _medication(
 
 def _follow_up(item: ExtractedFollowUp, header: PrescriptionHeader, page_count: int | None) -> ValidatedFollowUp:
     due, basis, reason = None, None, None
-    if item.date:
+    condition = _clean(item.condition, LIMITS["condition"])
+    if condition:
+        # Only if needed ("Review after 5 days if not better/SOS"): kept with its timing as written, never
+        # dated or added as an appointment, so it can never show as overdue (decision 2026-10-17).
+        pass
+    elif item.date:
         due = document_date(item.date, item.date_text)
         basis = "written" if due else None
         if due is None:
@@ -193,6 +232,7 @@ def _follow_up(item: ExtractedFollowUp, header: PrescriptionHeader, page_count: 
         confidence=item.confidence,
         notes=_clean(item.notes, 1000),
         review_reason=reason,
+        condition=condition,
     )
 
 

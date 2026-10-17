@@ -20,7 +20,13 @@ from app.models.extraction import ACTIVE_JOB_STATUSES, Observation, ProcessingJo
 from app.models.prescription import Condition, FollowUp, Medication
 from app.services.lab_summary import classify
 from app.services.medication_service import MedicationService
-from app.services.report_summaries import summarise_consultation, summarise_imaging, summarise_test_report
+from app.services.report_summaries import (
+    summarise_consultation,
+    summarise_imaging,
+    summarise_pathology,
+    summarise_specialist,
+    summarise_test_report,
+)
 from app.services.vitals_service import VitalsService
 
 CATEGORIES = (
@@ -252,6 +258,34 @@ class TimelineService:
                     TimelineEntry(
                         **self._base(document, "test_reports", "", when),
                         title=summary.test_name or summary.test_type or "Test report",
+                        lines=lines,
+                        tag=f"{len(flagged)} outside range" if flagged else None,
+                    )
+                )
+            elif kind == "pathology_report":
+                summary = summarise_pathology(job)
+                named = ", ".join(part for part in (summary.test_name, summary.specimen_label) if part)
+                entries.append(
+                    TimelineEntry(
+                        **self._base(document, "test_reports", "", when),
+                        title=f"Pathology: {named}" if named else "Pathology report",
+                        lines=[f"Diagnosis (as written): {item}" for item in summary.diagnosis],
+                    )
+                )
+            elif kind == "specialist_report":
+                summary = summarise_specialist(job, [])
+                when = (summary.test_date, "day") if summary.test_date else when
+                flagged = [m for m in summary.measurements if m.flag]
+                lines = [f"{m.name} {_join(m.value_text, m.unit)} ({m.flag})" for m in flagged]
+                lines += [
+                    f"{item.source.capitalize()}{' (confirmed)' if item.confirmed else ''}: {item.text}"
+                    for item in summary.conclusions
+                ]
+                entries.append(
+                    TimelineEntry(
+                        **self._base(document, "test_reports", "", when),
+                        title=_join(summary.test_name, f"({summary.specialty})" if summary.specialty else None)
+                        or "Specialist report",
                         lines=lines,
                         tag=f"{len(flagged)} outside range" if flagged else None,
                     )

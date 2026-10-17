@@ -8,12 +8,17 @@ const FEATURES = [
   {
     icon: '/documents',
     title: 'Medical documents, read for you',
-    text: 'Upload lab reports, prescriptions, discharge summaries, consultation notes, imaging and ECG reports as PDFs or photos. Healthfolio reads them and shows the values in plain text, with anything unclear marked.',
+    text: 'Upload laboratory reports, prescriptions, discharge summaries, consultation notes, imaging, pathology and specialist reports (ECG, echo) as PDFs or photos. Healthfolio reads them and shows the values in plain text, with anything unclear marked.',
   },
   {
     icon: '/timeline',
     title: 'Health timeline and search',
     text: 'Every record in date order, filtered by type or date, and a search across your reports, results, medicines and diagnoses.',
+  },
+  {
+    icon: '/diagnoses',
+    title: 'Diagnoses and conditions',
+    text: 'Health issues written in your documents, shown as written and tracked over time. The app does not diagnose.',
   },
   {
     icon: '/medications',
@@ -38,7 +43,7 @@ const FEATURES = [
   {
     icon: '/summaries',
     title: 'AI summaries with sources',
-    text: 'A plain-language summary of your history or of one report, written on request. Every statement links to the record it came from.',
+    text: 'A plain-language summary of your history or of one report, written on request from the details read from your documents and what you entered. Every statement links to the record it came from.',
   },
   {
     icon: '/settings',

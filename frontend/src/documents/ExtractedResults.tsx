@@ -15,13 +15,16 @@ import {
   type KeyResult,
   type JobStatus,
   type LabSummary,
+  type Measurement,
   type MedicationLine,
+  type PathologySummary,
   type PrescriptionSummary,
   type ReadingMethod,
+  type SpecialistSummary,
   type SummaryLine,
   type TestReportSummary,
 } from './extractionApi'
-import { COPY_TYPE_LABELS, formatDayMonthYear, NOT_IDENTIFIED, NOT_MENTIONED, todayIso } from './format'
+import { COPY_TYPE_LABELS, explainDosing, formatDayMonthYear, NOT_IDENTIFIED, NOT_MENTIONED, todayIso } from './format'
 
 const TITLES = {
   lab_report: 'Extracted lab results',
@@ -30,6 +33,8 @@ const TITLES = {
   consultation_note: 'Consultation summary',
   imaging_report: 'Imaging summary',
   test_report: 'Test report summary',
+  pathology_report: 'Pathology summary',
+  specialist_report: 'Specialist report summary',
   other: 'Extracted information',
 }
 
@@ -48,7 +53,7 @@ function Part({ text }: { text: string }) {
   )
 }
 
-function ValueLines({ lines, critical = false }: { lines: SummaryLine[]; critical?: boolean }) {
+function ValueLines({ lines, critical = false }: { lines: (SummaryLine & { reason?: string })[]; critical?: boolean }) {
   if (lines.length === 0) return <p className="summary-none">None</p>
   return (
     <ul className={`summary-lines${critical ? ' summary-critical' : ''}`}>
@@ -64,8 +69,14 @@ function ValueLines({ lines, critical = false }: { lines: SummaryLine[]; critica
               </>
             )}{' '}
             (Reference: {line.reference_range_text ? <Part text={line.reference_range_text} /> : NOT_MENTIONED})
-            {unreadable && <span className="unclear-tag"> – check the original</span>}
-            {!unreadable && line.note && <span className="unclear-tag"> – {line.note}</span>}
+            {line.reason ? (
+              <span className="unclear-tag"> – {line.reason}</span>
+            ) : (
+              <>
+                {unreadable && <span className="unclear-tag"> – check the original</span>}
+                {!unreadable && line.note && <span className="unclear-tag"> – {line.note}</span>}
+              </>
+            )}
           </li>
         )
       })}
@@ -118,10 +129,13 @@ function UnclearTag({ reason }: { reason: string | null }) {
 /** Medicine name and strength stand out; how and how long follow in plain text. */
 function MedicationText({ line }: { line: MedicationLine }) {
   const name = line.strength && !line.name.endsWith(line.strength) ? `${line.name} ${line.strength}` : line.name
+  // Documents read before the duration was kept out of the instructions may already end with it.
+  const repeated =
+    line.instructions && line.duration_text && line.instructions.toLowerCase().endsWith(line.duration_text.toLowerCase())
   const details = [
     !line.strength && 'strength not mentioned',
-    line.instructions ?? 'how to take not mentioned',
-    line.duration_text ?? 'duration not mentioned',
+    line.instructions ? explainDosing(line.instructions) : 'how to take not mentioned',
+    !repeated && (line.duration_text ?? 'duration not mentioned'),
   ]
     .filter(Boolean)
     .join(', ')
@@ -186,26 +200,39 @@ function FollowUpsBlock({
   lines,
   add,
   title = 'Upcoming Follow-Ups',
+  before = [],
 }: {
   lines: FollowUpLine[]
   add: AddFollowUps
   title?: string
+  /** Lines shown first in the same list (e.g. a report's written recommendations). */
+  before?: string[]
 }) {
   const today = todayIso()
   return (
     <div className="summary-block">
       <p className="summary-heading">{title}</p>
-      {lines.length === 0 ? (
+      {lines.length === 0 && before.length === 0 ? (
         <p className="summary-none">{NOT_MENTIONED}</p>
       ) : (
         <ul className="summary-lines">
+          {before.map((text, index) => (
+            <li key={`before-${index}`}>
+              <Part text={text} />
+            </li>
+          ))}
           {lines.map((line, index) => (
             <li key={`${line.due_date ?? 'undated'}-${index}`}>
               <FollowUpWhen line={line} />:{' '}
               {line.description}
-              {!line.due_date && !line.unclear && <span className="summary-past"> (no exact date)</span>}
+              {line.condition ? (
+                <span className="summary-past"> (only if needed: {line.condition})</span>
+              ) : (
+                !line.due_date && !line.unclear && <span className="summary-past"> (no exact date)</span>
+              )}
               {line.due_date && line.due_date < today && <span className="summary-past"> (date has passed)</span>}
-              {line.unclear && <UnclearTag reason={line.reason} />}
+              {/* Why it is unclear, written out (not only on hover), e.g. a date that could mean two days. */}
+              {line.unclear && <span className="unclear-tag"> (unclear: {line.reason ?? 'check the original'})</span>}
             </li>
           ))}
         </ul>
@@ -379,6 +406,145 @@ function ImagingSummaryText({ summary }: { summary: ImagingSummary }) {
 }
 
 const SOURCE_LABELS = { machine: 'Machine', physician: 'Physician', other: 'Other' } as const
+
+// ---------- pathology and specialist reports (agreed 2026-10-17): anything not in the report is left out ----------
+
+/** A section only when the report has it; a line that could not be read shows as "Not identified". */
+function PresentBlock({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null
+  return (
+    <div className="summary-block">
+      <p className="summary-heading">{title}</p>
+      <ul className="summary-lines">
+        {items.map((item, index) => (
+          <li key={`${item}-${index}`}>
+            <Part text={item} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function joined(...parts: (string | null | false | undefined)[]): string {
+  return parts.filter(Boolean).join(' ')
+}
+
+/** "Report HP-26-1182 (Sampleville Pathology Lab)", just the place when no number is printed, or null. */
+function sourceLine(reportId: string | null, facility: string | null): string | null {
+  if (!reportId) return facility
+  return joined(`Report ${reportId}`, facility && `(${facility})`)
+}
+
+function PathologySummaryText({ summary }: { summary: PathologySummary }) {
+  const name = [summary.test_name, summary.specimen_label].filter(Boolean).join(', ')
+  const source = sourceLine(summary.report_id, summary.facility_name)
+  const dates = [
+    ['Collected', printedDate(summary.collected_text, summary.collected_date)],
+    ['Received', printedDate(summary.received_text, summary.received_date)],
+    ['Reported', printedDate(summary.reported_text, summary.reported_date)],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => `${label} ${value}`)
+    .join(' · ')
+  return (
+    <div className="lab-summary pathology-summary">
+      <p className="summary-title">PATHOLOGY SUMMARY{name && ` — ${name}`}</p>
+      {source && <p className="summary-stay">Source: {source}</p>}
+      {dates && <p className="summary-stay">Dates: {dates}</p>}
+      {summary.pathologist_name && <p className="summary-stay">Pathologist: {summary.pathologist_name}</p>}
+      <PresentBlock title="Specimen" items={summary.specimen} />
+      <PresentBlock title="Clinical History" items={summary.clinical_history} />
+      <PresentBlock title="Gross Description" items={summary.gross_description} />
+      <PresentBlock title="Microscopic Description" items={summary.microscopic_description} />
+      <PresentBlock title="Diagnosis" items={summary.diagnosis} />
+      <PresentBlock title="Tumour Details" items={summary.tumour_details} />
+      <PresentBlock title="Special Tests" items={summary.special_tests} />
+      <PresentBlock title="Comments and Recommendations" items={summary.comments} />
+    </div>
+  )
+}
+
+function MeasurementLines({ measurements }: { measurements: Measurement[] }) {
+  return (
+    <ul className="summary-lines">
+      {measurements.map((m, index) => (
+        <li key={`${m.name}-${index}`}>
+          <strong>{m.name}</strong> <Part text={m.value_text} />
+          {m.unit && (m.unit === '°' ? m.unit : <> <Part text={m.unit} /></>)}
+          {m.reference_range_text ? (
+            <>
+              {' '}
+              (reference <Part text={m.reference_range_text} />)
+            </>
+          ) : (
+            ' (reference not mentioned)'
+          )}
+          {m.flag && <span className="key-result-flag"> — {m.flag}</span>}
+          {m.unclear && <UnclearTag reason="This value was not clearly legible." />}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function SpecialistSummaryText({ summary, add }: { summary: SpecialistSummary; add: AddFollowUps }) {
+  const name = joined(summary.test_name, summary.specialty && `(${summary.specialty})`)
+  const source = sourceLine(summary.report_id, summary.facility_name)
+  const date = printedDate(summary.test_text, summary.test_date)
+  return (
+    <div className="lab-summary specialist-summary">
+      <p className="summary-title">SPECIALIST REPORT{name && ` — ${name}`}</p>
+      {source && <p className="summary-stay">Source: {source}</p>}
+      {date && <p className="summary-stay">Date: {date}</p>}
+      {summary.reported_by && <p className="summary-stay">Reported by: {summary.reported_by}</p>}
+      {summary.reason.length > 0 && <p className="summary-stay">Reason for Test: {summary.reason.join('; ')}</p>}
+      {summary.measurements.length > 0 && (
+        <div className="summary-block">
+          <p className="summary-heading">Reported Measurements</p>
+          <MeasurementLines measurements={summary.measurements} />
+        </div>
+      )}
+      <PresentBlock title="Findings" items={summary.findings} />
+      {summary.conclusions.length > 0 && (
+        <div className="summary-block">
+          <p className="summary-heading">Conclusion</p>
+          <ul className="summary-lines">
+            {summary.conclusions.map((item, index) => (
+              <li key={`${item.source}-${index}`}>
+                <strong>
+                  {SOURCE_LABELS[item.source]}
+                  {item.confirmed && ' (confirmed)'}
+                </strong>
+                : <Part text={item.text} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {(summary.recommendations.length > 0 || summary.follow_ups.length > 0) && (
+        <FollowUpsBlock
+          title="Recommendations and Follow-Up"
+          before={summary.recommendations}
+          lines={summary.follow_ups}
+          add={add}
+        />
+      )}
+      {summary.visual_content.length > 0 && (
+        <div className="summary-block">
+          <p className="summary-heading">Visual Content</p>
+          <ul className="summary-lines">
+            {summary.visual_content.map((item, index) => (
+              <li key={`${item}-${index}`}>
+                {item}: <span className="summary-past">present, not interpreted by the app</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function TestReportSummaryText({ summary }: { summary: TestReportSummary }) {
   const type = summary.test_type ? summary.test_type.toUpperCase() : 'TEST'
@@ -650,6 +816,12 @@ export function ExtractedResults({
     body = <ImagingSummaryText summary={data.imaging} />
   } else if (data.document_kind === 'test_report' && data.test_report) {
     body = <TestReportSummaryText summary={data.test_report} />
+  } else if (data.document_kind === 'pathology_report' && data.pathology) {
+    body = <PathologySummaryText summary={data.pathology} />
+  } else if (data.document_kind === 'specialist_report' && data.specialist) {
+    body = (
+      <SpecialistSummaryText summary={data.specialist} add={{ ...addFollowUps, reminders: data.specialist.reminders }} />
+    )
   } else if (data.document_kind === 'other') {
     body = emptyResult(
       'This document does not look like a medical report the app can read yet, so nothing was extracted.',

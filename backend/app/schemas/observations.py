@@ -105,6 +105,7 @@ class FollowUpLineResponse(BaseModel):
     reason: str | None
     when_text: str | None  # timing exactly as written; shown instead of a reformatted date
     calculated: bool  # due_date was counted from the document date ("after 4 weeks"), not printed
+    condition: str | None = None  # "if not better / SOS": only if needed, never dated
 
 
 class PrescriptionSummaryResponse(BaseModel):
@@ -224,6 +225,54 @@ class DiagnosticTestSummaryResponse(BaseModel):
     visual_content: list[str]
 
 
+class PathologySummaryResponse(BaseModel):
+    """Pathology report, exactly as written; null fields and empty sections are not printed in the report."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    test_name: str | None
+    specimen_label: str | None
+    report_id: str | None
+    facility_name: str | None
+    pathologist_name: str | None
+    collected_date: date | None
+    collected_text: str | None
+    received_date: date | None
+    received_text: str | None
+    reported_date: date | None
+    reported_text: str | None
+    specimen: list[str]
+    clinical_history: list[str]
+    gross_description: list[str]
+    microscopic_description: list[str]
+    diagnosis: list[str]
+    tumour_details: list[str]
+    special_tests: list[str]
+    comments: list[str]
+
+
+class SpecialistSummaryResponse(BaseModel):
+    """Specialist report (ECG, echo, spirometry, ...), exactly as written; empty parts are not in the report."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    test_name: str | None
+    specialty: str | None
+    report_id: str | None
+    facility_name: str | None
+    reported_by: str | None
+    test_date: date | None
+    test_text: str | None
+    reason: list[str]
+    measurements: list[MeasurementResponse]
+    findings: list[str]
+    conclusions: list[InterpretationResponse]
+    recommendations: list[str]
+    follow_ups: list[FollowUpLineResponse]
+    reminders: Literal["available", "added", "none"]
+    visual_content: list[str]
+
+
 class DocumentExtractionResponse(BaseModel):
     extraction_enabled: bool
     media_type: str
@@ -238,6 +287,8 @@ class DocumentExtractionResponse(BaseModel):
             "consultation_note",
             "imaging_report",
             "test_report",
+            "pathology_report",
+            "specialist_report",
             "other",
         ]
         | None
@@ -249,3 +300,5 @@ class DocumentExtractionResponse(BaseModel):
     consultation: ConsultationSummaryResponse | None
     imaging: ImagingSummaryResponse | None
     test_report: DiagnosticTestSummaryResponse | None  # other test reports, e.g. ECG
+    pathology: PathologySummaryResponse | None
+    specialist: SpecialistSummaryResponse | None

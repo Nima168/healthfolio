@@ -110,6 +110,20 @@ Structural validity does not guarantee medical correctness.
 
 **Decided (2026-10-14): an empty answer is read again.** When the model returns nothing (no results, medicines, findings) for a request whose document text has at least 200 characters, or that holds page images, the request is sent up to two more times (one retry was not always enough in the evaluation). A third empty answer fails the reading with `ai_empty_output` ("Nothing could be read this time … Refresh analysis"), never "no results found".
 
+**Decided (2026-10-17): a symbol misread beside a value is not dropped silently.** OCR may turn a printed symbol into a stray one ("≤ 3.5" read as "£35"), and the model may then return only "35". When the value, unit, or range sits directly beside an unrecognised character or a stray symbol (currency and similar signs, never `< ≤ = ± *`) on the test's line, that part is "Not identified" (`app/ai/source_check.py`, `beside_unreadable`).
+
+**Decided (2026-10-17): tiered ranges are judged by their band.** A range printed as labelled bands ("Desirable < 200; Borderline 200-239; High >= 240") is judged by the band the value falls in: High or Borderline is above the range, Low is below, Normal/Desirable/Optimal (or similar) is within. Other bands, gaps between bands, and overlapping bands are not judged (rules in `api_contract_spec.md` Section 6.2, lab summary rule 5).
+
+**Decided (2026-10-17): watermarks are not read.** A digital PDF's diagonal (rotated) text, such as a "SYNTHETIC TEST DATA" or "SAMPLE" watermark, is left out of the text given to the AI: read with the page it was glued onto the row it crosses ("DATA1.50 – 4.10"), which then had to be shown as Not identified. Pages without rotated text are read exactly as before (`app/ai/reading.py`, `page_text`). Scanned pages are unchanged.
+
+**Decided (2026-10-17): instructions that only repeat the strength are not read.** When a medicine's instructions are just its strength again ("625 mg" for 625 mg, ignoring case and spaces), the how-to-take column was not read (e.g. whole-page OCR of a tilted, watermarked scan missed the table's Frequency and Duration columns). The instructions are shown as "Not identified" and the medicine is marked for review, never as if read. Known limitation: on such scans the frequency itself is not recovered.
+
+**Decided (2026-10-17): conditional follow-ups.** A follow-up that depends on a condition ("Review after 5 days if not better/SOS") keeps the condition exactly as written (`condition`; prompts `prescription-v7-condition`, `discharge-v5-condition`, `consultation-v3-condition`, `specialist-v2-condition`). It is shown as "only if needed: <condition>", gets no calculated date, and is never added to Checkups and Follow-ups, so it can never show as overdue. The reason a follow-up is unclear is written out on the page, not only on hover.
+
+**Decided (2026-10-17): pathology and specialist reports.** The upload types `pathology_report` and `specialist_report` decide the reading directly (no classification). Pathology (`pathology-v1`): specimen, clinical history, gross and microscopic description, diagnosis, tumour details (only when written), special tests, comments, each line exactly as written; never "benign", "malignant", "normal", or "abnormal" unless written. Specialist (`specialist-v1`; ECG, echo, spirometry, EEG, ...): reason, measurements (compared only with the range printed beside them), findings, conclusions with machine and physician kept apart, recommendations, follow-ups counted from the test date; specialty only when written. A line containing an unrecognised character is "Not identified" and a pathology diagnosis that is not identified is never suggested. Parts the report does not have are left out of the summary.
+
+**Decided (2026-10-17): the duration is shown once.** A medicine's instructions hold dose, frequency, and timing; the duration is kept only in `duration_text`. When a table's columns are joined and the instructions end with the same text as the duration ("…, At night, 90 days" with "90 days"), code removes that ending (`app/ai/prescription_validation.py`, also used for discharge medicines); the prompt says so too (`prescription-v6-duration`). Medicines read earlier are shown without the repeat.
+
 ## 5. AI Architecture
 
 | Component | Responsibility |
@@ -137,6 +151,8 @@ The AI layer may organize information chronologically and summarize documented h
 - Distinguish historical observations from current information.
 - Highlight missing, inconsistent, or outdated information.
 - Explain the evidence behind an insight where possible.
+
+Sentences in an AI summary that cannot be matched to the user's records are removed and not shown; the number removed is stored (`dropped_count`) for monitoring but no longer shown to the user (decision 2026-10-17).
 
 Trend identification across dates is deferred. When introduced, trends must not be interpreted as diagnoses, and measurement comparison follows `backend_spec.md` Section 7.2.
 
@@ -197,7 +213,7 @@ Potential emergencies use predefined safety messaging directing the user to qual
 
 ### 9.2 Follow-Up Detection
 
-AI may detect documented checkup and follow-up recommendations and present them to the user as suggestions. A follow-up entry is created only when the user confirms or records it (`goal_spec.md` UC-5). Automated reminder delivery is deferred. Implemented for prescriptions (`api_contract_spec.md` Section 6.3): the AI copies the timing as written; dates are calculated by code; "Add as reminders" is the user's confirmation. Prompt versions: `prescription-v3-groq`, `discharge-v2-groq`, `consultation-v1-groq`, `imaging-v1-groq`, `test-report-v2-groq`, `classify-v3-groq`. Scan images (MRI, CT, X-ray pictures, ECG tracings) are not interpreted; only written reports are read (decision 2026-10-12).
+AI may detect documented checkup and follow-up recommendations and present them to the user as suggestions. A follow-up entry is created only when the user confirms or records it (`goal_spec.md` UC-5). Automated reminder delivery is deferred. Implemented for prescriptions (`api_contract_spec.md` Section 6.3): the AI copies the timing as written; dates are calculated by code; "Add as reminders" is the user's confirmation. Prompt versions: `prescription-v3-groq`, `discharge-v2-groq`, `consultation-v1-groq`, `imaging-v1-groq`, `test-report-v2-groq`, `classify-v3-groq`; later `pathology-v1` and `specialist-v1` (2026-10-17). Scan images (MRI, CT, X-ray pictures, ECG tracings) are not interpreted; only written reports are read (decision 2026-10-12).
 
 ## 10. Confidence, Uncertainty, and Source Attribution
 

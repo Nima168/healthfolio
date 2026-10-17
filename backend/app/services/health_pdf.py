@@ -19,11 +19,13 @@ from app.services.timeline_service import TimelineService
 from app.services.vitals_service import VitalsService
 
 TYPE_LABELS = {
-    "lab_report": "Lab report",
+    "lab_report": "Laboratory reports",
     "prescription": "Prescription",
     "discharge_summary": "Discharge summary",
     "consultation_note": "Consultation note",
-    "imaging_report": "Imaging report",
+    "imaging_report": "Text-based imaging reports",
+    "pathology_report": "Pathology reports",
+    "specialist_report": "Specialist reports",
     "other": "Other",
     "unknown": "Type not set",
 }

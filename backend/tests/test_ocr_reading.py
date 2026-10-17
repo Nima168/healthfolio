@@ -188,3 +188,41 @@ def test_real_tesseract_reads_aprinted_scan():
     text = document.pages[0]
     assert "Haemoglobin" in text and "13.8" in text and "250" in text
     assert document.ocr_confidence >= 85
+
+
+def _watermarked_report() -> bytes:
+    """A typed table with a diagonal "SYNTHETIC TEST DATA" watermark crossing the platelet row."""
+    import pymupdf
+
+    pdf = pymupdf.open()
+    page = pdf.new_page()
+    for y, row in ((100, "Test Name"), (130, "Hemoglobin"), (160, "Platelet Count")):
+        page.insert_text((50, y), row, fontsize=10)
+    for y, cells in ((130, ("12.6", "g/dL", "13.0 - 17.0")), (160, ("2.45", "lakh/uL", "1.50 - 4.10"))):
+        for x, cell in zip((200, 280, 360), cells, strict=True):
+            page.insert_text((x, y), cell, fontsize=10)
+    # Rotated 30 degrees, passing right next to the platelet row's range.
+    page.insert_text(
+        (300, 200), "SYNTHETIC TEST DATA", fontsize=28, rotate=0, morph=(pymupdf.Point(300, 200), pymupdf.Matrix(30))
+    )
+    content = pdf.tobytes()
+    pdf.close()
+    return content
+
+
+def test_a_diagonal_watermark_is_left_out_of_the_text():
+    document = prepare(_watermarked_report(), "application/pdf", "digital")
+    lines = document.texts[0].text.splitlines()
+
+    platelet = next(line for line in lines if line.startswith("Platelet Count"))
+    assert platelet.split() == ["Platelet", "Count", "2.45", "lakh/uL", "1.50", "-", "4.10"]  # nothing glued on
+    assert not any("SYNTHETIC" in line or "DATA" in line for line in lines)
+    assert [line.split()[0] for line in lines] == ["Test", "Hemoglobin", "Platelet"]  # one line per row
+
+
+def test_pages_without_rotated_text_are_read_as_before():
+    content = text_pdf(["Hemoglobin  12.6  g/dL  13.0 - 17.0", "Platelet Count  2.45  lakh/uL  1.50 - 4.10"] * 5)
+    import pymupdf
+
+    expected = pymupdf.open(stream=content, filetype="pdf")[0].get_text("text", sort=True).strip()
+    assert prepare(content, "application/pdf", "digital").texts[0].text == expected

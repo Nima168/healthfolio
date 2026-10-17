@@ -83,7 +83,7 @@ def test_prescription_summary(client, asha, db, settings):
     assert summary["reminders"] == "available"
 
     [job] = db.scalars(select(ProcessingJob)).all()
-    assert (job.document_kind, job.prompt_version) == ("prescription", "prescription-v5-readability")
+    assert (job.document_kind, job.prompt_version) == ("prescription", "prescription-v7-condition")
     # Never inferred as currently taken from a document.
     assert {m.status for m in db.scalars(select(Medication))} == {"unknown"}
 
@@ -103,6 +103,7 @@ def test_unclear_items_are_flagged_where_they_are(client, asha, settings):
             "reason": None,
             "when_text": "after 4 weeks",  # shown as written, with the calculated date labelled as such
             "calculated": True,
+            "condition": None,
         },
         {
             "due_date": "2026-11-04",
@@ -111,6 +112,7 @@ def test_unclear_items_are_flagged_where_they_are(client, asha, settings):
             "reason": "The follow-up was not clearly legible.",
             "when_text": "after 4 weeks",
             "calculated": True,
+            "condition": None,
         },
     ]
 
@@ -137,7 +139,7 @@ def test_untyped_documents_are_classified_first(client, asha, db, settings):
     assert len(fake.requests) == 5  # nothing extracted after "other"
 
     versions = {job.document_kind: job.prompt_version for job in db.scalars(select(ProcessingJob))}
-    assert versions["prescription"] == "classify-v4-ocr+prescription-v5-readability"
+    assert versions["prescription"] == "classify-v4-ocr+prescription-v7-condition"
     assert versions["other"] == "classify-v4-ocr"
 
 

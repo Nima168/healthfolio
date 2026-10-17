@@ -8,7 +8,8 @@ export function SummariesPage() {
     <section aria-labelledby="page-title">
       <h1 id="page-title">AI Summaries and Insights</h1>
       <HelperNote>
-        A plain-language summary of your records, written by AI on request. Every statement links to its source;
+        A plain-language summary written by AI on request, using only the details read from your documents and what
+        you have entered in Health Profile, Medications, Follow-ups, and Vitals. Every statement links to its source;
         anything that cannot be matched to your records is left out.
       </HelperNote>
       <AiSummaryPanel

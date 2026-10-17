@@ -52,6 +52,18 @@ class RegisterRequest(_EmailField):
         return value or None
 
 
+class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(max_length=100)
+
+    @field_validator("display_name")
+    @classmethod
+    def tidy_display_name(cls, value: str | None) -> str | None:
+        value = value.strip() if value else None
+        return value or None
+
+
 class LoginRequest(BaseModel):
     # Not validated beyond length: login must not reveal policy details or account existence.
     email: str = Field(max_length=254)
