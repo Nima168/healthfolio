@@ -3,10 +3,13 @@
 # assume the role, and the role can only push the API image, publish the website, and run the two fixed
 # restart commands below (never an arbitrary command on the server).
 
-variable "github_repository" {
-  description = "GitHub repository (owner/name) allowed to deploy."
+# The subject GitHub puts in each run's token. This repository uses GitHub's immutable subject format
+# (owner@owner-id/name@repository-id), so a renamed or re-created repository cannot reuse the trust.
+# Read it with: gh api repos/<owner>/<name>/actions/oidc/customization/sub  (sub_claim_prefix)
+variable "github_subject_prefix" {
+  description = "OIDC subject prefix of the GitHub repository allowed to deploy."
   type        = string
-  default     = "Nima168/healthfolio"
+  default     = "repo:Nima168@108936671/healthfolio@1418697407"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -26,7 +29,7 @@ resource "aws_iam_role" "github_deploy" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:environment:production"
+          "token.actions.githubusercontent.com:sub" = "${var.github_subject_prefix}:environment:production"
         }
       }
     }]
