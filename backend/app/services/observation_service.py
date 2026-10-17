@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -85,21 +85,23 @@ class ObservationService:
 
     def for_document(self, user_id: uuid.UUID, document_id: uuid.UUID) -> DocumentExtractionResponse:
         document = self._document(user_id, document_id)
-        job = jobs.latest_job(self.session, document.id)
-        extracted = job is not None and job.status in ("completed", "completed_with_warnings")
+        job = jobs.latest_job(self.session, document.id)  # its status is reported (being read, failed, …)
+        # The results shown are the latest successful reading's, also while a re-read runs or after it failed.
+        shown = jobs.shown_job(self.session, document.id)
+        extracted = shown is not None and shown.status in jobs.FINISHED_JOB_STATUSES
         # Jobs from before prescriptions existed were all lab extractions.
-        kind = (job.document_kind or "lab_report") if extracted and job else None
+        kind = (shown.document_kind or "lab_report") if extracted and shown else None
 
-        # Only the latest reading is shown; an earlier one replaced by "Read again" is not.
-        job_id = job.id if job is not None else None
+        # Only that reading is shown; an earlier one replaced by "Read again" is not.
+        job_id = shown.id if shown is not None else None
         observations = self._rows(Observation, user_id, document.id, job_id)
         summary = prescription = discharge = consultation = imaging = test_report = pathology = specialist = None
         if kind == "lab_report":
-            summary = LabSummaryResponse.model_validate(summarise(observations, job.report_date_text))
+            summary = LabSummaryResponse.model_validate(summarise(observations, shown.report_date_text))
         elif kind == "discharge_summary":
             discharge = DischargeSummaryResponse.model_validate(
                 summarise_discharge(
-                    job,
+                    shown,
                     self._rows(Condition, user_id, document.id, job_id),
                     observations,
                     self._rows(Medication, user_id, document.id, job_id),
@@ -108,22 +110,22 @@ class ObservationService:
             )
         elif kind == "consultation_note":
             consultation = ConsultationSummaryResponse.model_validate(
-                summarise_consultation(job, self._rows(Suggestion, user_id, document.id, job_id))
+                summarise_consultation(shown, self._rows(Suggestion, user_id, document.id, job_id))
             )
         elif kind == "imaging_report":
-            imaging = ImagingSummaryResponse.model_validate(summarise_imaging(job))
+            imaging = ImagingSummaryResponse.model_validate(summarise_imaging(shown))
         elif kind == "test_report":
-            test_report = DiagnosticTestSummaryResponse.model_validate(summarise_test_report(job))
+            test_report = DiagnosticTestSummaryResponse.model_validate(summarise_test_report(shown))
         elif kind == "pathology_report":
-            pathology = PathologySummaryResponse.model_validate(summarise_pathology(job))
+            pathology = PathologySummaryResponse.model_validate(summarise_pathology(shown))
         elif kind == "specialist_report":
             specialist = SpecialistSummaryResponse.model_validate(
-                summarise_specialist(job, self._rows(Suggestion, user_id, document.id, job_id))
+                summarise_specialist(shown, self._rows(Suggestion, user_id, document.id, job_id))
             )
         elif kind == "prescription":
             prescription = PrescriptionSummaryResponse.model_validate(
                 summarise_prescription(
-                    job,
+                    shown,
                     self._rows(Medication, user_id, document.id, job_id),
                     self._rows(Suggestion, user_id, document.id, job_id),
                 )
@@ -163,8 +165,9 @@ class ObservationService:
     ) -> DocumentExtractionResponse:
         """Queue a (new) reading of a document: the first, a retry after a failure, or "Refresh analysis".
 
-        AI reading varies from run to run, so a completed reading may be replaced. The earlier reading's
-        rows are withdrawn; follow-ups the user already added are kept (data_model_spec.md Section 5.6).
+        AI reading varies from run to run, so a completed reading may be replaced. The earlier reading stays
+        shown until the new one succeeds, then its rows are withdrawn (`jobs.withdraw_earlier_readings`);
+        follow-ups the user already added are kept (data_model_spec.md Section 5.6).
         A PDF can be read again as the other kind of copy; a photo is always a scanned copy.
         """
         document = self._document(user_id, document_id)
@@ -173,8 +176,6 @@ class ObservationService:
             raise ApiError(409, "EXTRACTION_IN_PROGRESS", "This document is already being processed.")
         if copy_type is not None and document.media_type == "application/pdf":
             document.copy_type = copy_type
-        if job is not None:
-            self._withdraw_readings(document.id)
 
         jobs.enqueue_extraction(self.session, document, retry=job is not None)
         self.audit.record(
@@ -186,46 +187,13 @@ class ObservationService:
         self.session.commit()
         return self.for_document(user_id, document_id)
 
-    def _withdraw_readings(self, document_id: uuid.UUID) -> None:
-        now = datetime.now(UTC)
-        self.session.execute(
-            update(Observation)
-            .where(Observation.source_document_id == document_id, Observation.deleted_at.is_(None))
-            .values(deleted_at=now)
-        )
-        # Diagnoses as read are replaced; conditions the user accepted into the profile stay.
-        self.session.execute(
-            update(Condition)
-            .where(
-                Condition.source_document_id == document_id,
-                Condition.deleted_at.is_(None),
-                Condition.origin == "document_extracted",
-            )
-            .values(deleted_at=now)
-        )
-        # Medicines the user changed are kept; the new reading re-links a matching one (extraction_service).
-        self.session.execute(
-            update(Medication)
-            .where(
-                Medication.source_document_id == document_id,
-                Medication.deleted_at.is_(None),
-                Medication.user_updated_at.is_(None),
-            )
-            .values(deleted_at=now)
-        )
-        self.session.execute(
-            update(Suggestion)
-            .where(Suggestion.source_document_id == document_id, Suggestion.status == "pending")
-            .values(status="superseded")
-        )
-
     def add_follow_ups(self, user_id: uuid.UUID, document_id: uuid.UUID) -> DocumentExtractionResponse:
         """Add as reminders: turn the document's clear, dated follow-ups into tracked follow-ups.
 
         Only on this explicit request (AI_spec.md Section 9.2). Items needing review are not added.
         """
         document = self._document(user_id, document_id)
-        job = jobs.latest_job(self.session, document.id)
+        job = jobs.shown_job(self.session, document.id)
         to_add = [s for s in self._rows(Suggestion, user_id, document.id, job.id if job else None) if addable(s)]
         if not to_add:
             raise ApiError(409, "NOTHING_TO_ADD", "There are no follow-ups to add from this document.")

@@ -19,8 +19,9 @@ from sqlalchemy.orm import Session
 from app.core.errors import ApiError
 from app.models.alerts import Alert, AlertEvent, SafetyRule
 from app.models.document import Document
-from app.models.extraction import Observation, ProcessingJob
+from app.models.extraction import Observation
 from app.repositories.auth import AuditRepository
+from app.services import jobs as job_queue
 from app.services.lab_summary import classify
 from app.services.report_summaries import summarise_specialist, summarise_test_report
 
@@ -106,12 +107,9 @@ class AlertService:
         }
         if not documents:
             return {}
-        latest: dict[uuid.UUID, ProcessingJob] = {}
-        for job in self.session.scalars(
-            select(ProcessingJob).where(ProcessingJob.document_id.in_(documents)).order_by(ProcessingJob.created_at)
-        ):
-            latest[job.document_id] = job
-        completed = {doc_id: job for doc_id, job in latest.items() if job.status in _COMPLETED}
+        # The shown reading: a failed or running re-read keeps the last successful one.
+        shown = job_queue.shown_jobs(self.session, documents)
+        completed = {doc_id: job for doc_id, job in shown.items() if job.status in _COMPLETED}
 
         found: dict[str, Candidate] = {}
         rows = self.session.scalars(

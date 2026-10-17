@@ -23,6 +23,7 @@ from app.ai.readability import NOT_IDENTIFIED
 from app.models.document import Document
 from app.models.extraction import ProcessingJob
 from app.models.prescription import Condition
+from app.services import jobs as job_queue
 from app.services.profile_service import ProfileService
 from app.services.report_summaries import (
     summarise_consultation,
@@ -120,14 +121,8 @@ class DiagnosisService:
                 select(Document).where(Document.user_id == user_id, Document.deleted_at.is_(None))
             )
         }
-        jobs: dict[uuid.UUID, ProcessingJob] = {}
-        if documents:
-            for job in self.session.scalars(
-                select(ProcessingJob)
-                .where(ProcessingJob.document_id.in_(list(documents)))
-                .order_by(ProcessingJob.created_at)
-            ):
-                jobs[job.document_id] = job  # the latest reading wins
+        # The shown reading wins: a failed or running re-read keeps the last successful one.
+        jobs: dict[uuid.UUID, ProcessingJob] = job_queue.shown_jobs(self.session, documents)
 
         mentions: list[Mention] = []
         for condition in self.session.scalars(

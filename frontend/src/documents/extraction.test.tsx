@@ -314,6 +314,20 @@ function prescriptionState(overrides: Partial<PrescriptionSummary> = {}): Docume
 }
 
 describe('Prescription summary', () => {
+  it('keeps showing the previous reading when a new one fails', async () => {
+    setup({
+      ...prescriptionState(),
+      job: { status: 'failed', attempts: 1, error_category: 'image_too_large', updated_at: '' },
+    })
+    renderAt('/documents/doc-1')
+
+    const section = await screen.findByRole('region', { name: 'Prescription summary' })
+    expect(await within(section).findByText(/The new reading failed, so the previous reading is shown below/)).toBeInTheDocument()
+    expect(within(section).getByText(/This image is too large to process/)).toBeInTheDocument()
+    expect(within(section).getByText(/Atorvastatin/)).toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: 'Refresh analysis' })).toBeInTheDocument()
+  })
+
   it('shows the prescription in the agreed plain-text format', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-11T09:00:00Z'))

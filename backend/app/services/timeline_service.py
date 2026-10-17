@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.models.document import Document
 from app.models.extraction import ACTIVE_JOB_STATUSES, Observation, ProcessingJob
 from app.models.prescription import Condition, FollowUp, Medication
+from app.services import jobs as job_queue
 from app.services.lab_summary import classify
 from app.services.medication_service import MedicationService
 from app.services.report_summaries import (
@@ -99,15 +100,8 @@ class TimelineService:
         return {document.id: document for document in rows}
 
     def _latest_jobs(self, document_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, ProcessingJob]:
-        ids = list(document_ids)
-        if not ids:
-            return {}
-        latest: dict[uuid.UUID, ProcessingJob] = {}
-        for job in self.session.scalars(
-            select(ProcessingJob).where(ProcessingJob.document_id.in_(ids)).order_by(ProcessingJob.created_at)
-        ):
-            latest[job.document_id] = job  # ordered oldest first, so the last one wins
-        return latest
+        # The shown reading: a failed or running re-read keeps the last successful one.
+        return job_queue.shown_jobs(self.session, document_ids)
 
     @staticmethod
     def _document_date(document: Document, job: ProcessingJob | None) -> tuple[date | None, str | None]:

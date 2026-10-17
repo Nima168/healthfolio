@@ -6,13 +6,17 @@ so several workers can run safely and a job is never processed twice at the same
 
 import logging
 import uuid
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
-from app.models.extraction import ACTIVE_JOB_STATUSES, ProcessingJob
+from app.models.extraction import ACTIVE_JOB_STATUSES, Observation, ProcessingJob
+from app.models.prescription import Condition, Medication, Suggestion
+
+FINISHED_JOB_STATUSES = ("completed", "completed_with_warnings")
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +44,79 @@ def latest_job(session: Session, document_id: uuid.UUID) -> ProcessingJob | None
         .where(ProcessingJob.document_id == document_id)
         .order_by(ProcessingJob.created_at.desc())
         .limit(1)
+    )
+
+
+def shown_job(session: Session, document_id: uuid.UUID) -> ProcessingJob | None:
+    """The reading whose results are shown: the latest finished one, so a failed or running re-read keeps it.
+
+    A document never read successfully has none; then the latest job (being read, or failed).
+    """
+    finished = session.scalar(
+        select(ProcessingJob)
+        .where(ProcessingJob.document_id == document_id, ProcessingJob.status.in_(FINISHED_JOB_STATUSES))
+        .order_by(ProcessingJob.created_at.desc())
+        .limit(1)
+    )
+    return finished or latest_job(session, document_id)
+
+
+def shown_jobs(session: Session, document_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, ProcessingJob]:
+    """`shown_job` for many documents at once."""
+    ids = list(document_ids)
+    if not ids:
+        return {}
+    latest: dict[uuid.UUID, ProcessingJob] = {}
+    finished: dict[uuid.UUID, ProcessingJob] = {}
+    for job in session.scalars(
+        select(ProcessingJob).where(ProcessingJob.document_id.in_(ids)).order_by(ProcessingJob.created_at)
+    ):
+        latest[job.document_id] = job  # ordered oldest first, so the last one wins
+        if job.status in FINISHED_JOB_STATUSES:
+            finished[job.document_id] = job
+    return {**latest, **finished}
+
+
+def withdraw_earlier_readings(session: Session, job: ProcessingJob) -> None:
+    """Replace the document's earlier readings once `job` has succeeded (never before: a failed re-read keeps them).
+
+    Diagnoses the user accepted into the profile, medicines the user changed (re-linked by the new reading),
+    and follow-ups already added stay (data_model_spec.md Section 5.6).
+    """
+    document_id, now_ = job.document_id, now()
+
+    def other(model):
+        return or_(model.processing_job_id.is_(None), model.processing_job_id != job.id)
+
+    session.execute(
+        update(Observation)
+        .where(Observation.source_document_id == document_id, Observation.deleted_at.is_(None), other(Observation))
+        .values(deleted_at=now_)
+    )
+    session.execute(
+        update(Condition)
+        .where(
+            Condition.source_document_id == document_id,
+            Condition.deleted_at.is_(None),
+            Condition.origin == "document_extracted",
+            other(Condition),
+        )
+        .values(deleted_at=now_)
+    )
+    session.execute(
+        update(Medication)
+        .where(
+            Medication.source_document_id == document_id,
+            Medication.deleted_at.is_(None),
+            Medication.user_updated_at.is_(None),
+            other(Medication),
+        )
+        .values(deleted_at=now_)
+    )
+    session.execute(
+        update(Suggestion)
+        .where(Suggestion.source_document_id == document_id, Suggestion.status == "pending", other(Suggestion))
+        .values(status="superseded")
     )
 
 

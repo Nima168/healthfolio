@@ -239,6 +239,7 @@ class ExtractionRunner:
                 self._live_document(job)
                 counts = {"results": 0, "needs_review": 0, "warnings": False}
 
+            jobs.withdraw_earlier_readings(self.session, job)  # only now: a failed re-read keeps the last one
             jobs.finish(self.session, job, "completed_with_warnings" if counts["warnings"] else "completed")
             self.session.flush()
             AlertService(self.session).try_sync(job.user_id)  # approved safety rules on the new results

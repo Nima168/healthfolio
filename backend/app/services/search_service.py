@@ -104,7 +104,7 @@ class SearchService:
                 select(Document).where(Document.user_id == user_id, Document.deleted_at.is_(None))
             )
         }
-        latest = {doc_id: jobs.latest_job(self.session, doc_id) for doc_id in documents}
+        latest = jobs.shown_jobs(self.session, documents)
         results: list[Result] = []
 
         for document in documents.values():
@@ -314,7 +314,7 @@ class SearchService:
         provider_words = _words(criteria.provider)
         for document in documents:
             if criteria.document_type:
-                job = jobs.latest_job(self.session, document.id)
+                job = jobs.shown_job(self.session, document.id)
                 kinds = {document.category, job.document_kind if job else None}
                 if criteria.document_type not in kinds:
                     continue

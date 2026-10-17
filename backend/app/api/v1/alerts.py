@@ -11,7 +11,7 @@ from app.models.alerts import Alert, AlertEvent, SafetyRule
 from app.models.document import Document
 from app.schemas.alerts import AlertEventResponse, AlertListResponse, AlertResponse, AlertUpdate
 from app.services.alert_service import AlertService
-from app.services.jobs import latest_job
+from app.services.jobs import shown_job
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -26,7 +26,7 @@ ServiceDep = Annotated[AlertService, Depends(_service)]
 def _response(service: AlertService, alert: Alert, document: Document | None, events: list[AlertEvent]):
     rule = service.session.get(SafetyRule, alert.rule_id)
     live = document is not None and document.deleted_at is None
-    job = latest_job(service.session, document.id) if live else None
+    job = shown_job(service.session, document.id) if live else None
     report_type = (job.document_kind if job and job.document_kind else document.category) if live else None
     # The result's own date first (lab results carry it), then the report's date.
     result_date = (alert.input_refs or {}).get("result_date")

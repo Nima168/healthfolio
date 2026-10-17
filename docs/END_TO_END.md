@@ -123,7 +123,7 @@ sequenceDiagram
    - consultation notes, imaging, pathology, specialist, and other test reports (sections the report does not have are left out for pathology and specialist reports).
 
    **Alerts** use the same range rule. **AI summaries** of a whole history work only from already-extracted records, given as numbered facts. Code removes any sentence whose numbers, months, or sources do not match.
-6. **Refresh analysis.** Any document can be read again, also switching a PDF between the digital and scanned routes.
+6. **Refresh analysis.** Any document can be read again, also switching a PDF between the digital and scanned routes. The new reading replaces the old one only when it succeeds; if it fails (for example on the AI limit), the previous reading stays, with a note.
 
 ---
 
@@ -146,10 +146,10 @@ The AI only reads. Everything that could mislead is decided by deterministic cod
 
 | Suite | Size | Command |
 |---|---|---|
-| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 623 tests | `cd backend && uv run pytest` |
+| Backend: unit and integration (fake Groq client, real PostgreSQL test database) | 624 tests | `cd backend && uv run pytest` |
 | Backend without the database | 379 tests | `uv run pytest -m "not integration"` |
 | One real AI call on a synthetic report (costs a little) | 3 tests | `RUN_LIVE_AI=1 uv run pytest -m live` |
-| Frontend: components and pages (Vitest, Testing Library) | 166 tests in 19 files | `cd frontend && npm run test` |
+| Frontend: components and pages (Vitest, Testing Library) | 167 tests in 19 files | `cd frontend && npm run test` |
 | Lint and types | — | `uv run ruff check .`, `npm run lint` (oxlint), `npm run build` (`tsc -b` + Vite) |
 
 **Continuous integration:** GitHub Actions (`.github/workflows/ci.yml`) runs the backend suite (with a PostgreSQL service and Tesseract), ruff, oxlint, the frontend tests, and the build on every push and pull request. It makes no AI calls and has no AWS access.

@@ -767,6 +767,10 @@ export function ExtractedResults({
     addError,
   }
 
+  // A failed or cancelled re-read keeps showing the last successful reading (document_kind is set).
+  const failedRead = !!job && (job.status === 'failed' || job.status === 'cancelled')
+  const keptReading = failedRead && Boolean(data?.document_kind)
+
   let body
   if (!data) {
     body = loadError ? null : <p role="status">Loading extracted results…</p>
@@ -792,7 +796,7 @@ export function ExtractedResults({
             : 'Queued for reading…'}
       </p>
     )
-  } else if (job.status === 'failed' || job.status === 'cancelled') {
+  } else if (failedRead && !keptReading) {
     body = (
       <div>
         <p role="alert" className="form-alert">
@@ -840,8 +844,15 @@ export function ExtractedResults({
           {loadError}
         </p>
       )}
+      {keptReading && job && (
+        <p role="alert" className="form-alert">
+          {job.status === 'cancelled' ? 'The new reading was cancelled' : 'The new reading failed'}, so the previous
+          reading is shown below.{' '}
+          {job.status === 'failed' && (FAILURE_MESSAGES[job.error_category ?? ''] ?? '')}
+        </p>
+      )}
       {body}
-      {job && !ACTIVE.includes(job.status) && <ReadingNote job={job} copyType={data?.copy_type ?? null} />}
+      {job && !ACTIVE.includes(job.status) && !keptReading && <ReadingNote job={job} copyType={data?.copy_type ?? null} />}
       {job && !ACTIVE.includes(job.status) && data?.extraction_enabled && (
         <RefreshAnalysis
           isPdf={data.media_type === 'application/pdf'}

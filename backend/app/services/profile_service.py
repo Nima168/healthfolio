@@ -18,7 +18,7 @@ from app.models.document import Document
 from app.models.prescription import Condition, Medication
 from app.models.profile import MedicalRecordItem, ProfileValue, ProfileValueHistory
 from app.repositories.auth import AuditRepository
-from app.services.jobs import latest_job
+from app.services.jobs import shown_job
 
 # Blood pressure and heart rate are not profile values: they change over time (decision 2026-10-13).
 SINGLE_FIELDS = ("date_of_birth", "sex", "blood_group", "height", "weight")
@@ -219,7 +219,7 @@ class ProfileService:
             select(Document).where(Document.user_id == user_id, Document.deleted_at.is_(None))
         )
         for document in documents:
-            job = latest_job(self.session, document.id)
+            job = shown_job(self.session, document.id)
             if job is None or job.status not in ("completed", "completed_with_warnings"):
                 continue
             if job.document_kind != "discharge_summary":

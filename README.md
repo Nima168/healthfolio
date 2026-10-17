@@ -51,7 +51,7 @@ Diagram source: [`docs/architecture/healthfolio-architecture.json`](docs/archite
 | **3. Get text** | Digital PDF: **PyMuPDF** reads the text layer. Scan: **Tesseract OCR** at 300 DPI, cleaned up, table rows kept together. A page under 85% OCR confidence goes to the AI as an **image** instead. |
 | **4. Groq AI** | Returns the fields in a **strict JSON schema** for that document type, copying values exactly as written. An empty answer for a page with text is read again, up to 3 times. |
 | **5. Check rules** | Code, not AI, checks every value (see the table below). Anything doubtful is marked for review. |
-| **6. Summary** | A plain-language summary built by rules, with each value linked to its source. **Refresh analysis** reads the document again. |
+| **6. Summary** | A plain-language summary built by rules, with each value linked to its source. **Refresh analysis** reads the document again; the previous reading stays until the new one succeeds. |
 
 ### What each report type gives you
 
@@ -302,7 +302,7 @@ Every response carries an `X-Request-ID` header for troubleshooting.
 
 ## Testing
 
-623 backend tests (unit and integration, with a fake AI client) and 166 frontend tests. GitHub Actions runs them, with lint and the build, on every push and pull request (`.github/workflows/ci.yml`).
+624 backend tests (unit and integration, with a fake AI client) and 167 frontend tests. GitHub Actions runs them, with lint and the build, on every push and pull request (`.github/workflows/ci.yml`).
 
 ```bash
 # Backend (integration tests need the database running)
@@ -364,12 +364,17 @@ The system is defined by these specs: `goal_spec.md` (product scope), `backend_s
 
 ## Future Improvements
 
-- **Rigorous validation of AI accuracy:** a de-identified real-document evaluation set, repeated runs to measure consistency, and meeting the 98% critical-field target before any real use.
-- **More complete extraction:** read long documents page by page, then check which printed result lines no extracted item covers, and re-read only those lines. This takes longer per document but misses fewer results and fields.
-- **Image understanding:** reading scan images (X-rays, ECG traces) directly, not only their written reports.
-- **CloudFront in front of the server** once the AWS account is verified, so the server is no longer reachable from the internet directly.
-- **Operations:** 30-day backups with a tested restore, and monitoring alarms for the site, API, and worker.
-- Reminder delivery, Unicode fonts in the PDF export, trends across dates, and Health Q&A.
+The roadmap, in the recommended order. Nothing below is built yet unless it says so.
+
+1. **Improve document extraction accuracy.** Test with 60+ varied medical documents (currently 14), including handwritten prescriptions, prescriptions on plain paper, eye and dental reports, and scans. Score document type, OCR, fields, dates, values, units, and medical terms against manually verified answers, with repeated runs, before any real use (the 98% critical-field target is not met yet). Read long documents page by page and re-read only the printed lines no extracted item covers. Originals are never overwritten or deleted during extraction, retries, corrections, or re-reading (already true today).
+2. **Standardize report processing.** Five broad categories (Laboratory, Clinical, Imaging reports as text, Pathology, Specialist), each with its own extraction and summary template; unknown or mixed reports handled without forcing a wrong type; every item linked to its source document and page.
+3. **Consolidated medical history.** One chronological history of diagnoses, medicines, investigations, checkups, and follow-ups, separating documented facts from uncertain or conflicting ones, and keeping extraction history and user corrections.
+4. **Health trends and charts.** Comparable lab results and vital signs over time, with dates, units, reference ranges, and sources, and no unsupported claims that health improved or worsened.
+5. **Medical knowledge chatbot.** General questions about diseases, medicines, and health, answered from reliable, current, cited sources; kept separate from answers about your own records; no diagnoses, prescriptions, or treatment changes.
+6. **Agentic AI and more languages.** Specialized agents (classification, extraction, history, trends, follow-ups) only after each part is reliable, compared against the simpler workflow first. Extraction, then the interface and chatbot, in more languages, keeping the original text and checking medical terms, medicine names, dates, and units.
+7. **Medical image understanding and interoperability.** Interpreting actual images (X-rays, other scans) with vision-language models, as a separate capability with its own clinical validation. FHIR integration and authorized clinician or caregiver access.
+
+**Reliability, privacy, and operations, alongside the steps above:** a privacy review of the AI provider; duplicate and conflict warnings; 30-day backups with a tested restore; monitoring alarms for the site, API, and worker; CloudFront in front of the server once the AWS account is verified; reminder delivery; Unicode fonts in the PDF export; and richer exports (PDF, JSON/CSV, and ZIP exports already exist).
 
 ## License notes
 

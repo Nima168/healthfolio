@@ -277,6 +277,38 @@ def test_a_reading_that_found_nothing_can_be_tried_again(client, asha, db, setti
     assert len(extraction(client, asha, document_id)["prescription"]["medications"]) == 4
 
 
+def test_a_failed_read_again_keeps_the_last_good_reading(client, asha, db, settings):
+    document_id = upload_prescription(client, asha)
+    run_worker(settings, response(prescription()))
+    live = select(Medication).where(Medication.deleted_at.is_(None))
+    assert len(db.scalars(live).all()) == 4
+
+    assert client.post(f"/api/v1/documents/{document_id}/extract", headers=asha).status_code == 202
+    queued = extraction(client, asha, document_id)
+    assert queued["job"]["status"] == "pending"
+    assert len(queued["prescription"]["medications"]) == 4  # still there while the new reading waits
+
+    empty = response(prescription(medications=[], follow_ups=[], warnings=["not a valid prescription"]))
+    run_worker(settings, empty)  # the new reading fails (ai_empty_output)
+
+    body = extraction(client, asha, document_id)
+    assert (body["job"]["status"], body["job"]["error_category"]) == ("failed", "ai_empty_output")
+    assert body["document_kind"] == "prescription"
+    assert len(body["prescription"]["medications"]) == 4  # the last good reading is kept
+    db.expire_all()
+    assert len(db.scalars(live).all()) == 4
+    assert client.get("/api/v1/medications", headers=asha).status_code == 200
+
+    # A later successful reading replaces it.
+    client.post(f"/api/v1/documents/{document_id}/extract", headers=asha)
+    run_worker(settings, response(prescription(medications=[medication()])))
+    assert [m["name"] for m in extraction(client, asha, document_id)["prescription"]["medications"]] == [
+        "Atorvastatin"
+    ]
+    db.expire_all()
+    assert [m.name for m in db.scalars(live)] == ["Atorvastatin"]
+
+
 def test_read_again_replaces_the_reading_and_keeps_added_follow_ups(client, asha, db, settings):
     document_id = upload_prescription(client, asha)
     run_worker(settings, response(prescription()))

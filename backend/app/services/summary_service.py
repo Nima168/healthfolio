@@ -61,7 +61,7 @@ class SummaryService:
         return self.facts.document(user_id, document) if document else self.facts.history(user_id)
 
     def readable(self, document: Document) -> bool:
-        job = jobs.latest_job(self.session, document.id)
+        job = jobs.shown_job(self.session, document.id)
         return job is not None and job.status in _READ
 
     # ---------- write ----------
