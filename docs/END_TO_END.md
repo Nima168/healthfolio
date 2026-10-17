@@ -294,3 +294,6 @@ Changing `infra/server-setup.sh` replaces the server on apply. The site is down 
 - **Password reset is off** until SES production access is granted. In the SES sandbox, mail reaches only verified addresses.
 - **The server is reachable from the internet** on ports 80 and 443. CloudFront would remove that once the account is verified.
 - **Scan images are not interpreted.** Only written reports are read.
+- **The AI service has a per-minute limit.** Groq allows 7,000 input tokens per minute on this account. A reading or summary above it fails with a clear message (`ai_request_too_large`) instead of waiting; try again later or with a shorter document.
+- **Backups are short.** RDS keeps 1 day of automated backups, and a restore has not been tested. The spec asks for 30 days, documents included.
+- **No monitoring alarms.** A stopped site, API, or worker is noticed only by checking `/api/v1/health/ready` or the logs.
