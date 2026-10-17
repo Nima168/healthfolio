@@ -181,7 +181,7 @@
   <div class="kpis">
     <div class="kpi"><b>7</b><span>specification files (2,931 lines)</span></div>
     <div class="kpi"><b>624</b><span>backend tests (3 skipped)</span></div>
-    <div class="kpi"><b>167</b><span>frontend tests in 19 files</span></div>
+    <div class="kpi"><b>169</b><span>frontend tests in 19 files</span></div>
     <div class="kpi"><b>21</b><span>database tables · 21 migrations</span></div>
     <div class="kpi"><b>91.1%</b><span>fields right, synthetic quick set</span></div>
     <div class="kpi"><b>0</b><span>misleading groupings (quick set)</span></div>
@@ -396,7 +396,7 @@
     <tr><td>Backend unit + integration</td><td class="mono">624 tests (3 skipped)</td><td>Scripted fake Groq client; real PostgreSQL test database; test PDFs print exactly what the fake AI returns</td></tr>
     <tr><td>Backend without database</td><td class="mono">379 tests</td><td><code>pytest -m "not integration"</code></td></tr>
     <tr><td>Live AI</td><td class="mono">3 tests</td><td>One real call, opt-in (<code>RUN_LIVE_AI=1</code>)</td></tr>
-    <tr><td>Frontend</td><td class="mono">167 tests in 19 files</td><td>Vitest + Testing Library; oxlint; <code>tsc -b</code></td></tr>
+    <tr><td>Frontend</td><td class="mono">169 tests in 19 files</td><td>Vitest + Testing Library; oxlint; <code>tsc -b</code></td></tr>
   </table></div>
   <p><strong>Observed failure modes on the 14-document synthetic demo set (2026-10-17):</strong> OCR misreads copied faithfully (e.g. a handwritten dose, a faint table value), an invented row caught by the source check, garbled text from a scanned table, and run-to-run variation between readings. These are documented, not fixed by evaluation.</p>
 </section>
@@ -692,7 +692,7 @@
     <span class="label">Follow-up</span><p>How would you remove that dependency? — A self-hosted model, evaluated on the same harness.</p></div></details>
 
   <details class="qa" data-topic="ops" data-search><summary><span>How is the code tested?</span><span class="tag">Testing</span></summary><div class="body">
-    <span class="label">Answer</span><p>624 backend tests with a scripted fake Groq client and a real PostgreSQL test database; test PDFs print exactly what the fake AI returns so the source check runs for real; 167 frontend tests with Vitest and Testing Library; lint and type checks.</p>
+    <span class="label">Answer</span><p>624 backend tests with a scripted fake Groq client and a real PostgreSQL test database; test PDFs print exactly what the fake AI returns so the source check runs for real; 169 frontend tests with Vitest and Testing Library; lint and type checks.</p>
     <span class="label">Sources</span><p class="mono"><a href="../backend/tests/ai_fakes.py">tests/ai_fakes.py</a></p>
     <span class="label">Follow-up</span><p>How do you test the real AI? — Three opt-in live tests and the evaluation harness.</p></div></details>
 

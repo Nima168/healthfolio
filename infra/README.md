@@ -129,6 +129,8 @@ AI accuracy has not been rigorously validated (planned for the future), so the d
 | `API_INSTANCE_ID` | `api_instance_id` |
 | `SITE_URL` | `site_url` |
 
+Optional: to show the shared demo account on the login page, add the variable `DEMO_EMAIL` and the **secret** `DEMO_PASSWORD` (Settings → Secrets and variables → Actions → Secrets, or `gh secret set DEMO_PASSWORD`). The website build puts both on the login page, so they are public once deployed. For a build by hand, set `VITE_DEMO_EMAIL` and `VITE_DEMO_PASSWORD` too.
+
 Only runs of this repository's `production` environment can assume the role. The role trusts the subject GitHub puts in each run's token; this repository uses GitHub's immutable format (`repo:owner@owner-id/name@repository-id`), set in `github_subject_prefix`. For a fork or another repository, read its prefix with `gh api repos/<owner>/<name>/actions/oidc/customization/sub` (`sub_claim_prefix`) and set the variable; a mismatch fails at "Sign in to AWS" with `Not authorized to perform sts:AssumeRoleWithWebIdentity`. The manual steps below still work.
 
 ## Updating

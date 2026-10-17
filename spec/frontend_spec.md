@@ -62,6 +62,7 @@ The frontend must support:
 
 - Email and password registration. Registration logs the user in immediately (no email-verification step).
 - Email and password login.
+- A demo-account note on the login page (decision 2026-10-18): "Try the app and its AI features" with the shared demo account's email and password, a request not to change them, and a "Use demo account" button that fills the form. Shown only when `VITE_DEMO_EMAIL` and `VITE_DEMO_PASSWORD` are set at build time (production: GitHub variable `DEMO_EMAIL`, secret `DEMO_PASSWORD`). The account is not protected: visitors can change or delete anything in it.
 - Logout.
 - Password recovery through email.
 - Password-reset workflows.

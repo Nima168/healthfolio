@@ -4,6 +4,7 @@
 #
 # Repository variables (Settings → Secrets and variables → Actions → Variables), from `terraform output`:
 #   AWS_REGION, AWS_DEPLOY_ROLE_ARN, ECR_REPOSITORY_URL, SITE_BUCKET, API_INSTANCE_ID, SITE_URL
+# Optional, for the demo-account note on the login page: variable DEMO_EMAIL and secret DEMO_PASSWORD.
 name: Deploy
 
 on:
@@ -84,6 +85,9 @@ jobs:
         run: npm ci && npm run build
         env:
           VITE_API_BASE_URL: /api/v1
+          # Optional demo account shown on the login page (public once built); unset → no note.
+          VITE_DEMO_EMAIL: ${{ vars.DEMO_EMAIL }}
+          VITE_DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
 
       - name: Publish the website
         working-directory: frontend

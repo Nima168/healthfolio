@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { toFormErrors, type FormErrors } from '../../auth/formErrors'
 import { safeNextPath } from '../../auth/navigation'
 import { FormField } from '../../components/FormField'
+import { config } from '../../config'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -33,6 +34,15 @@ export function LoginPage() {
   return (
     <>
       <h1>Log in</h1>
+      {config.demoAccount && (
+        <DemoNote
+          account={config.demoAccount}
+          onUse={(account) => {
+            setEmail(account.email)
+            setPassword(account.password)
+          }}
+        />
+      )}
       {errors.general && (
         <p role="alert" className="form-alert">
           {errors.general}
@@ -68,5 +78,28 @@ export function LoginPage() {
         </span>
       </p>
     </>
+  )
+}
+
+type DemoAccount = { email: string; password: string }
+
+/** The shared demo account, so visitors can try the app and its AI features without signing up. */
+function DemoNote({ account, onUse }: { account: DemoAccount; onUse: (account: DemoAccount) => void }) {
+  return (
+    <aside className="demo-note" aria-label="Demo account">
+      <p>
+        <strong>Try the app and its AI features</strong> by logging in with the demo account:
+      </p>
+      <dl>
+        <dt>Email</dt>
+        <dd>{account.email}</dd>
+        <dt>Password</dt>
+        <dd>{account.password}</dd>
+      </dl>
+      <p className="demo-note-ask">Please don't change the demo account's email or password: others use it too.</p>
+      <button type="button" className="button button-secondary" onClick={() => onUse(account)}>
+        Use demo account
+      </button>
+    </aside>
   )
 }

@@ -235,7 +235,7 @@ Backend settings come from environment variables (`backend/.env` in development)
 | `TESSERACT_CMD` | Path to `tesseract` when it is not on `PATH` or in `C:\Program Files\Tesseract-OCR` | auto-detected |
 | `OCR_MIN_CONFIDENCE` | Scanned pages read with less average OCR confidence go to the AI as images | `85` |
 
-Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables).
+Frontend: `VITE_API_BASE_URL` (public; never put secrets in `VITE_` variables). Optional: `VITE_DEMO_EMAIL` and `VITE_DEMO_PASSWORD` show a shared demo account on the login page so visitors can try the app; both values are public once built.
 
 ## API
 
@@ -302,7 +302,7 @@ Every response carries an `X-Request-ID` header for troubleshooting.
 
 ## Testing
 
-624 backend tests (unit and integration, with a fake AI client) and 167 frontend tests. GitHub Actions runs them, with lint and the build, on every push and pull request (`.github/workflows/ci.yml`).
+624 backend tests (unit and integration, with a fake AI client) and 169 frontend tests. GitHub Actions runs them, with lint and the build, on every push and pull request (`.github/workflows/ci.yml`).
 
 ```bash
 # Backend (integration tests need the database running)

@@ -1091,6 +1091,36 @@ button {
   font-weight: 600;
 }
 
+/* ---------- demo account note (login page) ---------- */
+.demo-note {
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, #eaf1ff 0%, #e3f6f3 100%);
+  border-left: 4px solid var(--color-accent);
+  color: #33415a;
+}
+.demo-note p {
+  margin: 0 0 8px;
+}
+.demo-note dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+}
+.demo-note dt {
+  font-weight: 600;
+}
+.demo-note dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.demo-note .demo-note-ask {
+  font-size: 0.92rem;
+}
+
 /* ---------- health profile ---------- */
 .profile-section {
   margin-bottom: 20px;

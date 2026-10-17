@@ -1,8 +1,9 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { safeNextPath } from '../../auth/navigation'
+import { config } from '../../config'
 import { errorResponse, jsonResponse, LOGGED_IN, LOGGED_OUT, renderAt, stubFetch, tokenResponse } from '../../test/helpers'
 
 function bodyOf(init: RequestInit | undefined) {
@@ -81,6 +82,41 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Too many attempts/)
+  })
+})
+
+describe('Demo account note', () => {
+  afterEach(() => {
+    config.demoAccount = null
+  })
+
+  it('shows the demo account, asks not to change it, and fills the form', async () => {
+    config.demoAccount = { email: 'demo@example.com', password: 'demo passphrase 1' }
+    const fetchMock = stubFetch({ ...LOGGED_OUT, 'POST /auth/login': () => tokenResponse() })
+    renderAt('/login')
+
+    const note = await screen.findByRole('complementary', { name: 'Demo account' })
+    expect(note).toHaveTextContent('Try the app and its AI features')
+    expect(note).toHaveTextContent('demo@example.com')
+    expect(note).toHaveTextContent('demo passphrase 1')
+    expect(note).toHaveTextContent("Please don't change the demo account's email or password")
+
+    await userEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
+    expect(screen.getByLabelText('Email')).toHaveValue('demo@example.com')
+    expect(screen.getByLabelText('Password')).toHaveValue('demo passphrase 1')
+    await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    await screen.findByRole('heading', { name: 'Dashboard' })
+    const loginCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/auth/login'))
+    expect(bodyOf(loginCall?.[1])).toEqual({ email: 'demo@example.com', password: 'demo passphrase 1' })
+  })
+
+  it('is not shown when no demo account is configured', async () => {
+    stubFetch(LOGGED_OUT)
+    renderAt('/login')
+
+    expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Demo account' })).not.toBeInTheDocument()
   })
 })
 
