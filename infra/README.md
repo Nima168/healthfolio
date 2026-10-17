@@ -129,7 +129,7 @@ AI accuracy has not been rigorously validated (planned for the future), so the d
 | `API_INSTANCE_ID` | `api_instance_id` |
 | `SITE_URL` | `site_url` |
 
-Only runs of this repository's `production` environment can assume the role. The manual steps below still work.
+Only runs of this repository's `production` environment can assume the role. The role trusts the subject GitHub puts in each run's token; this repository uses GitHub's immutable format (`repo:owner@owner-id/name@repository-id`), set in `github_subject_prefix`. For a fork or another repository, read its prefix with `gh api repos/<owner>/<name>/actions/oidc/customization/sub` (`sub_claim_prefix`) and set the variable; a mismatch fails at "Sign in to AWS" with `Not authorized to perform sts:AssumeRoleWithWebIdentity`. The manual steps below still work.
 
 ## Updating
 

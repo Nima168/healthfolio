@@ -437,7 +437,7 @@
   </table></div>
   <div class="grid2">
     <div class="card"><span class="label">Environments</span>Local (Docker PostgreSQL, uvicorn, worker, Vite) and one AWS production environment. Production config is checked at start-up (CORS, secure cookies, S3 bucket).</div>
-    <div class="card"><span class="label">Release process</span>GitHub Actions: <code>ci.yml</code> runs ruff, pytest (PostgreSQL service, Tesseract), oxlint, vitest, and the build on every push and pull request <span class="badge done">passing on GitHub</span>. <code>deploy.yml</code> releases a merge to <code>main</code> after approval: image to ECR, fixed SSM restart commands, readiness check, website to S3, signing in with OIDC (no AWS keys). <span class="badge partial">Deploy not yet run: one-time AWS/GitHub setup pending</span> The manual release steps still work.</div>
+    <div class="card"><span class="label">Release process</span>GitHub Actions: <code>ci.yml</code> runs ruff, pytest (PostgreSQL service, Tesseract), oxlint, vitest, and the build on every push and pull request <span class="badge done">passing on GitHub</span>. <code>deploy.yml</code> releases a merge to <code>main</code> after approval: image to ECR, fixed SSM restart commands, readiness check, website to S3, signing in with OIDC (no AWS keys). <span class="badge done">deploying from GitHub since 2026-10-18</span> The manual release steps still work.</div>
     <div class="card"><span class="label">Monitoring</span>Health endpoints (<code>/health/live</code>, <code>/health/ready</code>), structured JSON logs via <code>journalctl</code>, AWS Budgets. <span class="badge partial">No CloudWatch dashboards or alerting</span> (dedicated alerting deferred in goal_spec §6).</div>
     <div class="card"><span class="label">Recovery</span>Roll back by re-tagging an earlier ECR image. Database: RDS automated backups (1-day retention). <span class="badge gap">Restore procedure not tested</span></div>
   </div>
@@ -722,7 +722,7 @@
     <tr><td class="mono">P1</td><td>Privacy review of the LLM provider (or self-hosted model)</td><td>Medical text sent externally</td><td>—</td></tr>
     <tr><td class="mono">P1</td><td>Backups to the spec (30 days, documents included) and a tested restore</td><td>Data loss</td><td>Infrastructure change</td></tr>
     <tr><td class="mono">P2</td><td>Coverage check: re-read missed result lines</td><td>Items missed in a reading (99/106)</td><td>Evaluation set</td></tr>
-    <tr><td class="mono">P2</td><td>Finish the CD setup (apply the role, add variables, approve a first run); monitoring alarms</td><td>Manual releases; silent failures</td><td>Terraform apply by the owner</td></tr>
+    <tr><td class="mono">P2</td><td>Monitoring alarms (site, API, worker)</td><td>Silent failures</td><td>Infrastructure change</td></tr>
     <tr><td class="mono">P3</td><td>Trends, knowledge chatbot, agentic evaluation, languages, images, FHIR</td><td>Feature scope</td><td>P1–P2 complete</td></tr>
   </table></div>
 </section>
