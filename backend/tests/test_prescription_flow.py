@@ -302,9 +302,7 @@ def test_a_failed_read_again_keeps_the_last_good_reading(client, asha, db, setti
     # A later successful reading replaces it.
     client.post(f"/api/v1/documents/{document_id}/extract", headers=asha)
     run_worker(settings, response(prescription(medications=[medication()])))
-    assert [m["name"] for m in extraction(client, asha, document_id)["prescription"]["medications"]] == [
-        "Atorvastatin"
-    ]
+    assert [m["name"] for m in extraction(client, asha, document_id)["prescription"]["medications"]] == ["Atorvastatin"]
     db.expire_all()
     assert [m.name for m in db.scalars(live)] == ["Atorvastatin"]
 
