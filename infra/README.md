@@ -19,6 +19,7 @@ For the overall picture (architecture, document pipeline, testing, AI evaluation
 | `iam.tf` | The server's IAM role: S3, ECR pull, the database secret, `/healthfolio/*` settings, SES send, Session Manager |
 | `email.tf` | SES sender identity, and the `email_backend` / `email_from` settings |
 | `budget.tf` | Monthly cost budget with email alerts |
+| `github_deploy.tf` | GitHub Actions sign-in (OIDC), the deploy-only role (push the API image, publish the website, run two fixed restart commands), and those two SSM commands |
 | `variables.tf`, `outputs.tf` | Inputs (see step 2) and the addresses used below |
 
 ## Security
@@ -111,11 +112,31 @@ Then open `<site_url>`, create an account, and upload a **synthetic** lab report
 
 AI accuracy has not been rigorously validated (planned for the future), so the deployed app is for demonstration with synthetic documents only.
 
+## Deploying from GitHub (CI/CD)
+
+`.github/workflows/deploy.yml` releases a merge to `main` (or **Actions → Deploy → Run workflow**) after the tests pass and the `production` environment is approved. One-time setup:
+
+1. Apply `github_deploy.tf` (`terraform plan`, then `terraform apply`).
+2. In GitHub, **Settings → Environments → New environment** `production`; add yourself as a required reviewer.
+3. In **Settings → Secrets and variables → Actions → Variables**, add these from `terraform output` (none is a secret):
+
+| Variable | Value |
+|---|---|
+| `AWS_REGION` | `ap-south-1` |
+| `AWS_DEPLOY_ROLE_ARN` | `github_deploy_role_arn` |
+| `ECR_REPOSITORY_URL` | `ecr_repository_url` |
+| `SITE_BUCKET` | `site_bucket` |
+| `API_INSTANCE_ID` | `api_instance_id` |
+| `SITE_URL` | `site_url` |
+
+Only runs of this repository's `production` environment can assume the role. The manual steps below still work.
+
 ## Updating
 
 | Change | Steps |
 |---|---|
-| API code | Repeat step 3, then restart the app: `aws ssm send-command … --parameters 'commands=["systemctl restart healthfolio"]'`. It pulls `latest` and runs any new migrations. |
+| API code or website | Merge to `main` and approve the Deploy run (see above), or by hand: |
+| API code (by hand) | Repeat step 3, then restart the app: `aws ssm send-command … --parameters 'commands=["systemctl restart healthfolio"]'`. It pulls `latest` and runs any new migrations. |
 | Website | Repeat step 4. |
 | A secret or setting | Change the parameter, or `terraform.tfvars` and apply, then restart the app. |
 | Infrastructure | Edit the `.tf` files, then `terraform plan` and `terraform apply`. |

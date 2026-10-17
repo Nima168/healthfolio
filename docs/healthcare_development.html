@@ -204,7 +204,7 @@
     <button type="button" class="stage" data-status="done" data-target="s5"><span class="num">STAGE 5</span><strong>Backend and frontend</strong><span class="badge done">Done</span><div class="bar"><i style="width:100%"></i></div></button>
     <button type="button" class="stage" data-status="partial" data-target="s6"><span class="num">STAGE 6</span><strong>AI evaluation and testing</strong><span class="badge partial">Partly done</span><div class="bar"><i style="width:60%"></i></div></button>
     <button type="button" class="stage" data-status="partial" data-target="s7"><span class="num">STAGE 7</span><strong>Safety and security</strong><span class="badge partial">Partly done</span><div class="bar"><i style="width:75%"></i></div></button>
-    <button type="button" class="stage" data-status="partial" data-target="s8"><span class="num">STAGE 8</span><strong>Cloud deployment</strong><span class="badge done">Live on AWS</span> <span class="badge partial">no CI/CD</span><div class="bar"><i style="width:75%"></i></div></button>
+    <button type="button" class="stage" data-status="partial" data-target="s8"><span class="num">STAGE 8</span><strong>Cloud deployment</strong><span class="badge done">Live on AWS</span> <span class="badge partial">CD setup pending</span><div class="bar"><i style="width:75%"></i></div></button>
     <button type="button" class="stage" data-status="planned" data-target="s9"><span class="num">STAGE 9</span><strong>Future roadmap</strong><span class="badge planned">Planned</span><div class="bar"><i style="width:15%"></i></div></button>
   </div>
   <p class="count">Bar = share of the stage's documented scope with implementation evidence (an estimate from the evidence listed in each section, not a measured metric).</p>
@@ -437,7 +437,7 @@
   </table></div>
   <div class="grid2">
     <div class="card"><span class="label">Environments</span>Local (Docker PostgreSQL, uvicorn, worker, Vite) and one AWS production environment. Production config is checked at start-up (CORS, secure cookies, S3 bucket).</div>
-    <div class="card"><span class="label">Release process</span>Image built locally from a <code>public.ecr.aws</code> base and pushed to ECR; the service restarts via SSM, pulling <code>latest</code> and running migrations. Website: build, <code>s3 sync</code>, restart web. <span class="badge partial">No CI/CD pipeline</span> (CodeBuild quota is 0 on this account).</div>
+    <div class="card"><span class="label">Release process</span>GitHub Actions: <code>ci.yml</code> runs ruff, pytest (PostgreSQL service, Tesseract), oxlint, vitest, and the build on every push and pull request <span class="badge done">passing on GitHub</span>. <code>deploy.yml</code> releases a merge to <code>main</code> after approval: image to ECR, fixed SSM restart commands, readiness check, website to S3, signing in with OIDC (no AWS keys). <span class="badge partial">Deploy not yet run: one-time AWS/GitHub setup pending</span> The manual release steps still work.</div>
     <div class="card"><span class="label">Monitoring</span>Health endpoints (<code>/health/live</code>, <code>/health/ready</code>), structured JSON logs via <code>journalctl</code>, AWS Budgets. <span class="badge partial">No CloudWatch dashboards or alerting</span> (dedicated alerting deferred in goal_spec §6).</div>
     <div class="card"><span class="label">Recovery</span>Roll back by re-tagging an earlier ECR image. Database: RDS automated backups (1-day retention). <span class="badge gap">Restore procedure not tested</span></div>
   </div>
@@ -579,8 +579,16 @@
   </details>
 
   <details class="decision" data-status="proposed" data-search>
-    <summary><span>CloudFront in front of the server; CI/CD pipeline</span><span class="badge planned">Proposed</span></summary>
-    <div class="body"><p>Once the account is verified: CloudFront for HTTPS and caching, and the server closed to direct internet traffic. No CI/CD pipeline exists today.</p></div>
+    <summary><span>CloudFront in front of the server</span><span class="badge planned">Proposed</span></summary>
+    <div class="body"><p>Once the account is verified: CloudFront for HTTPS and caching, and the server closed to direct internet traffic.</p></div>
+  </details>
+
+  <details class="decision" data-status="confirmed" data-search>
+    <summary><span>CI/CD with GitHub Actions and OIDC</span><span class="badge done">Confirmed · 2026-10-18</span></summary>
+    <div class="body">
+      <span class="label">Chosen and why</span><p>CodeBuild is unavailable on this account (quota 0), so GitHub Actions runs CI on every push and deploys merges to <code>main</code> after a manual approval. GitHub signs in to AWS with OIDC as a deploy-only role that can push the image, publish the website, and run two fixed SSM restart commands (<a href="../infra/github_deploy.tf">infra/github_deploy.tf</a>).</p>
+      <span class="label">Trade-off</span><p>No AWS keys stored and least privilege; the approval gate keeps a person in the loop; a full backend run takes about two minutes on GitHub.</p>
+    </div>
   </details>
 
   <details class="decision" data-status="unresolved" data-search>
@@ -689,9 +697,9 @@
     <span class="label">Follow-up</span><p>How do you test the real AI? — Three opt-in live tests and the evaluation harness.</p></div></details>
 
   <details class="qa" data-topic="ops" data-search><summary><span>How is it deployed?</span><span class="tag">Deployment</span></summary><div class="body">
-    <span class="label">Answer</span><p>Terraform on AWS ap-south-1: one EC2 server running Caddy and the app container, private encrypted RDS PostgreSQL, private S3, secrets in SSM/Secrets Manager. The image is built locally and pushed to ECR; a restart pulls it and runs migrations.</p>
+    <span class="label">Answer</span><p>Terraform on AWS ap-south-1: one EC2 server running Caddy and the app container, private encrypted RDS PostgreSQL, private S3, secrets in SSM/Secrets Manager. GitHub Actions tests every push; a merge to <code>main</code>, once approved, builds the image, pushes it to ECR, and restarts the server, which pulls it and runs migrations.</p>
     <span class="label">Sources</span><p class="mono"><a href="../infra">infra/</a>, <a href="../backend/Dockerfile">backend/Dockerfile</a></p>
-    <span class="label">Follow-up</span><p>What would you add? — CI/CD, CloudFront, monitoring alarms, tested restores, longer backup retention.</p></div></details>
+    <span class="label">Follow-up</span><p>What would you add? — CloudFront, monitoring alarms, tested restores, longer backup retention. CI/CD now runs on GitHub Actions.</p></div></details>
 
   <details class="qa" data-topic="tradeoffs" data-search><summary><span>What was the hardest bug?</span><span class="tag">Trade-offs</span></summary><div class="body">
     <span class="label">Answer</span><p>A scanned discharge where OCR never read the Frequency and Duration columns, so medicines looked read when they weren't. First a safety rule (instructions repeating the strength → Not identified), then a second look with the page image, which reads all three correctly.</p>
@@ -714,7 +722,7 @@
     <tr><td class="mono">P1</td><td>Privacy review of the LLM provider (or self-hosted model)</td><td>Medical text sent externally</td><td>—</td></tr>
     <tr><td class="mono">P1</td><td>Backups to the spec (30 days, documents included) and a tested restore</td><td>Data loss</td><td>Infrastructure change</td></tr>
     <tr><td class="mono">P2</td><td>Coverage check: re-read missed result lines</td><td>Items missed in a reading (99/106)</td><td>Evaluation set</td></tr>
-    <tr><td class="mono">P2</td><td>CI/CD and monitoring alarms</td><td>Manual releases; silent failures</td><td>Account quotas</td></tr>
+    <tr><td class="mono">P2</td><td>Finish the CD setup (apply the role, add variables, approve a first run); monitoring alarms</td><td>Manual releases; silent failures</td><td>Terraform apply by the owner</td></tr>
     <tr><td class="mono">P3</td><td>Trends, knowledge chatbot, agentic evaluation, languages, images, FHIR</td><td>Feature scope</td><td>P1–P2 complete</td></tr>
   </table></div>
 </section>

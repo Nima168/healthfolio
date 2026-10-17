@@ -112,6 +112,7 @@ Diagram source: [`docs/architecture/healthfolio-architecture.json`](docs/archite
 ## Project Structure
 
 ```
+├── .github/workflows/       CI (tests on every push and pull request) and deploy to AWS
 ├── backend/                 FastAPI application
 │   ├── app/
 │   │   ├── ai/              Reading (PyMuPDF, OCR), Groq extraction, validation rules
@@ -301,7 +302,7 @@ Every response carries an `X-Request-ID` header for troubleshooting.
 
 ## Testing
 
-623 backend tests (unit and integration, with a fake AI client) and 166 frontend tests.
+623 backend tests (unit and integration, with a fake AI client) and 166 frontend tests. GitHub Actions runs them, with lint and the build, on every push and pull request (`.github/workflows/ci.yml`).
 
 ```bash
 # Backend (integration tests need the database running)
@@ -350,6 +351,8 @@ Healthfolio runs on AWS (region `ap-south-1`). The infrastructure is defined wit
 - **Files:** uploaded documents go to a private, encrypted S3 bucket (`STORAGE_BACKEND=s3`), accessed through the server's IAM role (no access keys). The built website is also kept in S3.
 
 - **Email:** password-reset emails can be sent through Amazon SES (`email_backend = "ses"` in Terraform). It is **off for now** (`disabled`): the account is in the SES sandbox, which delivers only to verified addresses. The Forgot password page says that reset is unavailable.
+
+- **CI/CD:** GitHub Actions. Every push and pull request runs the tests, lint, and build (`ci.yml`). A merge to `main` runs them again and, after approval of the `production` environment, builds and pushes the API image, restarts the API, publishes the website, and restarts the web server (`deploy.yml`). GitHub signs in to AWS with OIDC as a deploy-only role, so no AWS keys are stored in GitHub.
 
 See `infra/README.md` for the deployment steps.
 
