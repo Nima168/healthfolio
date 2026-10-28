@@ -4,7 +4,9 @@
 
 A personal health-records platform that stores medical documents, extracts and organizes their information, tracks medications and follow-ups, and provides cautious, source-backed AI summaries. It offers informational decision support only and does not replace professional medical care.
 
-**Demo video:** [docs/demo/healthfolio-demo.mp4](docs/demo/healthfolio-demo.mp4) walks through the whole app with fictional sample reports.
+**Demo video:** a walkthrough of the whole app with fictional sample reports (full quality: [docs/demo/healthfolio-demo.mp4](docs/demo/healthfolio-demo.mp4)).
+
+https://github.com/user-attachments/assets/8f77541e-120e-4c99-835e-4fe2adc2138d
 
 > **Status:** all the features below are in place. The app was deployed on AWS; that deployment has been taken down, and the Terraform in [`infra/`](infra/README.md) recreates it.
 
