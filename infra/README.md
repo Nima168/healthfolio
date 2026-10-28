@@ -1,6 +1,6 @@
 # Healthfolio on AWS
 
-Terraform for the AWS deployment (region `ap-south-1`). The live app is at https://65-0-63-32.sslip.io.
+Terraform for the AWS deployment (region `ap-south-1`). The deployment has been taken down; the steps below recreate it.
 
 For the overall picture (architecture, document pipeline, testing, AI evaluation), see [docs/END_TO_END.md](../docs/END_TO_END.md).
 

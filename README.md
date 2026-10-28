@@ -4,9 +4,9 @@
 
 A personal health-records platform that stores medical documents, extracts and organizes their information, tracks medications and follow-ups, and provides cautious, source-backed AI summaries. It offers informational decision support only and does not replace professional medical care.
 
-**Live demo:** https://65-0-63-32.sslip.io (use synthetic documents only; uploaded text is sent to the AI provider).
+**Demo video:** [docs/demo/healthfolio-demo.mp4](docs/demo/healthfolio-demo.mp4) walks through the whole app with fictional sample reports.
 
-> **Status:** all the features below are in place and deployed on AWS.
+> **Status:** all the features below are in place. The app was deployed on AWS; that deployment has been taken down, and the Terraform in [`infra/`](infra/README.md) recreates it.
 
 > [!IMPORTANT]
 > **AI accuracy has not been rigorously validated.** The built-in evaluation uses fictional reports only; it is not clinical validation, and the target of 98% accuracy on critical fields is not met yet. Rigorous validation, on a de-identified real-document set with repeated runs, is planned for the future. Use synthetic documents only, and always check results against the original document.
